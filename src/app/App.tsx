@@ -2,6 +2,7 @@ import { useState } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { CommitmentsView } from './components/CommitmentsView';
 import { IncomesView } from './components/IncomesView';
+import { StatsView } from './components/StatsView';
 import { Calendar, TrendingUp, Wallet, ClipboardList, DollarSign } from 'lucide-react';
 
 export default function App() {
@@ -14,6 +15,7 @@ export default function App() {
         {currentView === 'dashboard' && <Dashboard />}
         {currentView === 'commitments' && <CommitmentsView />}
         {currentView === 'incomes' && <IncomesView />}
+        {currentView === 'stats' && <StatsView />}
       </div>
 
       {/* Bottom Navigation */}
