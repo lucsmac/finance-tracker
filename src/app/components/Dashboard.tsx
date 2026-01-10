@@ -101,6 +101,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     return `${day} de ${months[date.getMonth()]}`;
   };
 
+  const getDayOfWeek = (dateStr: string): string => {
+    const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
+    const date = new Date(dateStr);
+    return daysOfWeek[date.getDay()];
+  };
+
   // Funções do modal de gasto
   const handleDayClick = (dateStr: string) => {
     setSelectedDay(dateStr);
@@ -272,22 +278,22 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     <div className="space-y-6 pb-32">
       {/* Header */}
       <div className="text-center pt-4 pb-2">
-        <h1 className="text-4xl font-bold text-white mb-2">AutoMoney</h1>
+        <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">AutoMoney</h1>
 
         {/* Month/Year Navigation */}
-        <div className="flex items-center justify-center gap-3 mt-2">
+        <div className="flex items-center justify-center gap-2 sm:gap-4 mt-2">
           <button
             onClick={navigateToPreviousMonth}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Mês anterior"
           >
-            <ChevronLeft className="w-5 h-5 text-[#9B97CE]" />
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-[#9B97CE]" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">
-                <span className="text-[#9B97CE] text-lg font-medium">
+              <button className="flex items-center gap-2 px-3 sm:px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">
+                <span className="text-[#9B97CE] text-base sm:text-lg font-medium">
                   {formatMonthYear(selectedDate)}
                 </span>
                 <CalendarIcon className="w-4 h-4 text-[#9B97CE]" />
@@ -305,44 +311,44 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
           <button
             onClick={navigateToNextMonth}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Próximo mês"
           >
-            <ChevronRight className="w-5 h-5 text-[#9B97CE]" />
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-[#9B97CE]" />
           </button>
         </div>
       </div>
 
       {/* Main Stats Card */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
-        <div className="grid grid-cols-4 gap-6">
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
+        <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-6">
           {/* Card 1 - Saldo Disponível */}
-          <div className="text-center">
+          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Saldo Disponível</p>
-            <p className="text-3xl font-bold text-white mb-1">R$ {currentBalance.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">R$ {currentBalance.toFixed(2)}</p>
             <p className="text-xs text-[#9CA3AF]">Saldo atual em conta</p>
           </div>
 
           {/* Card 2 - Valor Diário Padrão */}
-          <div className="text-center border-x border-white/10">
+          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-x sm:border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Valor Diário Padrão</p>
-            <p className="text-3xl font-bold text-white mb-1">R$ {dailyStandard.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">R$ {dailyStandard.toFixed(2)}</p>
             <p className="text-xs text-[#9CA3AF]">Base fixa calculada das estimativas</p>
           </div>
 
           {/* Card 3 - Gasto de Hoje */}
-          <div className="text-center border-r border-white/10">
+          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-r sm:border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Gasto de Hoje</p>
-            <p className="text-3xl font-bold text-white mb-1">R$ {todayExpenses.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">R$ {todayExpenses.toFixed(2)}</p>
             <p className={`text-xs ${todayVariation >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
               {todayVariation >= 0 ? 'Economizou' : 'Gastou'} R$ {Math.abs(todayVariation).toFixed(2)}
             </p>
           </div>
 
           {/* Card 4 - Gastos do Mês */}
-          <div className="text-center">
+          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Gastos do Mês</p>
-            <p className={`text-3xl font-bold mb-1 ${accumulatedVariation >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+            <p className={`text-2xl sm:text-3xl font-bold mb-1 ${accumulatedVariation >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
               {accumulatedVariation >= 0 ? '+' : ''}R$ {accumulatedVariation.toFixed(2)}
             </p>
             <p className="text-xs text-[#9CA3AF]">{formatMonthYear(selectedDate)}</p>
@@ -351,21 +357,21 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Balance Projection Section */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
-        <h2 className="text-xl font-semibold text-white mb-4">Projeção de Saldo</h2>
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
+        <h2 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Projeção de Saldo</h2>
 
-        <div className="grid grid-cols-3 gap-6">
+        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
           {/* Sub-card 1 - Dias até próxima renda */}
-          <div className="text-center">
+          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Dias até próxima renda</p>
-            <p className="text-3xl font-bold text-white mb-1">{nextIncomeInfo.days} dias</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{nextIncomeInfo.days} dias</p>
             <p className="text-xs text-[#9CA3AF]">Salário em {formatNextIncomeDate(nextIncomeInfo.date)}</p>
           </div>
 
           {/* Sub-card 2 - Status da projeção */}
-          <div className="text-center border-x border-white/10">
+          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-x sm:border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Status da projeção</p>
-            <p className={`text-3xl font-bold mb-1 ${projectionStatus === 'positive' ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+            <p className={`text-2xl sm:text-3xl font-bold mb-1 ${projectionStatus === 'positive' ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
               {projectionStatus === 'positive' ? 'Positivo' : 'Negativo'}
             </p>
             <p className={`text-xs ${projectionStatus === 'positive' ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
@@ -374,16 +380,124 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           </div>
 
           {/* Sub-card 3 - Comprometido */}
-          <div className="text-center">
+          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Comprometido</p>
-            <p className="text-3xl font-bold text-white mb-1">R$ {committedAmount.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">R$ {committedAmount.toFixed(2)}</p>
             <p className="text-xs text-[#9CA3AF]">Fixos + Parcelas futuras</p>
           </div>
         </div>
       </div>
 
-      {/* Calendar */}
-      <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
+      {/* Mobile Calendar - Lista Vertical */}
+      <div className="sm:hidden space-y-3">
+        <h2 className="text-lg font-semibold text-white mb-3 px-2">Calendário do Mês</h2>
+
+        {calendarDays.map((dayData, index) => {
+          if (!dayData) return null;
+
+          let bgColor = 'bg-white/5';
+          let borderColor = 'border-white/10';
+          let dayNumberColor = 'text-white';
+          let balanceColor = 'text-white';
+
+          // Cores baseadas no saldo
+          if (dayData.status === 'comfortable') {
+            bgColor = 'bg-[#76C893]/10';
+            borderColor = 'border-[#76C893]/50';
+            dayNumberColor = 'text-[#76C893]';
+            balanceColor = 'text-[#76C893]';
+          } else if (dayData.status === 'good') {
+            bgColor = 'bg-[#9B97CE]/10';
+            borderColor = 'border-[#9B97CE]/50';
+            dayNumberColor = 'text-[#9B97CE]';
+            balanceColor = 'text-[#9B97CE]';
+          } else if (dayData.status === 'warning') {
+            bgColor = 'bg-[#E6C563]/10';
+            borderColor = 'border-[#E6C563]/50';
+            dayNumberColor = 'text-[#E6C563]';
+            balanceColor = 'text-[#E6C563]';
+          } else if (dayData.status === 'critical') {
+            bgColor = 'bg-[#D97B7B]/10';
+            borderColor = 'border-[#D97B7B]/50';
+            dayNumberColor = 'text-[#D97B7B]';
+            balanceColor = 'text-[#D97B7B]';
+          }
+
+          // Destaque especial para hoje
+          if (dayData.isToday) {
+            borderColor = 'border-[#76C893] border-4';
+          }
+
+          // Calcular entradas e saídas do dia
+          const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
+          const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+          const dayExpenses = dayTransactions.filter(t => t.type !== 'income').reduce((sum, t) => sum + t.amount, 0);
+
+          return (
+            <div
+              key={dayData.day}
+              className={`${bgColor} ${borderColor} border-2 rounded-xl p-4`}
+            >
+              {/* Header: Dia da semana + número + botões */}
+              <div className="flex items-center justify-between mb-3">
+                <div>
+                  <span className="text-xs text-[#9CA3AF] uppercase">{getDayOfWeek(dayData.dateStr)}</span>
+                  <span className={`ml-2 text-xl font-bold ${dayNumberColor}`}>{dayData.day}</span>
+                </div>
+                <div className="flex items-center gap-2">
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleDayClick(dayData.dateStr);
+                    }}
+                    className="p-2 bg-[#76C893]/80 hover:bg-[#76C893] text-[#161618] rounded transition-colors"
+                    title="Adicionar gasto"
+                  >
+                    <Plus className="w-5 h-5" />
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenDayDetail(dayData.dateStr);
+                    }}
+                    className="p-2 bg-white/20 hover:bg-white/30 text-white rounded transition-colors"
+                    title="Ver detalhes"
+                  >
+                    <Eye className="w-5 h-5" />
+                  </button>
+                </div>
+              </div>
+
+              {/* Saldo */}
+              <div className="mb-3">
+                <p className="text-xs text-[#9CA3AF] mb-1">Saldo</p>
+                <p className={`text-2xl font-bold ${balanceColor}`}>
+                  R$ {dayData.balance.toFixed(2)}
+                </p>
+              </div>
+
+              {/* Entradas e Saídas */}
+              <div className="flex items-center justify-between pt-3 border-t border-white/10">
+                <div>
+                  <p className="text-xs text-[#9CA3AF]">Entradas</p>
+                  <p className="text-sm font-medium text-[#76C893]">
+                    {dayIncomes > 0 ? `R$ ${dayIncomes.toFixed(0)}` : '-'}
+                  </p>
+                </div>
+                <div className="text-right">
+                  <p className="text-xs text-[#9CA3AF]">Saídas</p>
+                  <p className="text-sm font-medium text-[#D97B7B]">
+                    {dayExpenses > 0 ? `R$ ${dayExpenses.toFixed(0)}` : '-'}
+                  </p>
+                </div>
+              </div>
+            </div>
+          );
+        })}
+      </div>
+
+      {/* Desktop Calendar - Grid 7x7 */}
+      <div className="hidden sm:block bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
         {/* Weekday Headers */}
         <div className="grid grid-cols-7 gap-3 mb-4">
           {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
@@ -518,21 +632,21 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-2 gap-4">
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
         <button
           onClick={() => handleDayClick(today)}
-          className="bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-2xl p-6 flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+          className="bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-2xl p-4 sm:p-6 flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl hover:scale-105"
         >
-          <Plus className="w-6 h-6" />
-          <span className="font-semibold">Adicionar Gasto</span>
+          <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
+          <span className="font-semibold text-sm sm:text-base">Adicionar Gasto</span>
         </button>
 
         <button
           onClick={handleOpenProjection}
-          className="bg-white/10 backdrop-blur-xl border-2 border-[#a6c88c]/30 hover:border-[#a6c88c] text-white rounded-2xl p-6 flex items-center justify-center gap-3 transition-all hover:scale-105"
+          className="bg-white/10 backdrop-blur-xl border-2 border-[#a6c88c]/30 hover:border-[#a6c88c] text-white rounded-2xl p-4 sm:p-6 flex items-center justify-center gap-3 transition-all hover:scale-105"
         >
-          <DollarSign className="w-6 h-6" />
-          <span className="font-semibold">Projeção "E se?"</span>
+          <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
+          <span className="font-semibold text-sm sm:text-base">Projeção "E se?"</span>
         </button>
       </div>
 
