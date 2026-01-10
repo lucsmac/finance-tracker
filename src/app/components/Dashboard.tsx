@@ -646,7 +646,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           className="bg-white/10 backdrop-blur-xl border-2 border-[#a6c88c]/30 hover:border-[#a6c88c] text-white rounded-2xl p-4 sm:p-6 flex items-center justify-center gap-3 transition-all hover:scale-105"
         >
           <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
-          <span className="font-semibold text-sm sm:text-base">Projeção "E se?"</span>
+          <span className="font-semibold text-sm sm:text-base">E se?</span>
         </button>
       </div>
 
@@ -967,7 +967,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <DialogContent className="bg-[#161618] border-white/20 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">
-              Projeção "E se?"
+              E se?
             </DialogTitle>
             <DialogDescription className="text-[#9CA3AF]">
               Simule transações futuras e veja como elas afetam seus saldos sem precisar cadastrá-las
