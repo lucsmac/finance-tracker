@@ -3,10 +3,11 @@ import { Dashboard } from './components/Dashboard';
 import { CommitmentsView } from './components/CommitmentsView';
 import { IncomesView } from './components/IncomesView';
 import { StatsView } from './components/StatsView';
-import { Calendar, TrendingUp, Wallet, ClipboardList, DollarSign } from 'lucide-react';
+import { GoalsView } from './components/GoalsView';
+import { Calendar, TrendingUp, Target, ClipboardList, DollarSign } from 'lucide-react';
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'commitments' | 'incomes' | 'stats' | 'settings'>('dashboard');
+  const [currentView, setCurrentView] = useState<'dashboard' | 'commitments' | 'incomes' | 'stats' | 'goals'>('dashboard');
 
   return (
     <div className="min-h-screen bg-[#161618]">
@@ -16,6 +17,7 @@ export default function App() {
         {currentView === 'commitments' && <CommitmentsView />}
         {currentView === 'incomes' && <IncomesView />}
         {currentView === 'stats' && <StatsView />}
+        {currentView === 'goals' && <GoalsView />}
       </div>
 
       {/* Bottom Navigation */}
@@ -70,15 +72,15 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setCurrentView('settings')}
+            onClick={() => setCurrentView('goals')}
             className={`flex flex-col items-center gap-1.5 transition-all ${
-              currentView === 'settings'
+              currentView === 'goals'
                 ? 'text-[#76C893] scale-110'
                 : 'text-[#9CA3AF] hover:text-white/80'
             }`}
           >
-            <Wallet className="w-6 h-6" />
-            <span className="text-xs font-medium">Carteira</span>
+            <Target className="w-6 h-6" />
+            <span className="text-xs font-medium">Metas</span>
           </button>
         </div>
       </nav>

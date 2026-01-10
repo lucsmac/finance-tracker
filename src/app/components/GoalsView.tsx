@@ -1,195 +1,357 @@
-import { Target, Plus, TrendingUp, Calendar } from 'lucide-react';
-import { mockGoals } from '../data/mockData';
+import { useState } from 'react';
+import { Target, Plus, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+
+type GoalType = 'savings' | 'max_spending' | 'savings_rate' | 'category_reduction';
+type GoalPeriod = 'month' | 'year';
+
+interface Goal {
+  id: string;
+  title: string;
+  type: GoalType;
+  period: GoalPeriod;
+  targetValue: number;
+  currentValue: number;
+  category?: string;
+  createdAt: string;
+}
 
 export function GoalsView() {
+  const [viewMode, setViewMode] = useState<GoalPeriod>('month');
+  const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
+  const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+
+  // Mock goals data
+  const [goals, setGoals] = useState<Goal[]>([
+    {
+      id: '1',
+      title: 'Economizar R$ 2.000',
+      type: 'savings',
+      period: 'month',
+      targetValue: 2000,
+      currentValue: 1450,
+      createdAt: '2026-01-01'
+    },
+    {
+      id: '2',
+      title: 'Gastar no máximo R$ 1.500',
+      type: 'max_spending',
+      period: 'month',
+      targetValue: 1500,
+      currentValue: 1200,
+      createdAt: '2026-01-01'
+    },
+    {
+      id: '3',
+      title: 'Economizar 30% da renda',
+      type: 'savings_rate',
+      period: 'month',
+      targetValue: 30,
+      currentValue: 25,
+      createdAt: '2026-01-01'
+    },
+    {
+      id: '4',
+      title: 'Reduzir gastos com Alimentação',
+      type: 'category_reduction',
+      period: 'month',
+      targetValue: 20,
+      currentValue: 15,
+      category: 'Alimentação',
+      createdAt: '2026-01-01'
+    },
+    {
+      id: '5',
+      title: 'Economizar R$ 20.000',
+      type: 'savings',
+      period: 'year',
+      targetValue: 20000,
+      currentValue: 2500,
+      createdAt: '2026-01-01'
+    }
+  ]);
+
+  const filteredGoals = goals.filter(goal => goal.period === viewMode);
+
+  const getProgressPercentage = (goal: Goal): number => {
+    if (goal.type === 'max_spending') {
+      // For max spending, we want to show how much of the budget is used
+      return (goal.currentValue / goal.targetValue) * 100;
+    }
+    return (goal.currentValue / goal.targetValue) * 100;
+  };
+
+  const getGoalStatus = (goal: Goal): 'success' | 'warning' | 'danger' => {
+    const percentage = getProgressPercentage(goal);
+
+    if (goal.type === 'max_spending') {
+      if (percentage > 100) return 'danger';
+      if (percentage > 80) return 'warning';
+      return 'success';
+    }
+
+    if (percentage >= 100) return 'success';
+    if (percentage >= 70) return 'warning';
+    return 'danger';
+  };
+
+  const getStatusColor = (status: 'success' | 'warning' | 'danger'): string => {
+    switch (status) {
+      case 'success': return '#76C893';
+      case 'warning': return '#E6C563';
+      case 'danger': return '#D97B7B';
+    }
+  };
+
+  const getGoalTypeLabel = (type: GoalType): string => {
+    switch (type) {
+      case 'savings': return 'Economizar';
+      case 'max_spending': return 'Gastar no máximo';
+      case 'savings_rate': return 'Taxa de economia';
+      case 'category_reduction': return 'Reduzir categoria';
+    }
+  };
+
+  const formatGoalValue = (goal: Goal): string => {
+    if (goal.type === 'savings_rate' || goal.type === 'category_reduction') {
+      return `${goal.currentValue.toFixed(0)}% / ${goal.targetValue}%`;
+    }
+    return `R$ ${goal.currentValue.toFixed(2)} / R$ ${goal.targetValue.toFixed(2)}`;
+  };
+
+  const handleDeleteGoal = (goalId: string) => {
+    setGoals(goals.filter(g => g.id !== goalId));
+  };
+
+  const achievedGoals = filteredGoals.filter(g => getGoalStatus(g) === 'success').length;
+  const inProgressGoals = filteredGoals.filter(g => getGoalStatus(g) === 'warning').length;
+  const totalGoals = filteredGoals.length;
+
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
-        <div>
-          <h2 className="text-2xl font-semibold text-gray-900">Metas</h2>
-          <p className="text-sm text-gray-500 mt-1">Acompanhe seus objetivos financeiros</p>
+      <div className="text-center pt-4 pb-2">
+        <h1 className="text-4xl font-bold text-white mb-2">Metas Financeiras</h1>
+        <p className="text-[#9B97CE]">Acompanhe seu progresso</p>
+      </div>
+
+      {/* Period Toggle */}
+      <div className="flex items-center justify-center gap-4">
+        <div className="flex items-center gap-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1">
+          <button
+            onClick={() => setViewMode('month')}
+            className={`px-6 py-2 rounded-lg transition-all font-medium ${
+              viewMode === 'month'
+                ? 'bg-[#76C893] text-white'
+                : 'text-[#9CA3AF] hover:text-white'
+            }`}
+          >
+            Mês
+          </button>
+          <button
+            onClick={() => setViewMode('year')}
+            className={`px-6 py-2 rounded-lg transition-all font-medium ${
+              viewMode === 'year'
+                ? 'bg-[#76C893] text-white'
+                : 'text-[#9CA3AF] hover:text-white'
+            }`}
+          >
+            Ano
+          </button>
         </div>
-        
-        <button className="flex items-center gap-2 px-4 py-2 bg-[#B4B0EE] hover:bg-[#B4B0EE] text-white rounded-lg transition-colors">
+
+        <button
+          onClick={() => setIsAddDialogOpen(true)}
+          className="flex items-center gap-2 px-6 py-3 bg-[#76C893] hover:bg-[#76C893]/80 text-white rounded-lg transition-all font-medium"
+        >
           <Plus className="w-5 h-5" />
           Nova Meta
         </button>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-white rounded-xl border border-gray-200 p-6">
-          <p className="text-sm text-gray-600 mb-2">Metas Ativas</p>
-          <p className="text-3xl font-bold text-gray-900">{mockGoals.length}</p>
-          <p className="text-xs text-gray-500 mt-1">Em andamento</p>
+      {/* Summary Cards */}
+      <div className="grid grid-cols-3 gap-6">
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <Target className="w-6 h-6 text-[#9B97CE]" />
+            <span className="text-[#9CA3AF] text-sm">Total de Metas</span>
+          </div>
+          <p className="text-3xl font-bold text-white">{totalGoals}</p>
         </div>
-        
-        <div className="bg-[#CEF05D]/10 rounded-xl border border-[#CEF05D]/30 p-6">
-          <p className="text-sm text-[#CEF05D] mb-2">Meta Mais Próxima</p>
-          <p className="text-3xl font-bold text-[#CEF05D]">64%</p>
-          <p className="text-xs text-[#CEF05D] mt-1">Investir 20% da Renda</p>
+
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <TrendingUp className="w-6 h-6 text-[#76C893]" />
+            <span className="text-[#9CA3AF] text-sm">Metas Alcançadas</span>
+          </div>
+          <p className="text-3xl font-bold text-[#76C893]">{achievedGoals}</p>
         </div>
-        
-        <div className="bg-[#B4B0EE]/10 rounded-xl border border-[#B4B0EE]/30 p-6">
-          <p className="text-sm text-[#B4B0EE] mb-2">Total em Metas</p>
-          <p className="text-3xl font-bold text-[#B4B0EE]">
-            R$ {mockGoals.reduce((sum, g) => sum + g.currentAmount, 0).toFixed(2)}
-          </p>
-          <p className="text-xs text-[#B4B0EE] mt-1">Acumulado até agora</p>
+
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+          <div className="flex items-center gap-3 mb-2">
+            <TrendingDown className="w-6 h-6 text-[#E6C563]" />
+            <span className="text-[#9CA3AF] text-sm">Em Progresso</span>
+          </div>
+          <p className="text-3xl font-bold text-[#E6C563]">{inProgressGoals}</p>
         </div>
       </div>
 
-      {/* Lista de Metas */}
+      {/* Goals List */}
       <div className="space-y-4">
-        {mockGoals.map((goal) => {
-          const progress = (goal.currentAmount / goal.targetAmount) * 100;
-          const remaining = goal.targetAmount - goal.currentAmount;
-          const deadline = new Date(goal.deadline);
-          const daysRemaining = Math.ceil((deadline.getTime() - new Date('2026-01-08').getTime()) / (1000 * 60 * 60 * 24));
-          
-          return (
-            <div key={goal.id} className="bg-white rounded-xl border border-gray-200 p-6">
-              <div className="flex items-start justify-between mb-4">
-                <div className="flex items-start gap-4 flex-1">
-                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center ${
-                    goal.type === 'save' 
-                      ? 'bg-[#CEF05D]/10 border border-[#CEF05D]/30' 
-                      : 'bg-[#B4B0EE]/10 border border-[#B4B0EE]/30'
-                  }`}>
-                    <Target className={`w-6 h-6 ${
-                      goal.type === 'save' ? 'text-[#CEF05D]' : 'text-[#B4B0EE]'
-                    }`} />
-                  </div>
-                  
+        {filteredGoals.length === 0 ? (
+          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-12 text-center">
+            <Target className="w-16 h-16 text-[#9CA3AF] mx-auto mb-4" />
+            <p className="text-[#9CA3AF] text-lg mb-2">Nenhuma meta cadastrada</p>
+            <p className="text-[#9CA3AF] text-sm">
+              Clique em "Nova Meta" para começar a definir seus objetivos
+            </p>
+          </div>
+        ) : (
+          filteredGoals.map((goal) => {
+            const status = getGoalStatus(goal);
+            const statusColor = getStatusColor(status);
+            const percentage = getProgressPercentage(goal);
+
+            return (
+              <div
+                key={goal.id}
+                className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all"
+              >
+                <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
-                      <h3 className="text-lg font-semibold text-gray-900">{goal.name}</h3>
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                        goal.type === 'save'
-                          ? 'bg-[#CEF05D]/20 text-[#CEF05D]'
-                          : 'bg-[#B4B0EE]/20 text-[#B4B0EE]'
-                      }`}>
-                        {goal.type === 'save' ? 'Economia' : 'Investimento'}
-                      </span>
+                      <Target className="w-5 h-5" style={{ color: statusColor }} />
+                      <h3 className="text-xl font-semibold text-white">{goal.title}</h3>
                     </div>
-                    
-                    <div className="flex items-center gap-6 text-sm text-gray-600">
-                      <div className="flex items-center gap-1">
-                        <Calendar className="w-4 h-4" />
-                        <span>
-                          {deadline.toLocaleDateString('pt-BR', {
-                            day: '2-digit',
-                            month: 'short',
-                            year: 'numeric'
-                          })}
-                        </span>
-                      </div>
-                      <span>•</span>
-                      <span>{daysRemaining} dias restantes</span>
-                    </div>
+                    <p className="text-[#9CA3AF] text-sm mb-1">
+                      {getGoalTypeLabel(goal.type)}
+                      {goal.category && ` - ${goal.category}`}
+                    </p>
+                    <p className="text-white font-medium">{formatGoalValue(goal)}</p>
+                  </div>
+
+                  <div className="flex items-center gap-2">
+                    <button
+                      onClick={() => setEditingGoal(goal)}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <Pencil className="w-4 h-4 text-[#9B97CE]" />
+                    </button>
+                    <button
+                      onClick={() => handleDeleteGoal(goal.id)}
+                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    >
+                      <Trash2 className="w-4 h-4 text-[#D97B7B]" />
+                    </button>
                   </div>
                 </div>
-                
-                <button className="text-sm text-[#B4B0EE] hover:text-[#B4B0EE] font-medium">
-                  Editar
-                </button>
-              </div>
-              
-              {/* Progress */}
-              <div className="space-y-2">
-                <div className="flex items-center justify-between text-sm">
-                  <span className="text-gray-600">Progresso</span>
-                  <span className="font-semibold text-gray-900">{progress.toFixed(1)}%</span>
-                </div>
-                
-                <div className="w-full bg-gray-200 rounded-full h-3">
-                  <div
-                    className={`h-3 rounded-full transition-all ${
-                      goal.type === 'save' ? 'bg-[#CEF05D]' : 'bg-[#B4B0EE]'
-                    }`}
-                    style={{ width: `${Math.min(progress, 100)}%` }}
-                  ></div>
-                </div>
-                
-                <div className="flex items-center justify-between">
-                  <div>
-                    <p className="text-sm text-gray-600">Atual</p>
-                    <p className="text-lg font-bold text-gray-900">
-                      R$ {goal.currentAmount.toFixed(2)}
-                    </p>
+
+                {/* Progress Bar */}
+                <div className="space-y-2">
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-[#9CA3AF]">Progresso</span>
+                    <span className="font-medium" style={{ color: statusColor }}>
+                      {Math.min(percentage, 100).toFixed(0)}%
+                    </span>
                   </div>
-                  
-                  <div className="text-center">
-                    <p className="text-sm text-gray-600">Falta</p>
-                    <p className="text-lg font-bold text-[#9D4EDD]">
-                      R$ {remaining.toFixed(2)}
-                    </p>
+                  <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{
+                        width: `${Math.min(percentage, 100)}%`,
+                        backgroundColor: statusColor
+                      }}
+                    />
                   </div>
-                  
-                  <div className="text-right">
-                    <p className="text-sm text-gray-600">Meta</p>
-                    <p className="text-lg font-bold text-gray-900">
-                      R$ {goal.targetAmount.toFixed(2)}
+                  {percentage >= 100 && goal.type !== 'max_spending' && (
+                    <p className="text-[#76C893] text-sm font-medium">Meta alcançada!</p>
+                  )}
+                  {percentage > 100 && goal.type === 'max_spending' && (
+                    <p className="text-[#D97B7B] text-sm font-medium">
+                      Orçamento ultrapassado em R$ {(goal.currentValue - goal.targetValue).toFixed(2)}
                     </p>
-                  </div>
+                  )}
                 </div>
               </div>
-              
-              {/* Ações */}
-              <div className="mt-4 pt-4 border-t border-gray-200 flex gap-2">
-                <button className={`flex-1 px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-                  goal.type === 'save'
-                    ? 'bg-[#CEF05D] hover:bg-[#CEF05D] text-white'
-                    : 'bg-[#B4B0EE] hover:bg-[#B4B0EE] text-white'
-                }`}>
-                  <Plus className="w-4 h-4 inline mr-2" />
-                  Adicionar Valor
-                </button>
-                <button className="px-4 py-2 bg-gray-100 hover:bg-gray-200 text-gray-700 rounded-lg text-sm font-medium transition-colors">
-                  Ver Histórico
-                </button>
-              </div>
-            </div>
-          );
-        })}
+            );
+          })
+        )}
       </div>
 
-      {/* Dicas */}
-      <div className="bg-[#B4B0EE]/10 rounded-lg border border-[#B4B0EE]/30 p-4">
-        <h4 className="text-sm font-semibold text-blue-900 mb-2">💡 Dicas sobre Metas</h4>
-        <ul className="text-sm text-blue-800 space-y-1">
-          <li>• Defina metas SMART: Específicas, Mensuráveis, Atingíveis, Relevantes e com Prazo</li>
-          <li>• Metas de investimento são deduzidas automaticamente do saldo quando você aplica</li>
-          <li>• Configure alertas para lembrar de contribuir mensalmente</li>
-          <li>• Revise suas metas regularmente e ajuste conforme necessário</li>
-        </ul>
-      </div>
-
-      {/* Meta Mensal Sugerida */}
-      <div className="bg-gradient-to-br from-[#9D4EDD] to-[#9D4EDD] rounded-xl p-6 text-white">
-        <div className="flex items-start gap-4">
-          <div className="p-3 bg-white/20 rounded-lg">
-            <TrendingUp className="w-6 h-6" />
-          </div>
-          
-          <div className="flex-1">
-            <h3 className="text-lg font-semibold mb-2">Meta Mensal Sugerida</h3>
-            <p className="text-sm opacity-90 mb-4">
-              Baseado na sua renda e gastos, sugerimos economizar:
-            </p>
-            
-            <div className="bg-white/20 rounded-lg p-4 inline-block">
-              <p className="text-3xl font-bold">R$ 1.000,00</p>
-              <p className="text-sm opacity-75 mt-1">20% da renda mensal</p>
+      {/* Add/Edit Goal Dialog */}
+      <Dialog open={isAddDialogOpen || editingGoal !== null} onOpenChange={(open) => {
+        if (!open) {
+          setIsAddDialogOpen(false);
+          setEditingGoal(null);
+        }
+      }}>
+        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold">
+              {editingGoal ? 'Editar Meta' : 'Nova Meta'}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4 pt-4">
+            <div>
+              <label className="text-sm text-[#9CA3AF] mb-2 block">Título da Meta</label>
+              <input
+                type="text"
+                placeholder="Ex: Economizar R$ 2.000"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
+              />
             </div>
-            
-            <button className="mt-4 px-4 py-2 bg-white text-[#9D4EDD] rounded-lg text-sm font-medium hover:bg-[#9D4EDD]/10 transition-colors">
-              Criar Meta com Este Valor
-            </button>
+
+            <div>
+              <label className="text-sm text-[#9CA3AF] mb-2 block">Tipo de Meta</label>
+              <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#76C893]">
+                <option value="savings">Economizar valor</option>
+                <option value="max_spending">Gastar no máximo</option>
+                <option value="savings_rate">Taxa de economia (%)</option>
+                <option value="category_reduction">Reduzir categoria (%)</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm text-[#9CA3AF] mb-2 block">Período</label>
+              <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#76C893]">
+                <option value="month">Mensal</option>
+                <option value="year">Anual</option>
+              </select>
+            </div>
+
+            <div>
+              <label className="text-sm text-[#9CA3AF] mb-2 block">Valor Alvo</label>
+              <input
+                type="number"
+                placeholder="Ex: 2000"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
+              />
+            </div>
+
+            <div className="flex gap-3 pt-4">
+              <button
+                onClick={() => {
+                  setIsAddDialogOpen(false);
+                  setEditingGoal(null);
+                }}
+                className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={() => {
+                  // TODO: Implement save logic
+                  setIsAddDialogOpen(false);
+                  setEditingGoal(null);
+                }}
+                className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#76C893]/80 rounded-lg transition-colors font-medium"
+              >
+                {editingGoal ? 'Salvar' : 'Criar Meta'}
+              </button>
+            </div>
           </div>
-        </div>
-      </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
