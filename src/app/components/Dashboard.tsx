@@ -48,6 +48,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const [isDayDetailModalOpen, setIsDayDetailModalOpen] = useState(false);
   const [detailDay, setDetailDay] = useState<string>('');
 
+  // Estados do modal de projeção "E se?"
+  const [isProjectionModalOpen, setIsProjectionModalOpen] = useState(false);
+  const [hypotheticalTransactions, setHypotheticalTransactions] = useState<any[]>([]);
+  const [projectionForm, setProjectionForm] = useState({
+    type: 'expense_variable' as 'expense_variable' | 'expense_fixed' | 'income',
+    description: '',
+    amount: '',
+    date: ''
+  });
+
   // Calcular valores baseados na data selecionada
   const currentDateStr = selectedDate.toISOString().split('T')[0];
   const dailyStandard = calculateDailyStandard(mockEstimates);
@@ -117,8 +127,41 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     setIsDayDetailModalOpen(true);
   };
 
-  const handleQuickAddExpense = () => {
-    handleDayClick(today); // Abre modal de cadastro para hoje
+  // Funções do modal de projeção "E se?"
+  const handleOpenProjection = () => {
+    setIsProjectionModalOpen(true);
+  };
+
+  const handleAddHypothetical = () => {
+    if (!projectionForm.amount || !projectionForm.date || !projectionForm.description) {
+      return;
+    }
+
+    const newTransaction = {
+      id: `hyp-${Date.now()}`,
+      type: projectionForm.type,
+      description: projectionForm.description,
+      amount: parseFloat(projectionForm.amount),
+      date: projectionForm.date,
+      category: 'Simulação',
+      paid: false
+    };
+
+    setHypotheticalTransactions([...hypotheticalTransactions, newTransaction]);
+    setProjectionForm({
+      type: 'expense_variable',
+      description: '',
+      amount: '',
+      date: ''
+    });
+  };
+
+  const handleRemoveHypothetical = (id: string) => {
+    setHypotheticalTransactions(hypotheticalTransactions.filter(t => t.id !== id));
+  };
+
+  const handleClearProjection = () => {
+    setHypotheticalTransactions([]);
   };
 
   // Gerar dias do mês para o calendário
@@ -134,13 +177,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     calendarDays.push(null);
   }
 
+  // Combinar transações reais com hipotéticas para projeção
+  const allTransactions = [...mockTransactions, ...hypotheticalTransactions];
+
   // Calcular saldo para cada dia
   let runningBalance = mockConfig.initialBalance;
   const todayDate = new Date(today);
 
   // Primeiro, processar todas as transações até hoje para ter o saldo correto
-  const sortedTransactions = [...mockTransactions]
-    .filter(t => t.paid)
+  const sortedTransactions = [...allTransactions]
+    .filter(t => t.paid || hypotheticalTransactions.some(ht => ht.id === t.id))
     .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
 
   // Criar um mapa de saldos por dia (dias passados)
@@ -182,18 +228,30 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       dayExpense = getVariableExpensesForDate(dateStr, mockTransactions);
     } else {
       // Projeção futura
-      // Buscar compromissos do dia
-      const dayCommitments = mockTransactions.filter(t =>
-        !t.paid &&
+      // Buscar compromissos do dia (incluindo transações hipotéticas)
+      const dayCommitments = allTransactions.filter(t =>
+        (!t.paid || hypotheticalTransactions.some(ht => ht.id === t.id)) &&
         t.date === dateStr &&
         (t.type === 'expense_fixed' || t.type === 'installment')
       );
       const commitmentsTotal = dayCommitments.reduce((sum, c) => sum + c.amount, 0);
 
-      // Calcular saldo projetado
-      runningBalance = runningBalance - dailyStandard - commitmentsTotal;
+      // Adicionar entradas hipotéticas futuras
+      const dayHypotheticalIncomes = hypotheticalTransactions.filter(t =>
+        t.date === dateStr && t.type === 'income'
+      );
+      const hypotheticalIncomesTotal = dayHypotheticalIncomes.reduce((sum, t) => sum + t.amount, 0);
+
+      // Adicionar gastos variáveis hipotéticos
+      const dayHypotheticalExpenses = hypotheticalTransactions.filter(t =>
+        t.date === dateStr && t.type === 'expense_variable'
+      );
+      const hypotheticalExpensesTotal = dayHypotheticalExpenses.reduce((sum, t) => sum + t.amount, 0);
+
+      // Calcular saldo projetado (incluindo transações hipotéticas)
+      runningBalance = runningBalance - dailyStandard - commitmentsTotal - hypotheticalExpensesTotal + hypotheticalIncomesTotal;
       dayBalance = runningBalance;
-      dayExpense = dailyStandard + commitmentsTotal; // Gasto projetado
+      dayExpense = dailyStandard + commitmentsTotal + hypotheticalExpensesTotal; // Gasto projetado
     }
 
     // Determinar status baseado no saldo
@@ -223,16 +281,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Mês anterior"
           >
-            <ChevronLeft className="w-5 h-5 text-[#B4B0EE]" />
+            <ChevronLeft className="w-5 h-5 text-[#9B97CE]" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">
-                <span className="text-[#B4B0EE] text-lg font-medium">
+                <span className="text-[#9B97CE] text-lg font-medium">
                   {formatMonthYear(selectedDate)}
                 </span>
-                <CalendarIcon className="w-4 h-4 text-[#B4B0EE]" />
+                <CalendarIcon className="w-4 h-4 text-[#9B97CE]" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 bg-[#161618] border-white/20">
@@ -250,7 +308,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Próximo mês"
           >
-            <ChevronRight className="w-5 h-5 text-[#B4B0EE]" />
+            <ChevronRight className="w-5 h-5 text-[#9B97CE]" />
           </button>
         </div>
       </div>
@@ -276,7 +334,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <div className="text-center border-r border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Gasto de Hoje</p>
             <p className="text-3xl font-bold text-white mb-1">R$ {todayExpenses.toFixed(2)}</p>
-            <p className={`text-xs ${todayVariation >= 0 ? 'text-[#CEF05D]' : 'text-red-500'}`}>
+            <p className={`text-xs ${todayVariation >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
               {todayVariation >= 0 ? 'Economizou' : 'Gastou'} R$ {Math.abs(todayVariation).toFixed(2)}
             </p>
           </div>
@@ -284,7 +342,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           {/* Card 4 - Gastos do Mês */}
           <div className="text-center">
             <p className="text-[#9CA3AF] text-sm mb-1">Gastos do Mês</p>
-            <p className={`text-3xl font-bold mb-1 ${accumulatedVariation >= 0 ? 'text-[#CEF05D]' : 'text-red-500'}`}>
+            <p className={`text-3xl font-bold mb-1 ${accumulatedVariation >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
               {accumulatedVariation >= 0 ? '+' : ''}R$ {accumulatedVariation.toFixed(2)}
             </p>
             <p className="text-xs text-[#9CA3AF]">{formatMonthYear(selectedDate)}</p>
@@ -307,10 +365,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           {/* Sub-card 2 - Status da projeção */}
           <div className="text-center border-x border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Status da projeção</p>
-            <p className={`text-3xl font-bold mb-1 ${projectionStatus === 'positive' ? 'text-[#CEF05D]' : 'text-red-500'}`}>
+            <p className={`text-3xl font-bold mb-1 ${projectionStatus === 'positive' ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
               {projectionStatus === 'positive' ? 'Positivo' : 'Negativo'}
             </p>
-            <p className={`text-xs ${projectionStatus === 'positive' ? 'text-[#CEF05D]' : 'text-red-500'}`}>
+            <p className={`text-xs ${projectionStatus === 'positive' ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
               {projectionStatus === 'positive' ? 'Saldo suficiente' : 'Saldo insuficiente'}
             </p>
           </div>
@@ -326,27 +384,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
       {/* Calendar */}
       <div className="bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
-        {/* Calendar Header */}
-        <div className="flex items-center justify-between mb-6">
-          <h2 className="text-xl font-semibold text-white">Calendário</h2>
-          <div className="flex items-center gap-3">
-            <button
-              onClick={handleQuickAddExpense}
-              className="p-2 bg-[#CEF05D] hover:bg-[#B4B0EE] text-[#161618] rounded-lg transition-colors"
-              title="Adicionar gasto"
-            >
-              <Plus className="w-5 h-5" />
-            </button>
-            <button
-              onClick={() => handleOpenDayDetail(today)}
-              className="p-2 bg-white/10 hover:bg-white/20 border border-white/20 text-white rounded-lg transition-colors"
-              title="Ver detalhes do dia"
-            >
-              <Eye className="w-5 h-5" />
-            </button>
-          </div>
-        </div>
-
         {/* Weekday Headers */}
         <div className="grid grid-cols-7 gap-3 mb-4">
           {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
@@ -366,72 +403,93 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             let bgColor = 'bg-white/5';
             let borderColor = 'border-white/10';
             let dayNumberColor = 'text-white';
-            let statusIndicator = null;
 
             // Cores baseadas no saldo
             if (dayData.status === 'comfortable') {
-              bgColor = 'bg-[#CEF05D]/10';
-              borderColor = 'border-[#CEF05D]/50';
-              dayNumberColor = 'text-[#CEF05D]';
-              statusIndicator = '✓';
+              bgColor = 'bg-[#76C893]/10';
+              borderColor = 'border-[#76C893]/50';
+              dayNumberColor = 'text-[#76C893]';
             } else if (dayData.status === 'good') {
-              bgColor = 'bg-[#B4B0EE]/10';
-              borderColor = 'border-[#B4B0EE]/50';
-              dayNumberColor = 'text-[#B4B0EE]';
-              statusIndicator = '✓';
+              bgColor = 'bg-[#9B97CE]/10';
+              borderColor = 'border-[#9B97CE]/50';
+              dayNumberColor = 'text-[#9B97CE]';
             } else if (dayData.status === 'warning') {
-              bgColor = 'bg-yellow-500/10';
-              borderColor = 'border-yellow-500/50';
-              dayNumberColor = 'text-yellow-500';
-              statusIndicator = '⚠';
+              bgColor = 'bg-[#E6C563]/10';
+              borderColor = 'border-[#E6C563]/50';
+              dayNumberColor = 'text-[#E6C563]';
             } else if (dayData.status === 'critical') {
-              bgColor = 'bg-red-500/10';
-              borderColor = 'border-red-500/50';
-              dayNumberColor = 'text-red-500';
-              statusIndicator = '✕';
+              bgColor = 'bg-[#D97B7B]/10';
+              borderColor = 'border-[#D97B7B]/50';
+              dayNumberColor = 'text-[#D97B7B]';
             }
 
             // Destaque especial para hoje
             if (dayData.isToday) {
-              borderColor = 'border-[#CEF05D] border-4';
+              borderColor = 'border-[#76C893] border-4';
             }
 
-            // Cor do gasto: verde se <= planejado, vermelho se > planejado
-            const expenseColor = dayData.expense <= dailyStandard ? 'text-[#CEF05D]' : 'text-red-500';
+            // Calcular entradas e saídas do dia (incluindo transações hipotéticas)
+            const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
+            const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const dayExpenses = dayTransactions.filter(t => t.type !== 'income').reduce((sum, t) => sum + t.amount, 0);
 
             return (
               <div
                 key={dayData.day}
-                onClick={() => handleDayClick(dayData.dateStr)}
-                className={`aspect-square ${bgColor} ${borderColor} border-2 rounded-2xl p-3 cursor-pointer hover:scale-105 transition-all relative`}
+                className={`aspect-square ${bgColor} ${borderColor} border-2 rounded-2xl p-2 hover:scale-102 transition-all relative flex flex-col`}
               >
-                {/* Número do dia - canto superior esquerdo */}
-                <div className="absolute top-2 left-2 flex items-center gap-1">
+                {/* Header: Número do dia (esq) e Botões (dir) */}
+                <div className="flex items-start justify-between mb-1">
+                  {/* Número do dia */}
                   <span className={`text-lg font-bold ${dayNumberColor}`}>
                     {dayData.day}
                   </span>
-                </div>
 
-                {/* Status indicator - canto superior direito */}
-                {statusIndicator && (
-                  <div className="absolute top-2 right-2">
-                    <span className={`text-sm ${dayNumberColor}`}>{statusIndicator}</span>
+                  {/* Botões de ação */}
+                  <div className="flex items-center gap-1">
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleDayClick(dayData.dateStr);
+                      }}
+                      className="p-1 bg-[#76C893]/80 hover:bg-[#76C893] text-[#161618] rounded transition-colors"
+                      title="Adicionar gasto"
+                    >
+                      <Plus className="w-3 h-3" />
+                    </button>
+                    <button
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleOpenDayDetail(dayData.dateStr);
+                      }}
+                      className="p-1 bg-white/20 hover:bg-white/30 text-white rounded transition-colors"
+                      title="Ver detalhes"
+                    >
+                      <Eye className="w-3 h-3" />
+                    </button>
                   </div>
-                )}
-
-                {/* Centro: "Saldo" e valor */}
-                <div className="absolute top-1/2 left-1/2 transform -translate-x-1/2 -translate-y-1/2 text-center">
-                  <p className="text-xs text-white/50 mb-0.5">Saldo</p>
-                  <p className="text-sm font-semibold text-white">
-                    R$ {dayData.balance.toFixed(0)}
-                  </p>
                 </div>
 
-                {/* Gasto do dia - canto inferior direito */}
-                <div className="absolute bottom-2 right-2">
-                  <span className={`text-xs font-bold ${expenseColor}`}>
-                    R$ {dayData.expense.toFixed(0)}
-                  </span>
+                {/* Centro: Saldo */}
+                <div className="flex-1 flex items-center justify-center">
+                  <div className="text-center">
+                    <p className="text-xs text-white/50 mb-0.5">Saldo</p>
+                    <p className={`text-base font-bold ${dayNumberColor}`}>
+                      R$ {dayData.balance.toFixed(0)}
+                    </p>
+                  </div>
+                </div>
+
+                {/* Footer: Resumo de Entradas e Saídas */}
+                <div className="flex items-center justify-between text-xs pt-1 border-t border-white/10">
+                  <div className="flex items-center gap-1">
+                    <span className="text-[#76C893]">↑</span>
+                    <span className="text-white/70">{dayIncomes > 0 ? `R$ ${dayIncomes.toFixed(0)}` : '-'}</span>
+                  </div>
+                  <div className="flex items-center gap-1">
+                    <span className="text-[#D97B7B]">↓</span>
+                    <span className="text-white/70">{dayExpenses > 0 ? `R$ ${dayExpenses.toFixed(0)}` : '-'}</span>
+                  </div>
                 </div>
               </div>
             );
@@ -441,19 +499,19 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         {/* Legend */}
         <div className="flex items-center justify-center gap-6 mt-6 pt-6 border-t border-white/10">
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-[#CEF05D]/30 border-2 border-[#CEF05D]/50"></div>
+            <div className="w-4 h-4 rounded-full bg-[#76C893]/30 border-2 border-[#76C893]/50"></div>
             <span className="text-sm text-white/70">Confortável ≥ R$ 2000 ✓</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-[#B4B0EE]/20 border-2 border-[#B4B0EE]/50"></div>
+            <div className="w-4 h-4 rounded-full bg-[#9B97CE]/20 border-2 border-[#9B97CE]/50"></div>
             <span className="text-sm text-white/70">Bom ≥ R$ 1000 ✓</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-yellow-500/20 border-2 border-yellow-500/50"></div>
+            <div className="w-4 h-4 rounded-full bg-[#E6C563]/20 border-2 border-[#E6C563]/50"></div>
             <span className="text-sm text-white/70">Atenção &lt; R$ 1000 ⚠</span>
           </div>
           <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-red-500/20 border-2 border-red-500/50"></div>
+            <div className="w-4 h-4 rounded-full bg-[#D97B7B]/20 border-2 border-[#D97B7B]/50"></div>
             <span className="text-sm text-white/70">Crítico (negativo) ✕</span>
           </div>
         </div>
@@ -463,15 +521,18 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       <div className="grid grid-cols-2 gap-4">
         <button
           onClick={() => handleDayClick(today)}
-          className="bg-[#CEF05D] hover:bg-[#B4B0EE] text-[#161618] rounded-2xl p-6 flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl hover:scale-105"
+          className="bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-2xl p-6 flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl hover:scale-105"
         >
           <Plus className="w-6 h-6" />
           <span className="font-semibold">Adicionar Gasto</span>
         </button>
 
-        <button className="bg-white/10 backdrop-blur-xl border-2 border-[#a6c88c]/30 hover:border-[#a6c88c] text-white rounded-2xl p-6 flex items-center justify-center gap-3 transition-all hover:scale-105">
+        <button
+          onClick={handleOpenProjection}
+          className="bg-white/10 backdrop-blur-xl border-2 border-[#a6c88c]/30 hover:border-[#a6c88c] text-white rounded-2xl p-6 flex items-center justify-center gap-3 transition-all hover:scale-105"
+        >
           <DollarSign className="w-6 h-6" />
-          <span className="font-semibold">Ver Projeção</span>
+          <span className="font-semibold">Projeção "E se?"</span>
         </button>
       </div>
 
@@ -503,7 +564,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 placeholder="0,00"
                 value={expenseForm.amount}
                 onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
 
@@ -515,7 +576,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <select
                 value={expenseForm.category}
                 onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               >
                 <option value="" className="bg-[#161618]">Selecione uma categoria</option>
                 {mockEstimates.map((estimate) => (
@@ -535,7 +596,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 type="time"
                 value={expenseForm.time}
                 onChange={(e) => setExpenseForm({ ...expenseForm, time: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
 
@@ -549,7 +610,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 placeholder="Ex: Supermercado Central"
                 value={expenseForm.location}
                 onChange={(e) => setExpenseForm({ ...expenseForm, location: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
           </div>
@@ -565,7 +626,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             <button
               onClick={handleSaveExpense}
               disabled={!expenseForm.amount || !expenseForm.category || !expenseForm.time}
-              className="flex-1 px-4 py-3 bg-[#CEF05D] hover:bg-[#B4B0EE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Gasto
             </button>
@@ -607,15 +668,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   <div className="grid grid-cols-3 gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
                     <div className="text-center">
                       <p className="text-xs text-[#9CA3AF] mb-1">Entradas</p>
-                      <p className="text-lg font-bold text-[#CEF05D]">R$ {totalIncomes.toFixed(2)}</p>
+                      <p className="text-lg font-bold text-[#76C893]">R$ {totalIncomes.toFixed(2)}</p>
                     </div>
                     <div className="text-center border-x border-white/10">
                       <p className="text-xs text-[#9CA3AF] mb-1">Saídas</p>
-                      <p className="text-lg font-bold text-red-500">R$ {totalExpenses.toFixed(2)}</p>
+                      <p className="text-lg font-bold text-[#D97B7B]">R$ {totalExpenses.toFixed(2)}</p>
                     </div>
                     <div className="text-center">
                       <p className="text-xs text-[#9CA3AF] mb-1">Saldo do Dia</p>
-                      <p className={`text-lg font-bold ${balance >= 0 ? 'text-[#CEF05D]' : 'text-red-500'}`}>
+                      <p className={`text-lg font-bold ${balance >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
                         {balance >= 0 ? '+' : ''}R$ {balance.toFixed(2)}
                       </p>
                     </div>
@@ -641,7 +702,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                           </div>
                           <div className="text-right">
                             <p className="text-sm text-[#9CA3AF]">Diferença</p>
-                            <p className={`text-2xl font-bold ${difference >= 0 ? 'text-[#CEF05D]' : 'text-red-500'}`}>
+                            <p className={`text-2xl font-bold ${difference >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
                               {difference >= 0 ? '+' : ''}R$ {difference.toFixed(2)}
                             </p>
                           </div>
@@ -661,14 +722,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                         {/* Entradas */}
                         {dayIncomes.length > 0 && (
                           <div>
-                            <h4 className="text-sm font-semibold text-[#CEF05D] mb-2">Entradas</h4>
+                            <h4 className="text-sm font-semibold text-[#76C893] mb-2">Entradas</h4>
                             {dayIncomes.map(t => (
-                              <div key={t.id} className="flex items-center justify-between p-3 bg-[#CEF05D]/10 border border-[#CEF05D]/30 rounded-lg mb-2">
+                              <div key={t.id} className="flex items-center justify-between p-3 bg-[#76C893]/10 border border-[#76C893]/30 rounded-lg mb-2">
                                 <div>
                                   <p className="font-medium text-white">{t.description}</p>
                                   <p className="text-sm text-[#9CA3AF]">{t.category}</p>
                                 </div>
-                                <p className="text-lg font-bold text-[#CEF05D]">+R$ {t.amount.toFixed(2)}</p>
+                                <p className="text-lg font-bold text-[#76C893]">+R$ {t.amount.toFixed(2)}</p>
                               </div>
                             ))}
                           </div>
@@ -679,7 +740,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                           const variableExpenses = dayExpenses.filter(t => t.type === 'expense_variable');
                           return variableExpenses.length > 0 && (
                             <div>
-                              <h4 className="text-sm font-semibold text-[#B4B0EE] mb-2">Gastos Variáveis</h4>
+                              <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Gastos Variáveis</h4>
                               {variableExpenses.map(t => (
                                 <div key={t.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg mb-2">
                                   <div>
@@ -698,9 +759,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                           const fixedExpenses = dayExpenses.filter(t => t.type === 'expense_fixed');
                           return fixedExpenses.length > 0 && (
                             <div>
-                              <h4 className="text-sm font-semibold text-[#9D4EDD] mb-2">Gastos Fixos</h4>
+                              <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Gastos Fixos</h4>
                               {fixedExpenses.map(t => (
-                                <div key={t.id} className="flex items-center justify-between p-3 bg-[#9D4EDD]/10 border border-[#9D4EDD]/30 rounded-lg mb-2">
+                                <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
                                   <div>
                                     <p className="font-medium text-white">{t.description}</p>
                                     <p className="text-sm text-[#9CA3AF]">{t.category}</p>
@@ -708,7 +769,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                                   <div className="text-right">
                                     <p className="text-lg font-bold text-white">R$ {t.amount.toFixed(2)}</p>
                                     {t.recurring && (
-                                      <span className="inline-block text-xs px-2 py-0.5 bg-[#9D4EDD]/20 text-[#9D4EDD] rounded">
+                                      <span className="inline-block text-xs px-2 py-0.5 bg-[#8B7AB8]/20 text-[#8B7AB8] rounded">
                                         Recorrente
                                       </span>
                                     )}
@@ -724,9 +785,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                           const installments = dayExpenses.filter(t => t.type === 'installment');
                           return installments.length > 0 && (
                             <div>
-                              <h4 className="text-sm font-semibold text-[#9D4EDD] mb-2">Parcelas</h4>
+                              <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Parcelas</h4>
                               {installments.map(t => (
-                                <div key={t.id} className="flex items-center justify-between p-3 bg-[#9D4EDD]/10 border border-[#9D4EDD]/30 rounded-lg mb-2">
+                                <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
                                   <div>
                                     <p className="font-medium text-white">{t.description}</p>
                                     <p className="text-sm text-[#9CA3AF]">
@@ -745,14 +806,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                           const investments = dayTransactions.filter(t => t.type === 'investment');
                           return investments.length > 0 && (
                             <div>
-                              <h4 className="text-sm font-semibold text-[#B4B0EE] mb-2">Investimentos</h4>
+                              <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Investimentos</h4>
                               {investments.map(t => (
-                                <div key={t.id} className="flex items-center justify-between p-3 bg-[#B4B0EE]/10 border border-[#B4B0EE]/30 rounded-lg mb-2">
+                                <div key={t.id} className="flex items-center justify-between p-3 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-lg mb-2">
                                   <div>
                                     <p className="font-medium text-white">{t.description}</p>
                                     <p className="text-sm text-[#9CA3AF]">{t.category}</p>
                                   </div>
-                                  <p className="text-lg font-bold text-[#B4B0EE]">R$ {t.amount.toFixed(2)}</p>
+                                  <p className="text-lg font-bold text-[#9B97CE]">R$ {t.amount.toFixed(2)}</p>
                                 </div>
                               ))}
                             </div>
@@ -779,10 +840,207 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 setIsDayDetailModalOpen(false);
                 handleDayClick(detailDay);
               }}
-              className="flex-1 px-4 py-3 bg-[#CEF05D] hover:bg-[#B4B0EE] text-[#161618] rounded-xl font-semibold transition-colors"
+              className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors"
             >
               Adicionar Gasto neste Dia
             </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Projeção "E se?" */}
+      <Dialog open={isProjectionModalOpen} onOpenChange={setIsProjectionModalOpen}>
+        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white">
+              Projeção "E se?"
+            </DialogTitle>
+            <DialogDescription className="text-[#9CA3AF]">
+              Simule transações futuras e veja como elas afetam seus saldos sem precisar cadastrá-las
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6 mt-4">
+            {/* Alertas sobre transações hipotéticas ativas */}
+            {hypotheticalTransactions.length > 0 && (
+              <div className="bg-[#76C893]/10 border border-[#76C893]/30 rounded-xl p-4">
+                <div className="flex items-start gap-3">
+                  <DollarSign className="w-5 h-5 text-[#76C893] mt-0.5" />
+                  <div className="flex-1">
+                    <h4 className="text-sm font-semibold text-[#76C893] mb-1">
+                      Projeção Ativa
+                    </h4>
+                    <p className="text-sm text-white/70">
+                      Você tem {hypotheticalTransactions.length} transação(ões) hipotética(s) afetando os saldos do calendário.
+                      Os valores mostrados são simulações.
+                    </p>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* Formulário de Adicionar Transação Hipotética */}
+            <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+              <h3 className="text-lg font-semibold text-white mb-4">Adicionar Transação Hipotética</h3>
+
+              <div className="grid grid-cols-2 gap-4">
+                {/* Tipo */}
+                <div>
+                  <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                    Tipo *
+                  </label>
+                  <select
+                    value={projectionForm.type}
+                    onChange={(e) => setProjectionForm({ ...projectionForm, type: e.target.value as any })}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                  >
+                    <option value="income" className="bg-[#161618]">Entrada</option>
+                    <option value="expense_variable" className="bg-[#161618]">Gasto Variável</option>
+                    <option value="expense_fixed" className="bg-[#161618]">Gasto Fixo</option>
+                  </select>
+                </div>
+
+                {/* Descrição */}
+                <div>
+                  <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                    Descrição *
+                  </label>
+                  <input
+                    type="text"
+                    placeholder="Ex: Salário extra, Compra supermercado"
+                    value={projectionForm.description}
+                    onChange={(e) => setProjectionForm({ ...projectionForm, description: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                  />
+                </div>
+
+                {/* Valor */}
+                <div>
+                  <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                    Valor *
+                  </label>
+                  <input
+                    type="number"
+                    step="0.01"
+                    placeholder="0,00"
+                    value={projectionForm.amount}
+                    onChange={(e) => setProjectionForm({ ...projectionForm, amount: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                  />
+                </div>
+
+                {/* Data */}
+                <div>
+                  <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                    Data *
+                  </label>
+                  <input
+                    type="date"
+                    value={projectionForm.date}
+                    onChange={(e) => setProjectionForm({ ...projectionForm, date: e.target.value })}
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                  />
+                </div>
+              </div>
+
+              <button
+                onClick={handleAddHypothetical}
+                disabled={!projectionForm.amount || !projectionForm.date || !projectionForm.description}
+                className="mt-4 w-full px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              >
+                Adicionar à Simulação
+              </button>
+            </div>
+
+            {/* Lista de Transações Hipotéticas */}
+            {hypotheticalTransactions.length > 0 && (
+              <div className="bg-white/5 rounded-xl p-6 border border-white/10">
+                <div className="flex items-center justify-between mb-4">
+                  <h3 className="text-lg font-semibold text-white">Transações na Simulação</h3>
+                  <button
+                    onClick={handleClearProjection}
+                    className="px-3 py-1.5 bg-[#D97B7B]/20 hover:bg-[#D97B7B]/30 text-[#D97B7B] rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Limpar Tudo
+                  </button>
+                </div>
+
+                <div className="space-y-2">
+                  {hypotheticalTransactions.map((transaction: any) => {
+                    const isIncome = transaction.type === 'income';
+                    const bgColor = isIncome ? 'bg-[#76C893]/10' : 'bg-[#D97B7B]/10';
+                    const borderColor = isIncome ? 'border-[#76C893]/30' : 'border-[#D97B7B]/30';
+                    const textColor = isIncome ? 'text-[#76C893]' : 'text-[#D97B7B]';
+
+                    return (
+                      <div
+                        key={transaction.id}
+                        className={`${bgColor} ${borderColor} border rounded-lg p-4 flex items-center justify-between`}
+                      >
+                        <div className="flex-1">
+                          <div className="flex items-center gap-3">
+                            <span className={`text-lg font-bold ${textColor}`}>
+                              {isIncome ? '+' : '-'}R$ {transaction.amount.toFixed(2)}
+                            </span>
+                            <span className="text-white font-medium">
+                              {transaction.description}
+                            </span>
+                            <span className="px-2 py-0.5 bg-white/10 text-white/70 rounded text-xs">
+                              {transaction.type === 'income' ? 'Entrada' : transaction.type === 'expense_fixed' ? 'Fixo' : 'Variável'}
+                            </span>
+                          </div>
+                          <p className="text-sm text-white/50 mt-1">
+                            {new Date(transaction.date).toLocaleDateString('pt-BR', {
+                              day: '2-digit',
+                              month: 'long',
+                              year: 'numeric'
+                            })}
+                          </p>
+                        </div>
+
+                        <button
+                          onClick={() => handleRemoveHypothetical(transaction.id)}
+                          className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                          title="Remover"
+                        >
+                          <X className="w-5 h-5 text-[#D97B7B]" />
+                        </button>
+                      </div>
+                    );
+                  })}
+                </div>
+              </div>
+            )}
+
+            {/* Dica de uso */}
+            <div className="bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-xl p-4">
+              <p className="text-sm text-white/70">
+                <strong className="text-[#9B97CE]">💡 Dica:</strong> Adicione transações hipotéticas e
+                veja em tempo real como elas afetam os saldos futuros no calendário.
+                Os dias com transações simuladas mostrarão os valores ajustados.
+              </p>
+            </div>
+          </div>
+
+          {/* Botões de ação */}
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setIsProjectionModalOpen(false)}
+              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-white rounded-xl transition-colors"
+            >
+              Fechar
+            </button>
+            {hypotheticalTransactions.length > 0 && (
+              <button
+                onClick={() => {
+                  handleClearProjection();
+                  setIsProjectionModalOpen(false);
+                }}
+                className="flex-1 px-4 py-3 bg-[#D97B7B]/20 hover:bg-[#D97B7B]/30 text-[#D97B7B] rounded-xl font-semibold transition-colors"
+              >
+                Limpar e Fechar
+              </button>
+            )}
           </div>
         </DialogContent>
       </Dialog>

@@ -116,7 +116,7 @@ export function IncomesView() {
 
           <button
             onClick={handleOpenModal}
-            className="flex items-center gap-2 px-4 py-2 bg-[#CEF05D] hover:bg-[#B4B0EE] text-[#161618] rounded-lg font-semibold transition-colors"
+            className="flex items-center gap-2 px-4 py-2 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-lg font-semibold transition-colors"
           >
             <Plus className="w-5 h-5" />
             Adicionar Entrada
@@ -130,16 +130,16 @@ export function IncomesView() {
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Mês anterior"
           >
-            <ChevronLeft className="w-5 h-5 text-[#B4B0EE]" />
+            <ChevronLeft className="w-5 h-5 text-[#9B97CE]" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">
-                <span className="text-[#B4B0EE] text-lg font-medium">
+                <span className="text-[#9B97CE] text-lg font-medium">
                   {formatMonthYear(selectedDate)}
                 </span>
-                <CalendarIcon className="w-4 h-4 text-[#B4B0EE]" />
+                <CalendarIcon className="w-4 h-4 text-[#9B97CE]" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 bg-[#161618] border-white/20">
@@ -157,7 +157,7 @@ export function IncomesView() {
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Próximo mês"
           >
-            <ChevronRight className="w-5 h-5 text-[#B4B0EE]" />
+            <ChevronRight className="w-5 h-5 text-[#9B97CE]" />
           </button>
         </div>
       </div>
@@ -170,24 +170,24 @@ export function IncomesView() {
           <p className="text-xs text-[#9CA3AF] mt-1">{incomes.length} entradas</p>
         </div>
 
-        <div className="bg-[#CEF05D]/10 rounded-xl border border-[#CEF05D]/30 p-6">
-          <p className="text-sm text-[#CEF05D] mb-2">Recebidos</p>
-          <p className="text-3xl font-bold text-[#CEF05D]">R$ {totalReceived.toFixed(2)}</p>
-          <p className="text-xs text-[#CEF05D] mt-1">{received.length} itens</p>
+        <div className="bg-[#76C893]/10 rounded-xl border border-[#76C893]/30 p-6">
+          <p className="text-sm text-[#76C893] mb-2">Recebidos</p>
+          <p className="text-3xl font-bold text-[#76C893]">R$ {totalReceived.toFixed(2)}</p>
+          <p className="text-xs text-[#76C893] mt-1">{received.length} itens</p>
         </div>
 
-        <div className="bg-[#B4B0EE]/10 rounded-xl border border-[#B4B0EE]/30 p-6">
-          <p className="text-sm text-[#B4B0EE] mb-2">A Receber</p>
-          <p className="text-3xl font-bold text-[#B4B0EE]">R$ {totalPending.toFixed(2)}</p>
-          <p className="text-xs text-[#B4B0EE] mt-1">{pending.length} itens</p>
+        <div className="bg-[#9B97CE]/10 rounded-xl border border-[#9B97CE]/30 p-6">
+          <p className="text-sm text-[#9B97CE] mb-2">A Receber</p>
+          <p className="text-3xl font-bold text-[#9B97CE]">R$ {totalPending.toFixed(2)}</p>
+          <p className="text-xs text-[#9B97CE] mt-1">{pending.length} itens</p>
         </div>
 
-        <div className="bg-red-500/10 rounded-xl border border-red-500/50 p-6">
-          <p className="text-sm text-red-500 mb-2">Atrasados</p>
-          <p className="text-3xl font-bold text-red-500">
+        <div className="bg-[#D97B7B]/10 rounded-xl border border-[#D97B7B]/50 p-6">
+          <p className="text-sm text-[#D97B7B] mb-2">Atrasados</p>
+          <p className="text-3xl font-bold text-[#D97B7B]">
             {overdue.length > 0 ? overdue.length : '0'}
           </p>
-          <p className="text-xs text-red-500 mt-1">
+          <p className="text-xs text-[#D97B7B] mt-1">
             {overdue.length > 0 ? 'Necessita atenção' : 'Tudo em dia'}
           </p>
         </div>
@@ -195,12 +195,12 @@ export function IncomesView() {
 
       {/* Entradas Atrasadas */}
       {overdue.length > 0 && (
-        <div className="bg-red-500/10 border border-red-500/50 rounded-xl p-6">
+        <div className="bg-[#D97B7B]/10 border border-[#D97B7B]/50 rounded-xl p-6">
           <div className="flex items-start gap-3 mb-4">
             <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
             <div>
-              <h3 className="text-lg font-semibold text-red-500">Entradas Atrasadas</h3>
-              <p className="text-sm text-red-400 mt-1">
+              <h3 className="text-lg font-semibold text-[#D97B7B]">Entradas Atrasadas</h3>
+              <p className="text-sm text-[#D97B7B] mt-1">
                 Você tem {overdue.length} entrada(s) pendente(s) com data anterior a hoje.
               </p>
             </div>
@@ -211,13 +211,13 @@ export function IncomesView() {
               <div key={income.id} className="bg-white/5 rounded-lg p-4 flex items-center justify-between">
                 <div>
                   <p className="font-medium text-white">{income.description}</p>
-                  <p className="text-sm text-red-400 mt-1">
+                  <p className="text-sm text-[#D97B7B] mt-1">
                     Previsto para {new Date(income.date).toLocaleDateString('pt-BR')}
                   </p>
                 </div>
                 <div className="text-right">
                   <p className="text-lg font-bold text-white">R$ {income.amount.toFixed(2)}</p>
-                  <button className="mt-2 px-3 py-1 bg-[#CEF05D] hover:bg-[#B4B0EE] text-[#161618] text-sm rounded font-medium transition-colors">
+                  <button className="mt-2 px-3 py-1 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] text-sm rounded font-medium transition-colors">
                     Marcar como Recebido
                   </button>
                 </div>
@@ -239,8 +239,8 @@ export function IncomesView() {
             <div key={income.id} className="px-6 py-4 hover:bg-white/10 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 bg-[#B4B0EE]/10 border border-[#B4B0EE]/30 rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-[#B4B0EE]" />
+                  <div className="w-12 h-12 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-lg flex items-center justify-center">
+                    <DollarSign className="w-6 h-6 text-[#9B97CE]" />
                   </div>
 
                   <div className="flex-1">
@@ -249,7 +249,7 @@ export function IncomesView() {
                         {income.description}
                       </h4>
                       {income.recurring && (
-                        <span className="inline-block px-2 py-1 bg-[#CEF05D]/20 text-[#CEF05D] rounded text-xs font-medium">
+                        <span className="inline-block px-2 py-1 bg-[#76C893]/20 text-[#76C893] rounded text-xs font-medium">
                           Recorrente
                         </span>
                       )}
@@ -278,7 +278,7 @@ export function IncomesView() {
                     <Edit className="w-5 h-5 text-[#9CA3AF]" />
                   </button>
 
-                  <button className="px-4 py-2 bg-[#CEF05D] hover:bg-[#B4B0EE] text-[#161618] rounded-lg text-sm font-medium transition-colors">
+                  <button className="px-4 py-2 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-lg text-sm font-medium transition-colors">
                     Marcar como Recebido
                   </button>
                 </div>
@@ -303,11 +303,11 @@ export function IncomesView() {
 
         <div className="divide-y divide-white/10">
           {received.map(income => (
-            <div key={income.id} className="px-6 py-4 bg-[#CEF05D]/5">
+            <div key={income.id} className="px-6 py-4 bg-[#76C893]/5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 bg-[#CEF05D]/10 border border-[#CEF05D]/30 rounded-lg flex items-center justify-center">
-                    <Check className="w-6 h-6 text-[#CEF05D]" />
+                  <div className="w-12 h-12 bg-[#76C893]/10 border border-[#76C893]/30 rounded-lg flex items-center justify-center">
+                    <Check className="w-6 h-6 text-[#76C893]" />
                   </div>
 
                   <div className="flex-1">
@@ -316,7 +316,7 @@ export function IncomesView() {
                         {income.description}
                       </h4>
                       {income.recurring && (
-                        <span className="inline-block px-2 py-1 bg-[#CEF05D]/20 text-[#CEF05D] rounded text-xs font-medium">
+                        <span className="inline-block px-2 py-1 bg-[#76C893]/20 text-[#76C893] rounded text-xs font-medium">
                           Recorrente
                         </span>
                       )}
@@ -335,7 +335,7 @@ export function IncomesView() {
                     <p className="text-xl font-bold text-white">
                       R$ {income.amount.toFixed(2)}
                     </p>
-                    <span className="inline-block mt-1 px-2 py-1 bg-[#CEF05D]/20 text-[#CEF05D] rounded text-xs font-medium">
+                    <span className="inline-block mt-1 px-2 py-1 bg-[#76C893]/20 text-[#76C893] rounded text-xs font-medium">
                       Recebido
                     </span>
                   </div>
@@ -368,11 +368,11 @@ export function IncomesView() {
               <div key={income.id} className="flex items-start gap-4">
                 <div className="flex flex-col items-center">
                   <div className={`w-3 h-3 rounded-full ${income.paid
-                      ? 'bg-[#CEF05D]'
+                      ? 'bg-[#76C893]'
                       : isPast
-                        ? 'bg-red-500'
+                        ? 'bg-[#D97B7B]'
                         : isToday
-                          ? 'bg-[#B4B0EE]'
+                          ? 'bg-[#9B97CE]'
                           : 'bg-gray-300'
                     }`}></div>
                   {index < incomes.length - 1 && (
@@ -391,7 +391,7 @@ export function IncomesView() {
                     {income.description} - R$ {income.amount.toFixed(2)}
                   </p>
                   {income.paid && (
-                    <span className="inline-block mt-1 text-xs text-[#CEF05D]">✓ Recebido</span>
+                    <span className="inline-block mt-1 text-xs text-[#76C893]">✓ Recebido</span>
                   )}
                 </div>
               </div>
@@ -423,7 +423,7 @@ export function IncomesView() {
                 placeholder="Ex: Salário, Freelance, Bônus"
                 value={incomeForm.description}
                 onChange={(e) => setIncomeForm({ ...incomeForm, description: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
 
@@ -437,7 +437,7 @@ export function IncomesView() {
                 placeholder="Ex: Salário, Trabalho Autônomo, Investimentos"
                 value={incomeForm.category}
                 onChange={(e) => setIncomeForm({ ...incomeForm, category: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
 
@@ -452,7 +452,7 @@ export function IncomesView() {
                 placeholder="0,00"
                 value={incomeForm.amount}
                 onChange={(e) => setIncomeForm({ ...incomeForm, amount: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
 
@@ -465,7 +465,7 @@ export function IncomesView() {
                 type="date"
                 value={incomeForm.date}
                 onChange={(e) => setIncomeForm({ ...incomeForm, date: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
 
@@ -476,7 +476,7 @@ export function IncomesView() {
                 id="recurring"
                 checked={incomeForm.recurring}
                 onChange={(e) => setIncomeForm({ ...incomeForm, recurring: e.target.checked })}
-                className="w-5 h-5 rounded border-white/20 text-[#CEF05D] focus:ring-[#CEF05D]"
+                className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
               />
               <label htmlFor="recurring" className="text-sm font-medium text-[#9CA3AF]">
                 Entrada recorrente (repete todo mês)
@@ -495,7 +495,7 @@ export function IncomesView() {
             <button
               onClick={handleSaveIncome}
               disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date}
-              className="flex-1 px-4 py-3 bg-[#CEF05D] hover:bg-[#B4B0EE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Entrada
             </button>
@@ -526,7 +526,7 @@ export function IncomesView() {
                 placeholder="Ex: Salário, Freelance, Bônus"
                 value={incomeForm.description}
                 onChange={(e) => setIncomeForm({ ...incomeForm, description: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
 
@@ -540,7 +540,7 @@ export function IncomesView() {
                 placeholder="Ex: Salário, Trabalho Autônomo, Investimentos"
                 value={incomeForm.category}
                 onChange={(e) => setIncomeForm({ ...incomeForm, category: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
 
@@ -555,7 +555,7 @@ export function IncomesView() {
                 placeholder="0,00"
                 value={incomeForm.amount}
                 onChange={(e) => setIncomeForm({ ...incomeForm, amount: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
 
@@ -568,7 +568,7 @@ export function IncomesView() {
                 type="date"
                 value={incomeForm.date}
                 onChange={(e) => setIncomeForm({ ...incomeForm, date: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#CEF05D] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
 
@@ -579,7 +579,7 @@ export function IncomesView() {
                 id="recurring-edit"
                 checked={incomeForm.recurring}
                 onChange={(e) => setIncomeForm({ ...incomeForm, recurring: e.target.checked })}
-                className="w-5 h-5 rounded border-white/20 text-[#CEF05D] focus:ring-[#CEF05D]"
+                className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
               />
               <label htmlFor="recurring-edit" className="text-sm font-medium text-[#9CA3AF]">
                 Entrada recorrente (repete todo mês)
@@ -598,7 +598,7 @@ export function IncomesView() {
             <button
               onClick={handleSaveEdit}
               disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date}
-              className="flex-1 px-4 py-3 bg-[#CEF05D] hover:bg-[#B4B0EE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Alterações
             </button>

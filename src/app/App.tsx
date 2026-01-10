@@ -23,7 +23,7 @@ export default function App() {
             onClick={() => setCurrentView('dashboard')}
             className={`flex flex-col items-center gap-1.5 transition-all ${
               currentView === 'dashboard'
-                ? 'text-[#CEF05D] scale-110'
+                ? 'text-[#76C893] scale-110'
                 : 'text-[#9CA3AF] hover:text-white/80'
             }`}
           >
@@ -35,7 +35,7 @@ export default function App() {
             onClick={() => setCurrentView('commitments')}
             className={`flex flex-col items-center gap-1.5 transition-all ${
               currentView === 'commitments'
-                ? 'text-[#CEF05D] scale-110'
+                ? 'text-[#76C893] scale-110'
                 : 'text-[#9CA3AF] hover:text-white/80'
             }`}
           >
@@ -47,7 +47,7 @@ export default function App() {
             onClick={() => setCurrentView('incomes')}
             className={`flex flex-col items-center gap-1.5 transition-all ${
               currentView === 'incomes'
-                ? 'text-[#CEF05D] scale-110'
+                ? 'text-[#76C893] scale-110'
                 : 'text-[#9CA3AF] hover:text-white/80'
             }`}
           >
@@ -59,7 +59,7 @@ export default function App() {
             onClick={() => setCurrentView('stats')}
             className={`flex flex-col items-center gap-1.5 transition-all ${
               currentView === 'stats'
-                ? 'text-[#CEF05D] scale-110'
+                ? 'text-[#76C893] scale-110'
                 : 'text-[#9CA3AF] hover:text-white/80'
             }`}
           >
@@ -71,7 +71,7 @@ export default function App() {
             onClick={() => setCurrentView('settings')}
             className={`flex flex-col items-center gap-1.5 transition-all ${
               currentView === 'settings'
-                ? 'text-[#CEF05D] scale-110'
+                ? 'text-[#76C893] scale-110'
                 : 'text-[#9CA3AF] hover:text-white/80'
             }`}
           >
