@@ -1,132 +1,145 @@
-# AutoMone App
+# AutoMoney App
 
-Personal finance management app with daily budget tracking based on monthly estimates.
+Aplicação de gestão financeira pessoal com sistema único de valor diário padrão.
 
-## What is AutoMone?
+## Setup
 
-AutoMone uses a unique approach to budget management centered on a **Daily Standard Value** (Valor Diário Padrão). Instead of traditional monthly budgets, you define how much you expect to spend per month in each category, and the system calculates a fixed daily budget. Each day, you compare your actual spending against this standard to see if you're on track.
-
-### Core Concept: Daily Standard Value
-
-The app calculates a daily spending standard based on your monthly estimates:
-
-```
-Daily Standard = Sum of Monthly Estimates / 30
-```
-
-**Example:**
-- Groceries: R$ 800/month
-- Transport: R$ 300/month
-- Pharmacy: R$ 150/month
-- Food & Outings: R$ 450/month
-
-**Total:** R$ 1,700/month → **Daily Standard:** R$ 56.67/day
-
-This value stays **fixed throughout the month**. Each day, you track your actual spending against this standard:
-- Spent R$ 40? You saved R$ 16.67 today!
-- Spent R$ 80? You're R$ 23.33 over budget today.
-
-The key insight: the daily standard doesn't change based on your actual spending. It's your consistent reference point, not a decreasing budget.
-
-### Key Features
-
-- **Daily Budget Tracking**: Compare daily spending vs. standard with visual feedback
-- **Balance Projection**: See if your money will last until next paycheck with color-coded calendar (green/yellow/red)
-- **Estimates Manager**: Configure monthly spending estimates by category
-- **Fixed Expenses & Installments**: Track bills and payment plans separately (these don't affect your daily budget)
-- **Investments**: Manage your investment portfolio separate from available balance
-- **Financial Goals**: Set and track savings/investment goals
-- **Transaction Management**: Log and categorize all income and expenses
-- **Monthly Calendar**: Visual timeline of past spending and future projections
-- **Reports**: Analyze spending patterns and performance over time
-
-### Project Status
-
-This is currently a **frontend prototype using mock data**. No backend or data persistence is implemented yet. The app demonstrates the UI and business logic with sample transactions.
-
-## Getting Started
-
-### Prerequisites
-- Node.js 18+
-- pnpm (recommended) or npm
-
-### Installation
+### 1. Instalar dependências
 
 ```bash
-# Install dependencies
 pnpm install
-# or
-npm install
 ```
 
-### Development
+### 2. Configurar Supabase
+
+Crie o arquivo `.env.local` na raiz do projeto:
+
+```env
+VITE_SUPABASE_URL=https://urprwefnujrdrqwkafan.supabase.co
+VITE_SUPABASE_ANON_KEY=sb_publishable_-TbToYSdn7OBRXmKz2mFsA_VnAYWjBm
+```
+
+### 3. Executar Schema SQL
+
+O schema já foi executado! Se precisar refazer:
+
+1. Acesse: https://supabase.com/dashboard/project/urprwefnujrdrqwkafan/sql/new
+2. Copie o conteúdo de `supabase-schema.sql`
+3. Execute no SQL Editor
+
+### 4. Rodar o app
 
 ```bash
-# Start development server
 pnpm run dev
-# or
-npm run dev
 ```
 
-The app will be available at `http://localhost:5173`
+### 5. Criar conta e popular dados
 
-### Build
+1. Abra o app no navegador
+2. Clique em "Criar Conta"
+3. Cadastre-se com email e senha (mínimo 6 caracteres)
+4. Confirme o email (verifique caixa de entrada/spam)
+5. Faça login
 
-```bash
-# Build for production
-pnpm run build
-# or
-npm run build
-```
+**Para popular com dados de exemplo:**
 
-## Technology Stack
+1. Após login, pegue seu User ID:
+   - Acesse: https://supabase.com/dashboard/project/urprwefnujrdrqwkafan/auth/users
+   - Copie o UUID do seu usuário
 
-- **React 18** - UI framework
-- **TypeScript** - Type safety
-- **Vite** - Build tool and dev server
-- **Tailwind CSS v4** - Utility-first CSS framework
-- **shadcn/ui** - Accessible component library
-- **Radix UI** - Unstyled UI primitives
-- **Lucide React** - Icon library
-- **date-fns** - Date manipulation
-- **Recharts** - Chart library
+2. Pegue a Service Role Key:
+   - Acesse: https://supabase.com/dashboard/project/urprwefnujrdrqwkafan/settings/api
+   - Copie a chave "service_role" (NÃO compartilhe!)
 
-## Project Structure
+3. Edite `scripts/seedMockData.ts`:
+   - Substitua `USER_ID` pelo UUID copiado
+   - Substitua `supabaseServiceKey` pela chave service_role
+
+4. Execute o seed:
+   ```bash
+   npx tsx scripts/seedMockData.ts
+   ```
+
+5. Recarregue o app - dados devem aparecer!
+
+## Estrutura do Projeto
 
 ```
 src/
-├── main.tsx                 # App entry point
-├── app/
-│   ├── App.tsx             # Root component with navigation
-│   ├── components/         # Feature components
-│   │   ├── Dashboard.tsx   # Main dashboard
-│   │   ├── MonthCalendar.tsx
-│   │   ├── TransactionsList.tsx
-│   │   ├── EstimatesManager.tsx
-│   │   ├── CommitmentsView.tsx
-│   │   ├── InvestmentsView.tsx
-│   │   ├── GoalsView.tsx
-│   │   ├── ProjectionView.tsx
-│   │   ├── ui/             # Reusable UI components
-│   │   └── figma/          # Figma-specific components
-│   └── data/
-│       └── mockData.ts     # Sample data and utilities
-└── styles/                 # Global styles
+├── lib/
+│   ├── supabase.ts           # Cliente Supabase
+│   ├── api/                  # Camada de acesso a dados
+│   │   ├── estimates.ts
+│   │   ├── transactions.ts
+│   │   ├── investments.ts
+│   │   ├── goals.ts
+│   │   └── config.ts
+│   └── hooks/                # React hooks com real-time
+│       ├── useAuth.ts
+│       ├── useEstimates.ts
+│       ├── useTransactions.ts
+│       ├── useInvestments.ts
+│       ├── useGoals.ts
+│       └── useConfig.ts
+└── app/
+    ├── components/           # Componentes da UI
+    └── data/
+        └── mockData.ts       # Interfaces TypeScript e funções utilitárias
 ```
 
-## Documentation
+## Arquitetura
 
-- **`requisitos.md`** - Complete requirements specification (in Portuguese)
-- **`CLAUDE.md`** - Developer guidance for AI assistants and future contributors
+- **Frontend**: React + TypeScript + Vite + Tailwind CSS
+- **Backend**: Supabase (PostgreSQL + Auth + Real-time)
+- **Pattern**: Repository Pattern (API Layer + React Hooks)
+- **Estado**: Component-level state + Supabase real-time subscriptions
 
-## Design
+## Status da Implementação
 
-Original Figma design: https://www.figma.com/design/eUwNIkbExgdKjAlQn9QFcb/Finance-Tracker-App
+✅ **Concluído:**
+- Supabase setup e schema
+- Autenticação (signup/login/logout)
+- API layer para todas entidades
+- React hooks com real-time
+- Componente Auth UI
 
-## Language
+🚧 **Em progresso:**
+- Migração de componentes para usar Supabase
+- Próximos: EstimatesManager, CommitmentsView, GoalsView, InvestmentsView, Dashboard
 
-This app is in **Portuguese (Brazilian)**. All UI text, labels, and default data are in Portuguese.
+## Build para Produção
 
-## License
+```bash
+pnpm run build
+```
 
-This project is for personal use.
+## Lógica de Negócio
+
+### Valor Diário Padrão
+
+```
+valor_diário_padrão = soma(estimativas_mensais_ativas) / 30
+```
+
+- **Fixo durante o mês** - só muda se o usuário alterar estimativas
+- Usado para comparar gastos variáveis diários
+
+### Tipos de Transação
+
+- **expense_variable**: Gastos do dia a dia (contam para comparação com valor diário)
+- **expense_fixed**: Contas fixas com vencimento (não contam para valor diário)
+- **installment**: Parcelas de compras (não contam para valor diário)
+- **income**: Entradas/salário
+- **investment**: Aplicações financeiras
+
+### Projeção de Saldo
+
+```
+saldo_projetado = saldo_atual - (valor_diário_padrão × dias) - gastos_fixos - parcelas
+```
+
+Projeta até a próxima entrada recorrente, alertando quando o saldo ficar negativo.
+
+---
+
+Para mais detalhes, veja `CLAUDE.md` na raiz do projeto.

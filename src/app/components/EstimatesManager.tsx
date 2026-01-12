@@ -1,12 +1,16 @@
 import { useState } from 'react';
 import { Edit2, Check, X, Plus, ToggleLeft, ToggleRight } from 'lucide-react';
-import { mockEstimates as initialEstimates, calculateDailyStandard, Estimate } from '../data/mockData';
+import { calculateDailyStandard, Estimate } from '../data/mockData';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useEstimates } from '@/lib/hooks/useEstimates';
 
 export function EstimatesManager() {
-  const [estimates, setEstimates] = useState<Estimate[]>(initialEstimates);
+  const { user } = useAuth();
+  const { estimates, loading, error, updateEstimate } = useEstimates(user?.id);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
-  
+  const [saving, setSaving] = useState(false);
+
   const dailyStandard = calculateDailyStandard(estimates);
   const totalMonthly = estimates
     .filter(e => e.active)
@@ -17,11 +21,18 @@ export function EstimatesManager() {
     setEditValue(estimate.monthlyAmount.toString());
   };
 
-  const handleSave = (id: string) => {
-    setEstimates(estimates.map(e => 
-      e.id === id ? { ...e, monthlyAmount: parseFloat(editValue) || 0 } : e
-    ));
-    setEditingId(null);
+  const handleSave = async (id: string) => {
+    try {
+      setSaving(true);
+      await updateEstimate(id, { monthlyAmount: parseFloat(editValue) || 0 });
+      setEditingId(null);
+      setEditValue('');
+    } catch (err) {
+      console.error('Error saving estimate:', err);
+      alert('Erro ao salvar estimativa. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const handleCancel = () => {
@@ -29,11 +40,50 @@ export function EstimatesManager() {
     setEditValue('');
   };
 
-  const handleToggle = (id: string) => {
-    setEstimates(estimates.map(e => 
-      e.id === id ? { ...e, active: !e.active } : e
-    ));
+  const handleToggle = async (id: string) => {
+    const estimate = estimates.find(e => e.id === id);
+    if (!estimate) return;
+
+    try {
+      await updateEstimate(id, { active: !estimate.active });
+    } catch (err) {
+      console.error('Error toggling estimate:', err);
+      alert('Erro ao atualizar estimativa. Tente novamente.');
+    }
   };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#B4B0EE] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando estimativas...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <X className="w-8 h-8 text-red-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-gray-900 mb-2">Erro ao carregar estimativas</h3>
+          <p className="text-gray-600 mb-4">{error.message}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-[#B4B0EE] text-white rounded-lg hover:bg-[#9D8FCC] transition-colors"
+          >
+            Recarregar página
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -125,9 +175,14 @@ export function EstimatesManager() {
                         />
                         <button
                           onClick={() => handleSave(estimate.id)}
-                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors"
+                          disabled={saving}
+                          className="p-2 text-green-600 hover:bg-green-50 rounded-lg transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
-                          <Check className="w-5 h-5" />
+                          {saving ? (
+                            <div className="w-5 h-5 border-2 border-green-600 border-t-transparent rounded-full animate-spin"></div>
+                          ) : (
+                            <Check className="w-5 h-5" />
+                          )}
                         </button>
                         <button
                           onClick={handleCancel}

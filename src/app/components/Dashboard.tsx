@@ -14,10 +14,11 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useEstimates } from '@/lib/hooks/useEstimates';
+import { useTransactions } from '@/lib/hooks/useTransactions';
+import { useConfig } from '@/lib/hooks/useConfig';
 import {
-  mockEstimates,
-  mockTransactions,
-  mockConfig,
   calculateDailyStandard,
   calculateCurrentBalance,
   getVariableExpensesForDate,
@@ -32,7 +33,12 @@ interface DashboardProps {
 }
 
 export function Dashboard({ onNavigate }: DashboardProps) {
+  const { user } = useAuth();
+  const { estimates, loading: loadingEstimates } = useEstimates(user?.id);
+  const { transactions, loading: loadingTransactions, createTransaction } = useTransactions(user?.id);
+  const { config, loading: loadingConfig } = useConfig(user?.id);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 0, 8)); // Janeiro 2026, dia 8
+  const [saving, setSaving] = useState(false);
 
   // Estados do modal de cadastro de gasto
   const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
@@ -58,19 +64,23 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     date: ''
   });
 
+  // Loading state
+  const loading = loadingEstimates || loadingTransactions || loadingConfig;
+
   // Calcular valores baseados na data selecionada
   const currentDateStr = selectedDate.toISOString().split('T')[0];
-  const dailyStandard = calculateDailyStandard(mockEstimates);
-  const currentBalance = calculateCurrentBalance(mockConfig.initialBalance, mockTransactions);
+  const dailyStandard = calculateDailyStandard(estimates);
+  const initialBalance = config?.initialBalance || 0;
+  const currentBalance = calculateCurrentBalance(initialBalance, transactions);
 
   const today = '2026-01-08';
-  const todayExpenses = getVariableExpensesForDate(today, mockTransactions);
+  const todayExpenses = getVariableExpensesForDate(today, transactions);
   const todayVariation = dailyStandard - todayExpenses;
 
   // Novos cálculos
-  const accumulatedVariation = calculateAccumulatedVariation(dailyStandard, mockTransactions, today);
-  const nextIncomeInfo = calculateDaysUntilNextIncome(today, mockTransactions);
-  const committedAmount = calculateCommittedAmount(mockTransactions, today);
+  const accumulatedVariation = calculateAccumulatedVariation(dailyStandard, transactions, today);
+  const nextIncomeInfo = calculateDaysUntilNextIncome(today, transactions);
+  const committedAmount = calculateCommittedAmount(transactions, today);
   const projectionStatus = checkProjectionStatus(currentBalance, committedAmount, dailyStandard, nextIncomeInfo.days);
 
   // Funções de navegação de mês
@@ -117,14 +127,31 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     setExpenseForm({ amount: '', category: '', time: currentTime, location: '' });
   };
 
-  const handleSaveExpense = () => {
-    // TODO: Implementar salvamento real do gasto
-    console.log('Salvando gasto:', {
-      date: selectedDay,
-      ...expenseForm
-    });
-    setIsExpenseModalOpen(false);
-    setExpenseForm({ amount: '', category: '', time: '', location: '' });
+  const handleSaveExpense = async () => {
+    if (!expenseForm.amount || !expenseForm.category) {
+      alert('Preencha os campos obrigatórios');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await createTransaction({
+        type: 'expense_variable',
+        category: expenseForm.category,
+        description: `${expenseForm.category}${expenseForm.location ? ` - ${expenseForm.location}` : ''}`,
+        amount: parseFloat(expenseForm.amount),
+        date: selectedDay,
+        paid: true
+      });
+
+      setIsExpenseModalOpen(false);
+      setExpenseForm({ amount: '', category: '', time: '', location: '' });
+    } catch (err) {
+      console.error('Error saving expense:', err);
+      alert('Erro ao salvar gasto. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Funções do modal de detalhes do dia
@@ -170,6 +197,18 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     setHypotheticalTransactions([]);
   };
 
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#76C893] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Carregando dashboard...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Gerar dias do mês para o calendário
   const year = selectedDate.getFullYear();
   const month = selectedDate.getMonth();
@@ -184,10 +223,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   }
 
   // Combinar transações reais com hipotéticas para projeção
-  const allTransactions = [...mockTransactions, ...hypotheticalTransactions];
+  const allTransactions = [...transactions, ...hypotheticalTransactions];
 
   // Calcular saldo para cada dia
-  let runningBalance = mockConfig.initialBalance;
+  let runningBalance = config?.initialBalance || 0;
   const todayDate = new Date(today);
 
   // Primeiro, processar todas as transações até hoje para ter o saldo correto
@@ -197,7 +236,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   // Criar um mapa de saldos por dia (dias passados)
   const balanceByDay = new Map<string, number>();
-  let tempBalance = mockConfig.initialBalance;
+  let tempBalance = config.initialBalance;
 
   sortedTransactions.forEach(t => {
     const tDate = t.date;
@@ -227,11 +266,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     if (isPast) {
       // Dia passado: usar saldo calculado do histórico
       dayBalance = balanceByDay.get(dateStr) || tempBalance;
-      dayExpense = getVariableExpensesForDate(dateStr, mockTransactions);
+      dayExpense = getVariableExpensesForDate(dateStr, transactions);
     } else if (isToday) {
       // Hoje: usar saldo atual
       dayBalance = currentBalance;
-      dayExpense = getVariableExpensesForDate(dateStr, mockTransactions);
+      dayExpense = getVariableExpensesForDate(dateStr, transactions);
     } else {
       // Projeção futura
       // Buscar compromissos do dia (incluindo transações hipotéticas)
@@ -739,10 +778,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             </button>
             <button
               onClick={handleSaveExpense}
-              disabled={!expenseForm.amount || !expenseForm.category || !expenseForm.time}
+              disabled={!expenseForm.amount || !expenseForm.category || !expenseForm.time || saving}
               className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Salvar Gasto
+              {saving ? 'Salvando...' : 'Salvar Gasto'}
             </button>
           </div>
         </DialogContent>
@@ -768,7 +807,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <div className="space-y-4 mt-4">
             {(() => {
               // Filtrar transações do dia
-              const dayTransactions = mockTransactions.filter(t => t.date === detailDay);
+              const dayTransactions = transactions.filter(t => t.date === detailDay);
               const dayExpenses = dayTransactions.filter(t => t.type !== 'income');
               const dayIncomes = dayTransactions.filter(t => t.type === 'income');
 

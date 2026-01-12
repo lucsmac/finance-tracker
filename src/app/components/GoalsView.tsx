@@ -1,84 +1,59 @@
 import { useState } from 'react';
-import { Target, Plus, Pencil, Trash2, TrendingUp, TrendingDown } from 'lucide-react';
+import { Target, Plus, Pencil, Trash2, TrendingUp, TrendingDown, X } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useGoals } from '@/lib/hooks/useGoals';
 
 type GoalType = 'savings' | 'max_spending' | 'savings_rate' | 'category_reduction';
 type GoalPeriod = 'month' | 'year';
 
 interface Goal {
   id: string;
-  title: string;
+  name: string;
   type: GoalType;
   period: GoalPeriod;
-  targetValue: number;
-  currentValue: number;
+  targetAmount: number;
+  currentAmount: number;
   category?: string;
-  createdAt: string;
+  deadline?: string;
 }
 
 export function GoalsView() {
+  const { user } = useAuth();
+  const { goals: dbGoals, loading, error, createGoal, updateGoal, deleteGoal } = useGoals(user?.id);
   const [viewMode, setViewMode] = useState<GoalPeriod>('month');
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false);
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null);
+  const [saving, setSaving] = useState(false);
+  const [goalForm, setGoalForm] = useState({
+    name: '',
+    type: 'savings' as GoalType,
+    period: 'month' as GoalPeriod,
+    targetAmount: '',
+    currentAmount: '',
+    category: ''
+  });
 
-  // Mock goals data
-  const [goals, setGoals] = useState<Goal[]>([
-    {
-      id: '1',
-      title: 'Economizar R$ 2.000',
-      type: 'savings',
-      period: 'month',
-      targetValue: 2000,
-      currentValue: 1450,
-      createdAt: '2026-01-01'
-    },
-    {
-      id: '2',
-      title: 'Gastar no máximo R$ 1.500',
-      type: 'max_spending',
-      period: 'month',
-      targetValue: 1500,
-      currentValue: 1200,
-      createdAt: '2026-01-01'
-    },
-    {
-      id: '3',
-      title: 'Economizar 30% da renda',
-      type: 'savings_rate',
-      period: 'month',
-      targetValue: 30,
-      currentValue: 25,
-      createdAt: '2026-01-01'
-    },
-    {
-      id: '4',
-      title: 'Reduzir gastos com Alimentação',
-      type: 'category_reduction',
-      period: 'month',
-      targetValue: 20,
-      currentValue: 15,
-      category: 'Alimentação',
-      createdAt: '2026-01-01'
-    },
-    {
-      id: '5',
-      title: 'Economizar R$ 20.000',
-      type: 'savings',
-      period: 'year',
-      targetValue: 20000,
-      currentValue: 2500,
-      createdAt: '2026-01-01'
-    }
-  ]);
+  // Transform DB goals to component format
+  const goals: Goal[] = dbGoals.map(g => ({
+    id: g.id,
+    name: g.name,
+    type: g.type as GoalType,
+    period: (g.period || 'month') as GoalPeriod,
+    targetAmount: g.targetAmount,
+    currentAmount: g.currentAmount,
+    category: g.category,
+    deadline: g.deadline
+  }));
 
   const filteredGoals = goals.filter(goal => goal.period === viewMode);
 
   const getProgressPercentage = (goal: Goal): number => {
     if (goal.type === 'max_spending') {
       // For max spending, we want to show how much of the budget is used
-      return (goal.currentValue / goal.targetValue) * 100;
+      return (goal.currentAmount / goal.targetAmount) * 100;
     }
-    return (goal.currentValue / goal.targetValue) * 100;
+    return (goal.currentAmount / goal.targetAmount) * 100;
   };
 
   const getGoalStatus = (goal: Goal): 'success' | 'warning' | 'danger' => {
@@ -114,18 +89,125 @@ export function GoalsView() {
 
   const formatGoalValue = (goal: Goal): string => {
     if (goal.type === 'savings_rate' || goal.type === 'category_reduction') {
-      return `${goal.currentValue.toFixed(0)}% / ${goal.targetValue}%`;
+      return `${goal.currentAmount.toFixed(0)}% / ${goal.targetAmount}%`;
     }
-    return `R$ ${goal.currentValue.toFixed(2)} / R$ ${goal.targetValue.toFixed(2)}`;
+    return `R$ ${goal.currentAmount.toFixed(2)} / R$ ${goal.targetAmount.toFixed(2)}`;
   };
 
-  const handleDeleteGoal = (goalId: string) => {
-    setGoals(goals.filter(g => g.id !== goalId));
+  const handleDeleteGoal = async (goalId: string) => {
+    if (!confirm('Tem certeza que deseja excluir esta meta?')) return;
+
+    try {
+      await deleteGoal(goalId);
+    } catch (err) {
+      console.error('Error deleting goal:', err);
+      alert('Erro ao excluir meta. Tente novamente.');
+    }
+  };
+
+  const handleOpenAddDialog = () => {
+    setGoalForm({
+      name: '',
+      type: 'savings',
+      period: 'month',
+      targetAmount: '',
+      currentAmount: '0',
+      category: ''
+    });
+    setIsAddDialogOpen(true);
+  };
+
+  const handleEditGoal = (goal: Goal) => {
+    setGoalForm({
+      name: goal.name,
+      type: goal.type,
+      period: goal.period,
+      targetAmount: goal.targetAmount.toString(),
+      currentAmount: goal.currentAmount.toString(),
+      category: goal.category || ''
+    });
+    setEditingGoal(goal);
+  };
+
+  const handleSaveGoal = async () => {
+    if (!goalForm.name || !goalForm.targetAmount) {
+      alert('Preencha os campos obrigatórios');
+      return;
+    }
+
+    try {
+      setSaving(true);
+
+      const goalData = {
+        name: goalForm.name,
+        type: goalForm.type,
+        targetAmount: parseFloat(goalForm.targetAmount),
+        currentAmount: parseFloat(goalForm.currentAmount) || 0,
+        deadline: null,
+        period: goalForm.period,
+        category: goalForm.category || null
+      };
+
+      if (editingGoal) {
+        await updateGoal(editingGoal.id, goalData);
+      } else {
+        await createGoal(goalData);
+      }
+
+      setIsAddDialogOpen(false);
+      setEditingGoal(null);
+      setGoalForm({
+        name: '',
+        type: 'savings',
+        period: 'month',
+        targetAmount: '',
+        currentAmount: '0',
+        category: ''
+      });
+    } catch (err) {
+      console.error('Error saving goal:', err);
+      alert('Erro ao salvar meta. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   const achievedGoals = filteredGoals.filter(g => getGoalStatus(g) === 'success').length;
   const inProgressGoals = filteredGoals.filter(g => getGoalStatus(g) === 'warning').length;
   const totalGoals = filteredGoals.length;
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#76C893] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Carregando metas...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <X className="w-8 h-8 text-red-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2">Erro ao carregar metas</h3>
+          <p className="text-gray-400 mb-4">{error.message}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-[#76C893] text-[#161618] rounded-lg hover:bg-[#9B97CE] transition-colors"
+          >
+            Recarregar página
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -161,7 +243,7 @@ export function GoalsView() {
         </div>
 
         <button
-          onClick={() => setIsAddDialogOpen(true)}
+          onClick={handleOpenAddDialog}
           className="flex items-center gap-2 px-6 py-3 bg-[#76C893] hover:bg-[#76C893]/80 text-white rounded-lg transition-all font-medium"
         >
           <Plus className="w-5 h-5" />
@@ -221,7 +303,7 @@ export function GoalsView() {
                   <div className="flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <Target className="w-5 h-5" style={{ color: statusColor }} />
-                      <h3 className="text-xl font-semibold text-white">{goal.title}</h3>
+                      <h3 className="text-xl font-semibold text-white">{goal.name}</h3>
                     </div>
                     <p className="text-[#9CA3AF] text-sm mb-1">
                       {getGoalTypeLabel(goal.type)}
@@ -268,7 +350,7 @@ export function GoalsView() {
                   )}
                   {percentage > 100 && goal.type === 'max_spending' && (
                     <p className="text-[#D97B7B] text-sm font-medium">
-                      Orçamento ultrapassado em R$ {(goal.currentValue - goal.targetValue).toFixed(2)}
+                      Orçamento ultrapassado em R$ {(goal.currentAmount - goal.targetAmount).toFixed(2)}
                     </p>
                   )}
                 </div>
@@ -296,6 +378,8 @@ export function GoalsView() {
               <label className="text-sm text-[#9CA3AF] mb-2 block">Título da Meta</label>
               <input
                 type="text"
+                value={goalForm.name}
+                onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })}
                 placeholder="Ex: Economizar R$ 2.000"
                 className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
               />
@@ -303,7 +387,11 @@ export function GoalsView() {
 
             <div>
               <label className="text-sm text-[#9CA3AF] mb-2 block">Tipo de Meta</label>
-              <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#76C893]">
+              <select
+                value={goalForm.type}
+                onChange={(e) => setGoalForm({ ...goalForm, type: e.target.value as GoalType })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#76C893]"
+              >
                 <option value="savings">Economizar valor</option>
                 <option value="max_spending">Gastar no máximo</option>
                 <option value="savings_rate">Taxa de economia (%)</option>
@@ -313,7 +401,11 @@ export function GoalsView() {
 
             <div>
               <label className="text-sm text-[#9CA3AF] mb-2 block">Período</label>
-              <select className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#76C893]">
+              <select
+                value={goalForm.period}
+                onChange={(e) => setGoalForm({ ...goalForm, period: e.target.value as GoalPeriod })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#76C893]"
+              >
                 <option value="month">Mensal</option>
                 <option value="year">Anual</option>
               </select>
@@ -323,10 +415,36 @@ export function GoalsView() {
               <label className="text-sm text-[#9CA3AF] mb-2 block">Valor Alvo</label>
               <input
                 type="number"
+                value={goalForm.targetAmount}
+                onChange={(e) => setGoalForm({ ...goalForm, targetAmount: e.target.value })}
                 placeholder="Ex: 2000"
                 className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
               />
             </div>
+
+            <div>
+              <label className="text-sm text-[#9CA3AF] mb-2 block">Valor Atual</label>
+              <input
+                type="number"
+                value={goalForm.currentAmount}
+                onChange={(e) => setGoalForm({ ...goalForm, currentAmount: e.target.value })}
+                placeholder="Ex: 500"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
+              />
+            </div>
+
+            {(goalForm.type === 'category_reduction') && (
+              <div>
+                <label className="text-sm text-[#9CA3AF] mb-2 block">Categoria</label>
+                <input
+                  type="text"
+                  value={goalForm.category}
+                  onChange={(e) => setGoalForm({ ...goalForm, category: e.target.value })}
+                  placeholder="Ex: Alimentação"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
+                />
+              </div>
+            )}
 
             <div className="flex gap-3 pt-4">
               <button
@@ -339,14 +457,11 @@ export function GoalsView() {
                 Cancelar
               </button>
               <button
-                onClick={() => {
-                  // TODO: Implement save logic
-                  setIsAddDialogOpen(false);
-                  setEditingGoal(null);
-                }}
-                className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#76C893]/80 rounded-lg transition-colors font-medium"
+                onClick={handleSaveGoal}
+                disabled={saving || !goalForm.name || !goalForm.targetAmount}
+                className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#76C893]/80 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
               >
-                {editingGoal ? 'Salvar' : 'Criar Meta'}
+                {saving ? 'Salvando...' : editingGoal ? 'Salvar' : 'Criar Meta'}
               </button>
             </div>
           </div>

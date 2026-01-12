@@ -1,13 +1,17 @@
 import { useState } from 'react';
 import { Calendar as CalendarIcon, Check, X, AlertCircle, Plus, ChevronLeft, ChevronRight, Edit } from 'lucide-react';
-import { mockTransactions } from '../data/mockData';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useTransactions } from '@/lib/hooks/useTransactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 
 export function CommitmentsView() {
+  const { user } = useAuth();
+  const { transactions, loading, error, createTransaction, updateTransaction } = useTransactions(user?.id);
   const today = new Date('2026-01-08');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 0, 8)); // Janeiro 2026
+  const [saving, setSaving] = useState(false);
 
   // Estados do modal de cadastro
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -25,7 +29,7 @@ export function CommitmentsView() {
   });
 
   // Filtrar compromissos do mês selecionado (fixos e parcelas)
-  const commitments = mockTransactions
+  const commitments = transactions
     .filter(t =>
       (t.type === 'expense_fixed' || t.type === 'installment') &&
       new Date(t.date).getMonth() === selectedDate.getMonth() &&
@@ -61,20 +65,44 @@ export function CommitmentsView() {
   };
 
   // Função para salvar compromisso
-  const handleSaveCommitment = () => {
-    // TODO: Implementar salvamento real
-    console.log('Salvando compromisso:', commitmentForm);
-    setIsAddModalOpen(false);
-    setCommitmentForm({
-      type: 'expense_fixed',
-      description: '',
-      category: '',
-      amount: '',
-      date: '',
-      recurring: false,
-      totalInstallments: '',
-      installmentNumber: ''
-    });
+  const handleSaveCommitment = async () => {
+    if (!commitmentForm.description || !commitmentForm.amount || !commitmentForm.date) {
+      alert('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await createTransaction({
+        type: commitmentForm.type,
+        category: commitmentForm.category || 'Geral',
+        description: commitmentForm.description,
+        amount: parseFloat(commitmentForm.amount),
+        date: commitmentForm.date,
+        recurring: commitmentForm.recurring,
+        paid: false,
+        installmentGroup: commitmentForm.type === 'installment' ? `${commitmentForm.description}-${Date.now()}` : undefined,
+        installmentNumber: commitmentForm.type === 'installment' ? parseInt(commitmentForm.installmentNumber) : undefined,
+        totalInstallments: commitmentForm.type === 'installment' ? parseInt(commitmentForm.totalInstallments) : undefined
+      });
+
+      setIsAddModalOpen(false);
+      setCommitmentForm({
+        type: 'expense_fixed',
+        description: '',
+        category: '',
+        amount: '',
+        date: '',
+        recurring: false,
+        totalInstallments: '',
+        installmentNumber: ''
+      });
+    } catch (err) {
+      console.error('Error saving commitment:', err);
+      alert('Erro ao salvar compromisso. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Função para abrir modal de cadastro
@@ -102,22 +130,87 @@ export function CommitmentsView() {
   };
 
   // Função para salvar edição
-  const handleSaveEdit = () => {
-    // TODO: Implementar salvamento real da edição
-    console.log('Editando compromisso:', editingId, commitmentForm);
-    setIsEditModalOpen(false);
-    setEditingId('');
-    setCommitmentForm({
-      type: 'expense_fixed',
-      description: '',
-      category: '',
-      amount: '',
-      date: '',
-      recurring: false,
-      totalInstallments: '',
-      installmentNumber: ''
-    });
+  const handleSaveEdit = async () => {
+    if (!editingId || !commitmentForm.description || !commitmentForm.amount || !commitmentForm.date) {
+      alert('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    try {
+      setSaving(true);
+      await updateTransaction(editingId, {
+        type: commitmentForm.type,
+        category: commitmentForm.category || 'Geral',
+        description: commitmentForm.description,
+        amount: parseFloat(commitmentForm.amount),
+        date: commitmentForm.date,
+        recurring: commitmentForm.recurring,
+        installmentNumber: commitmentForm.type === 'installment' ? parseInt(commitmentForm.installmentNumber) : undefined,
+        totalInstallments: commitmentForm.type === 'installment' ? parseInt(commitmentForm.totalInstallments) : undefined
+      });
+
+      setIsEditModalOpen(false);
+      setEditingId('');
+      setCommitmentForm({
+        type: 'expense_fixed',
+        description: '',
+        category: '',
+        amount: '',
+        date: '',
+        recurring: false,
+        totalInstallments: '',
+        installmentNumber: ''
+      });
+    } catch (err) {
+      console.error('Error editing commitment:', err);
+      alert('Erro ao editar compromisso. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
+
+  // Função para marcar como pago/não pago
+  const handleTogglePaid = async (id: string, currentPaid: boolean) => {
+    try {
+      await updateTransaction(id, { paid: !currentPaid });
+    } catch (err) {
+      console.error('Error toggling paid status:', err);
+      alert('Erro ao atualizar status. Tente novamente.');
+    }
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#76C893] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-white">Carregando compromissos...</p>
+        </div>
+      </div>
+    );
+  }
+
+  // Error state
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
+            <X className="w-8 h-8 text-red-600" />
+          </div>
+          <h3 className="text-lg font-semibold text-white mb-2">Erro ao carregar compromissos</h3>
+          <p className="text-gray-400 mb-4">{error.message}</p>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-2 bg-[#76C893] text-[#161618] rounded-lg hover:bg-[#9B97CE] transition-colors"
+          >
+            Recarregar página
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6 pb-32">
@@ -410,18 +503,40 @@ export function CommitmentsView() {
                 </div>
 
                 <div className="flex-1 pb-4">
-                  <p className="text-sm font-medium text-white">
-                    {commitmentDate.toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'long'
-                    })}
-                  </p>
-                  <p className="text-sm text-[#9CA3AF] mt-1">
-                    {commitment.description} - R$ {commitment.amount.toFixed(2)}
-                  </p>
-                  {commitment.paid && (
-                    <span className="inline-block mt-1 text-xs text-[#76C893]">✓ Pago</span>
-                  )}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        {commitmentDate.toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: 'long'
+                        })}
+                      </p>
+                      <p className="text-sm text-[#9CA3AF] mt-1">
+                        {commitment.description} - R$ {commitment.amount.toFixed(2)}
+                      </p>
+                      {commitment.paid && (
+                        <span className="inline-block mt-1 text-xs text-[#76C893]">✓ Pago</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleEditCommitment(commitment)}
+                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                        title="Editar"
+                      >
+                        <Edit className="w-4 h-4 text-[#9CA3AF] hover:text-white" />
+                      </button>
+                      <button
+                        onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
+                        className={`p-1.5 hover:bg-white/10 rounded-lg transition-colors ${
+                          commitment.paid ? 'text-[#76C893]' : 'text-[#9CA3AF]'
+                        }`}
+                        title={commitment.paid ? 'Marcar como não pago' : 'Marcar como pago'}
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             );

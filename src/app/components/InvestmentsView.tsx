@@ -1,15 +1,36 @@
-import { TrendingUp, Plus, ArrowUpRight, ArrowDownRight, DollarSign } from 'lucide-react';
-import { mockInvestments, mockTransactions } from '../data/mockData';
+import { useState } from 'react';
+import { TrendingUp, Plus, ArrowUpRight, ArrowDownRight, DollarSign, X } from 'lucide-react';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useInvestments } from '@/lib/hooks/useInvestments';
+import { useTransactions } from '@/lib/hooks/useTransactions';
 
 export function InvestmentsView() {
-  const totalInvested = mockInvestments.reduce((sum, inv) => sum + inv.amount, 0);
-  
+  const { user } = useAuth();
+  const { investments, loading: loadingInvestments } = useInvestments(user?.id);
+  const { transactions, loading: loadingTransactions, createTransaction } = useTransactions(user?.id);
+  const [saving, setSaving] = useState(false);
+
+  const loading = loadingInvestments || loadingTransactions;
+  const totalInvested = investments.reduce((sum, inv) => sum + inv.amount, 0);
+
   // Histórico de movimentações de investimento
-  const investmentTransactions = mockTransactions
+  const investmentTransactions = transactions
     .filter(t => t.type === 'investment')
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const totalApplied = investmentTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#B4B0EE] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando investimentos...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -70,7 +91,7 @@ export function InvestmentsView() {
         </div>
         
         <div className="divide-y divide-gray-200">
-          {mockInvestments.map((investment) => {
+          {investments.map((investment) => {
             const percentage = (investment.amount / totalInvested) * 100;
             
             return (

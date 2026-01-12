@@ -1,0 +1,85 @@
+import { supabase } from '../supabase'
+
+export interface UserConfig {
+  id: string
+  userId: string
+  initialBalance: number
+  monthStartDay: number
+  mainIncomeDay: number
+  mainIncomeAmount: number
+}
+
+export const configApi = {
+  async get(userId: string) {
+    const { data, error } = await supabase
+      .from('user_configs')
+      .select('*')
+      .eq('user_id', userId)
+      .single()
+
+    if (error) {
+      if (error.code === 'PGRST116') return null // Not found
+      throw error
+    }
+
+    return {
+      id: data.id,
+      userId: data.user_id,
+      initialBalance: parseFloat(data.initial_balance),
+      monthStartDay: data.month_start_day,
+      mainIncomeDay: data.main_income_day,
+      mainIncomeAmount: parseFloat(data.main_income_amount)
+    } as UserConfig
+  },
+
+  async create(userId: string, config: Omit<UserConfig, 'id' | 'userId'>) {
+    const { data, error } = await supabase
+      .from('user_configs')
+      .insert([{
+        user_id: userId,
+        initial_balance: config.initialBalance,
+        month_start_day: config.monthStartDay,
+        main_income_day: config.mainIncomeDay,
+        main_income_amount: config.mainIncomeAmount
+      }])
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return {
+      id: data.id,
+      userId: data.user_id,
+      initialBalance: parseFloat(data.initial_balance),
+      monthStartDay: data.month_start_day,
+      mainIncomeDay: data.main_income_day,
+      mainIncomeAmount: parseFloat(data.main_income_amount)
+    } as UserConfig
+  },
+
+  async update(userId: string, updates: Partial<Omit<UserConfig, 'id' | 'userId'>>) {
+    const dbUpdates: any = {}
+    if (updates.initialBalance !== undefined) dbUpdates.initial_balance = updates.initialBalance
+    if (updates.monthStartDay !== undefined) dbUpdates.month_start_day = updates.monthStartDay
+    if (updates.mainIncomeDay !== undefined) dbUpdates.main_income_day = updates.mainIncomeDay
+    if (updates.mainIncomeAmount !== undefined) dbUpdates.main_income_amount = updates.mainIncomeAmount
+
+    const { data, error } = await supabase
+      .from('user_configs')
+      .update(dbUpdates)
+      .eq('user_id', userId)
+      .select()
+      .single()
+
+    if (error) throw error
+
+    return {
+      id: data.id,
+      userId: data.user_id,
+      initialBalance: parseFloat(data.initial_balance),
+      monthStartDay: data.month_start_day,
+      mainIncomeDay: data.main_income_day,
+      mainIncomeAmount: parseFloat(data.main_income_amount)
+    } as UserConfig
+  }
+}
