@@ -1,18 +1,28 @@
 import { useState } from 'react';
-import { Calendar as CalendarIcon, Check, X, AlertCircle, Plus, ChevronLeft, ChevronRight, Edit, DollarSign } from 'lucide-react';
-import { mockTransactions } from '../data/mockData';
+import { Calendar as CalendarIcon, Check, X, AlertCircle, Plus, ChevronLeft, ChevronRight, Edit, DollarSign, Trash2 } from 'lucide-react';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useTransactions } from '@/lib/hooks/useTransactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
+import { getTodayLocal, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
 
 export function IncomesView() {
+  const { user } = useAuth();
+  const { transactions, loading, createTransaction, updateTransaction, deleteTransaction, refresh } = useTransactions(user?.id);
   const today = new Date('2026-01-08');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 0, 8)); // Janeiro 2026
+  const [saving, setSaving] = useState(false);
 
   // Estados do modal de cadastro
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string>('');
+
+  // Estados do modal de confirmação de delete
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string>('');
+  const [deletingDescription, setDeletingDescription] = useState<string>('');
   const [incomeForm, setIncomeForm] = useState({
     description: '',
     category: '',
@@ -22,7 +32,7 @@ export function IncomesView() {
   });
 
   // Filtrar entradas do mês selecionado
-  const incomes = mockTransactions
+  const incomes = transactions
     .filter(t =>
       t.type === 'income' &&
       new Date(t.date).getMonth() === selectedDate.getMonth() &&
@@ -37,6 +47,18 @@ export function IncomesView() {
   const totalExpected = incomes.reduce((sum, c) => sum + c.amount, 0);
   const totalReceived = received.reduce((sum, c) => sum + c.amount, 0);
   const totalPending = pending.reduce((sum, c) => sum + c.amount, 0);
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#76C893] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-[#9CA3AF]">Carregando entradas...</p>
+        </div>
+      </div>
+    );
+  }
 
   // Funções de navegação de mês
   const navigateToPreviousMonth = () => {
@@ -58,24 +80,45 @@ export function IncomesView() {
   };
 
   // Função para salvar entrada
-  const handleSaveIncome = () => {
-    // TODO: Implementar salvamento real
-    console.log('Salvando entrada:', incomeForm);
-    setIsAddModalOpen(false);
-    setIncomeForm({
-      description: '',
-      category: '',
-      amount: '',
-      date: '',
-      recurring: false,
-    });
+  const handleSaveIncome = async () => {
+    if (!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await createTransaction({
+        type: 'income',
+        category: incomeForm.category,
+        description: incomeForm.description,
+        amount: parseFloat(incomeForm.amount),
+        date: incomeForm.date,
+        recurring: incomeForm.recurring,
+        paid: false, // Por padrão, começa como não recebido
+      });
+
+      // Force refresh to update the list immediately
+      await refresh();
+      setIsAddModalOpen(false);
+      setIncomeForm({
+        description: '',
+        category: '',
+        amount: '',
+        date: '',
+        recurring: false,
+      });
+    } catch (error) {
+      console.error('Erro ao salvar entrada:', error);
+    } finally {
+      setSaving(false);
+    }
   };
 
   // Função para abrir modal de cadastro
   const handleOpenModal = () => {
     setIsAddModalOpen(true);
     // Definir data padrão como hoje
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = getTodayLocal();
     setIncomeForm({ ...incomeForm, date: todayStr });
   };
 
@@ -93,18 +136,77 @@ export function IncomesView() {
   };
 
   // Função para salvar edição
-  const handleSaveEdit = () => {
-    // TODO: Implementar salvamento real da edição
-    console.log('Editando entrada:', editingId, incomeForm);
-    setIsEditModalOpen(false);
-    setEditingId('');
-    setIncomeForm({
-      description: '',
-      category: '',
-      amount: '',
-      date: '',
-      recurring: false,
-    });
+  const handleSaveEdit = async () => {
+    if (!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date) {
+      return;
+    }
+
+    setSaving(true);
+    try {
+      await updateTransaction(editingId, {
+        description: incomeForm.description,
+        category: incomeForm.category,
+        amount: parseFloat(incomeForm.amount),
+        date: incomeForm.date,
+        recurring: incomeForm.recurring,
+      });
+
+      // Force refresh to update the list immediately
+      await refresh();
+      setIsEditModalOpen(false);
+      setEditingId('');
+      setIncomeForm({
+        description: '',
+        category: '',
+        amount: '',
+        date: '',
+        recurring: false,
+      });
+    } catch (error) {
+      console.error('Erro ao editar entrada:', error);
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Função para marcar como recebido
+  const handleTogglePaid = async (incomeId: string, currentPaid: boolean) => {
+    try {
+      await updateTransaction(incomeId, {
+        paid: !currentPaid,
+      });
+      // Force refresh to update the list immediately
+      await refresh();
+    } catch (error) {
+      console.error('Erro ao atualizar status:', error);
+    }
+  };
+
+  // Função para abrir modal de confirmação de delete
+  const handleOpenDeleteModal = (id: string, description: string) => {
+    setDeletingId(id);
+    setDeletingDescription(description);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Função para deletar entrada
+  const handleDeleteIncome = async () => {
+    if (!deletingId) return;
+
+    try {
+      setSaving(true);
+      await deleteTransaction(deletingId);
+      // Force refresh to update the list immediately
+      await refresh();
+      setIsDeleteModalOpen(false);
+      setDeletingId('');
+      setDeletingDescription('');
+    } catch (err) {
+      console.error('Error deleting income:', err);
+      alert('Erro ao deletar entrada. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
   };
 
   return (
@@ -209,16 +311,28 @@ export function IncomesView() {
           <div className="space-y-2">
             {overdue.map(income => (
               <div key={income.id} className="bg-white/5 rounded-lg p-4 flex items-center justify-between">
-                <div>
+                <div className="flex-1">
                   <p className="font-medium text-white">{income.description}</p>
                   <p className="text-sm text-[#D97B7B] mt-1">
-                    Previsto para {new Date(income.date).toLocaleDateString('pt-BR')}
+                    Previsto para {formatDateToLocaleString(income.date)}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-white">R$ {income.amount.toFixed(2)}</p>
-                  <button className="mt-2 px-3 py-1 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] text-sm rounded font-medium transition-colors">
-                    Marcar como Recebido
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-white">R$ {income.amount.toFixed(2)}</p>
+                    <button
+                      onClick={() => handleTogglePaid(income.id, income.paid)}
+                      className="mt-2 px-3 py-1 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] text-sm rounded font-medium transition-colors"
+                    >
+                      Marcar como Recebido
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => handleOpenDeleteModal(income.id, income.description)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    title="Deletar entrada"
+                  >
+                    <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
                   </button>
                 </div>
               </div>
@@ -256,7 +370,7 @@ export function IncomesView() {
                     </div>
 
                     <div className="flex items-center gap-4 mt-1 text-sm text-[#9CA3AF]">
-                      <span>Previsto para {new Date(income.date).toLocaleDateString('pt-BR')}</span>
+                      <span>Previsto para {formatDateToLocaleString(income.date)}</span>
                       <span>•</span>
                       <span>{income.category}</span>
                     </div>
@@ -278,7 +392,18 @@ export function IncomesView() {
                     <Edit className="w-5 h-5 text-[#9CA3AF]" />
                   </button>
 
-                  <button className="px-4 py-2 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-lg text-sm font-medium transition-colors">
+                  <button
+                    onClick={() => handleOpenDeleteModal(income.id, income.description)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    title="Deletar"
+                  >
+                    <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
+                  </button>
+
+                  <button
+                    onClick={() => handleTogglePaid(income.id, income.paid)}
+                    className="px-4 py-2 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-lg text-sm font-medium transition-colors"
+                  >
                     Marcar como Recebido
                   </button>
                 </div>
@@ -323,7 +448,7 @@ export function IncomesView() {
                     </div>
 
                     <div className="flex items-center gap-4 mt-1 text-sm text-[#9CA3AF]">
-                      <span>Recebido em {new Date(income.date).toLocaleDateString('pt-BR')}</span>
+                      <span>Recebido em {formatDateToLocaleString(income.date)}</span>
                       <span>•</span>
                       <span>{income.category}</span>
                     </div>
@@ -346,6 +471,14 @@ export function IncomesView() {
                     title="Editar"
                   >
                     <Edit className="w-5 h-5 text-[#9CA3AF]" />
+                  </button>
+
+                  <button
+                    onClick={() => handleOpenDeleteModal(income.id, income.description)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    title="Deletar"
+                  >
+                    <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
                   </button>
                 </div>
               </div>
@@ -381,18 +514,47 @@ export function IncomesView() {
                 </div>
 
                 <div className="flex-1 pb-4">
-                  <p className="text-sm font-medium text-white">
-                    {incomeDate.toLocaleDateString('pt-BR', {
-                      day: '2-digit',
-                      month: 'long'
-                    })}
-                  </p>
-                  <p className="text-sm text-[#9CA3AF] mt-1">
-                    {income.description} - R$ {income.amount.toFixed(2)}
-                  </p>
-                  {income.paid && (
-                    <span className="inline-block mt-1 text-xs text-[#76C893]">✓ Recebido</span>
-                  )}
+                  <div className="flex items-start justify-between">
+                    <div>
+                      <p className="text-sm font-medium text-white">
+                        {incomeDate.toLocaleDateString('pt-BR', {
+                          day: '2-digit',
+                          month: 'long'
+                        })}
+                      </p>
+                      <p className="text-sm text-[#9CA3AF] mt-1">
+                        {income.description} - R$ {income.amount.toFixed(2)}
+                      </p>
+                      {income.paid && (
+                        <span className="inline-block mt-1 text-xs text-[#76C893]">✓ Recebido</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleEditIncome(income)}
+                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                        title="Editar"
+                      >
+                        <Edit className="w-4 h-4 text-[#9CA3AF] hover:text-white" />
+                      </button>
+                      <button
+                        onClick={() => handleOpenDeleteModal(income.id, income.description)}
+                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                        title="Deletar"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400 hover:text-red-300" />
+                      </button>
+                      <button
+                        onClick={() => handleTogglePaid(income.id, income.paid || false)}
+                        className={`p-1.5 hover:bg-white/10 rounded-lg transition-colors ${
+                          income.paid ? 'text-[#76C893]' : 'text-[#9CA3AF]'
+                        }`}
+                        title={income.paid ? 'Marcar como não recebido' : 'Marcar como recebido'}
+                      >
+                        <Check className="w-4 h-4" />
+                      </button>
+                    </div>
+                  </div>
                 </div>
               </div>
             );
@@ -452,6 +614,7 @@ export function IncomesView() {
                 placeholder="0,00"
                 value={incomeForm.amount}
                 onChange={(e) => setIncomeForm({ ...incomeForm, amount: e.target.value })}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
@@ -494,10 +657,10 @@ export function IncomesView() {
             </button>
             <button
               onClick={handleSaveIncome}
-              disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date}
+              disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date || saving}
               className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Salvar Entrada
+              {saving ? 'Salvando...' : 'Salvar Entrada'}
             </button>
           </div>
         </DialogContent>
@@ -555,6 +718,7 @@ export function IncomesView() {
                 placeholder="0,00"
                 value={incomeForm.amount}
                 onChange={(e) => setIncomeForm({ ...incomeForm, amount: e.target.value })}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
@@ -597,10 +761,50 @@ export function IncomesView() {
             </button>
             <button
               onClick={handleSaveEdit}
-              disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date}
+              disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date || saving}
               className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
-              Salvar Alterações
+              {saving ? 'Salvando...' : 'Salvar Alterações'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação de Delete */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
+              <div className="w-12 h-12 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-400" />
+              </div>
+              Deletar Entrada
+            </DialogTitle>
+            <DialogDescription className="text-[#9CA3AF] mt-4">
+              Tem certeza que deseja deletar esta entrada? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 p-4 bg-white/5 border border-white/10 rounded-xl">
+            <p className="text-sm text-[#9CA3AF] mb-1">Entrada:</p>
+            <p className="text-white font-medium">{deletingDescription}</p>
+          </div>
+
+          {/* Botões de ação */}
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-[#9CA3AF] rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleDeleteIncome}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Deletando...' : 'Deletar Entrada'}
             </button>
           </div>
         </DialogContent>

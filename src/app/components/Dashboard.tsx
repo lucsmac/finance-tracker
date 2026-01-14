@@ -1,10 +1,6 @@
-import { useState } from 'react';
+import { useState, useEffect } from 'react';
 import {
-  TrendingUp,
-  TrendingDown,
   DollarSign,
-  ArrowRight,
-  Plus,
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
@@ -14,19 +10,18 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Tabs, TabsList, TabsTrigger, TabsContent } from './ui/tabs';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useEstimates } from '@/lib/hooks/useEstimates';
 import { useTransactions } from '@/lib/hooks/useTransactions';
 import { useConfig } from '@/lib/hooks/useConfig';
+import { useDailyPlans } from '@/lib/hooks/useDailyPlans';
 import {
-  calculateDailyStandard,
   calculateCurrentBalance,
   getVariableExpensesForDate,
-  calculateAccumulatedVariation,
-  calculateDaysUntilNextIncome,
-  calculateCommittedAmount,
   checkProjectionStatus
 } from '../data/mockData';
+import { formatDateLocal, getTodayLocal, parseDateString, createDateFromString, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
 
 interface DashboardProps {
   onNavigate?: (view: string) => void;
@@ -36,23 +31,33 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const { user } = useAuth();
   const { estimates, loading: loadingEstimates } = useEstimates(user?.id);
   const { transactions, loading: loadingTransactions, createTransaction } = useTransactions(user?.id);
-  const { config, loading: loadingConfig } = useConfig(user?.id);
+  const { config, loading: loadingConfig, createConfig } = useConfig(user?.id);
+  const { dailyPlans, loading: loadingPlans, upsertDailyPlan, getPlannedForDate } = useDailyPlans(user?.id);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 0, 8)); // Janeiro 2026, dia 8
   const [saving, setSaving] = useState(false);
 
-  // Estados do modal de cadastro de gasto
-  const [isExpenseModalOpen, setIsExpenseModalOpen] = useState(false);
-  const [selectedDay, setSelectedDay] = useState<string>('');
-  const [expenseForm, setExpenseForm] = useState({
-    amount: '',
-    category: '',
-    time: '',
-    location: ''
-  });
+  // Auto-create default config if user doesn't have one
+  useEffect(() => {
+    if (!loadingConfig && !config && user?.id) {
+      createConfig({
+        initialBalance: 0,
+        monthStartDay: 1,
+        mainIncomeDay: 5,
+        mainIncomeAmount: 0,
+        dailyStandard: 0
+      }).catch((err: any) => {
+        console.error('Error creating default config:', err);
+      });
+    }
+  }, [config, loadingConfig, user?.id, createConfig]);
 
-  // Estados do modal de detalhes do dia
-  const [isDayDetailModalOpen, setIsDayDetailModalOpen] = useState(false);
-  const [detailDay, setDetailDay] = useState<string>('');
+  // Estados do modal unificado com abas
+  const [isDayModalOpen, setIsDayModalOpen] = useState(false);
+  const [selectedDay, setSelectedDay] = useState<string>('');
+  const [activeTab, setActiveTab] = useState<string>('planned'); // 'planned' ou 'details'
+  const [plannedForm, setPlannedForm] = useState({
+    plannedAmount: ''
+  });
 
   // Estados do modal de projeção "E se?"
   const [isProjectionModalOpen, setIsProjectionModalOpen] = useState(false);
@@ -65,22 +70,104 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   });
 
   // Loading state
-  const loading = loadingEstimates || loadingTransactions || loadingConfig;
+  const loading = loadingEstimates || loadingTransactions || loadingConfig || loadingPlans;
 
   // Calcular valores baseados na data selecionada
-  const currentDateStr = selectedDate.toISOString().split('T')[0];
-  const dailyStandard = calculateDailyStandard(estimates);
+  const currentDateStr = formatDateLocal(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
+  const dailyStandard = config?.dailyStandard || 0;
   const initialBalance = config?.initialBalance || 0;
   const currentBalance = calculateCurrentBalance(initialBalance, transactions);
 
-  const today = '2026-01-08';
+  // Usar a data real atual
+  const today = getTodayLocal();
   const todayExpenses = getVariableExpensesForDate(today, transactions);
   const todayVariation = dailyStandard - todayExpenses;
 
+  // Calcular próxima renda baseado no config do usuário
+  const calculateNextIncome = (): { days: number; date: string } => {
+    if (!config?.mainIncomeDay) return { days: 0, date: '' };
+
+    const currentDate = createDateFromString(today);
+    const currentDay = currentDate.getDate();
+    const incomeDay = config.mainIncomeDay;
+
+    let nextIncomeYear: number;
+    let nextIncomeMonth: number;
+
+    if (currentDay < incomeDay) {
+      // Próximo salário é neste mês
+      nextIncomeYear = currentDate.getFullYear();
+      nextIncomeMonth = currentDate.getMonth();
+    } else {
+      // Próximo salário é no próximo mês
+      const tempDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
+      nextIncomeYear = tempDate.getFullYear();
+      nextIncomeMonth = tempDate.getMonth();
+    }
+
+    const nextIncomeDate = new Date(nextIncomeYear, nextIncomeMonth, incomeDay);
+    const diffTime = nextIncomeDate.getTime() - currentDate.getTime();
+    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+
+    return {
+      days: diffDays,
+      date: formatDateLocal(nextIncomeYear, nextIncomeMonth, incomeDay)
+    };
+  };
+
+  // Calcular gastos comprometidos até a próxima renda
+  const calculateCommittedUntilNextIncome = (nextIncomeDate: string): number => {
+    // Gastos fixos e parcelas entre hoje e próxima renda
+    const committed = transactions
+      .filter(t =>
+        t.date >= today &&
+        t.date < nextIncomeDate &&
+        (t.type === 'expense_fixed' || t.type === 'installment')
+      )
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return committed;
+  };
+
+  // Calcular variação acumulada do mês (considera planejado vs realizado)
+  const calculateMonthVariation = (): number => {
+    const todayObj = createDateFromString(today);
+    const currentMonth = todayObj.getMonth();
+    const currentYear = todayObj.getFullYear();
+    const monthStart = formatDateLocal(currentYear, currentMonth, 1);
+
+    let totalVariation = 0;
+
+    // Processar cada dia desde o início do mês até hoje
+    const startDay = 1;
+    const endDay = todayObj.getDate();
+
+    for (let day = startDay; day <= endDay; day++) {
+      const dateStr = formatDateLocal(currentYear, currentMonth, day);
+
+      // Pegar gastos variáveis do dia
+      const dayVariableExpenses = transactions
+        .filter(t => t.type === 'expense_variable' && t.date === dateStr)
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      if (dayVariableExpenses > 0) {
+        // Tem gastos reais: comparar com o padrão
+        totalVariation += (dailyStandard - dayVariableExpenses);
+      } else {
+        // Não tem gastos: verificar se tem planejado customizado
+        const customPlanned = getPlannedForDate(dateStr);
+        const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
+        totalVariation += (dailyStandard - plannedAmount);
+      }
+    }
+
+    return totalVariation;
+  };
+
   // Novos cálculos
-  const accumulatedVariation = calculateAccumulatedVariation(dailyStandard, transactions, today);
-  const nextIncomeInfo = calculateDaysUntilNextIncome(today, transactions);
-  const committedAmount = calculateCommittedAmount(transactions, today);
+  const accumulatedVariation = calculateMonthVariation();
+  const nextIncomeInfo = calculateNextIncome();
+  const committedAmount = calculateCommittedUntilNextIncome(nextIncomeInfo.date);
   const projectionStatus = checkProjectionStatus(currentBalance, committedAmount, dailyStandard, nextIncomeInfo.days);
 
   // Funções de navegação de mês
@@ -104,7 +191,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   const formatNextIncomeDate = (dateStr: string) => {
     if (!dateStr) return '';
-    const date = new Date(dateStr);
+    const date = createDateFromString(dateStr);
     const day = date.getDate();
     const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
@@ -113,51 +200,47 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   const getDayOfWeek = (dateStr: string): string => {
     const daysOfWeek = ['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'];
-    const date = new Date(dateStr);
+    const date = createDateFromString(dateStr);
     return daysOfWeek[date.getDay()];
   };
 
-  // Funções do modal de gasto
-  const handleDayClick = (dateStr: string) => {
+  // Funções do modal unificado
+  const handleDayClick = (dateStr: string, tab: 'planned' | 'details' = 'planned') => {
     setSelectedDay(dateStr);
-    setIsExpenseModalOpen(true);
-    // Definir hora atual como padrão
-    const now = new Date();
-    const currentTime = `${String(now.getHours()).padStart(2, '0')}:${String(now.getMinutes()).padStart(2, '0')}`;
-    setExpenseForm({ amount: '', category: '', time: currentTime, location: '' });
+    setActiveTab(tab);
+    setIsDayModalOpen(true);
+
+    // Carregar o planejado do dia (se existir) ou usar o padrão
+    const customPlanned = getPlannedForDate(dateStr);
+    setPlannedForm({
+      plannedAmount: customPlanned !== null ? customPlanned.toString() : dailyStandard.toString()
+    });
   };
 
-  const handleSaveExpense = async () => {
-    if (!expenseForm.amount || !expenseForm.category) {
-      alert('Preencha os campos obrigatórios');
+  const handleSavePlanned = async () => {
+    if (plannedForm.plannedAmount === '') {
+      alert('Preencha o valor planejado');
+      return;
+    }
+
+    const value = parseFloat(plannedForm.plannedAmount);
+    if (isNaN(value) || value < 0) {
+      alert('Valor inválido. Digite um número válido.');
       return;
     }
 
     try {
       setSaving(true);
-      await createTransaction({
-        type: 'expense_variable',
-        category: expenseForm.category,
-        description: `${expenseForm.category}${expenseForm.location ? ` - ${expenseForm.location}` : ''}`,
-        amount: parseFloat(expenseForm.amount),
-        date: selectedDay,
-        paid: true
-      });
-
-      setIsExpenseModalOpen(false);
-      setExpenseForm({ amount: '', category: '', time: '', location: '' });
-    } catch (err) {
-      console.error('Error saving expense:', err);
-      alert('Erro ao salvar gasto. Tente novamente.');
+      await upsertDailyPlan(selectedDay, value);
+      alert('Planejamento salvo com sucesso!');
+      setIsDayModalOpen(false);
+    } catch (err: any) {
+      console.error('Error saving planned:', err);
+      const errorMessage = err?.message || err?.error?.message || JSON.stringify(err);
+      alert(`Erro ao salvar planejamento: ${errorMessage}`);
     } finally {
       setSaving(false);
     }
-  };
-
-  // Funções do modal de detalhes do dia
-  const handleOpenDayDetail = (dateStr: string) => {
-    setDetailDay(dateStr);
-    setIsDayDetailModalOpen(true);
   };
 
   // Funções do modal de projeção "E se?"
@@ -215,91 +298,139 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const daysInMonth = new Date(year, month + 1, 0).getDate();
   const firstDayOfWeek = new Date(year, month, 1).getDay();
 
-  const calendarDays = [];
+  const calendarDays: any[] = [];
 
-  // Dias vazios antes do primeiro dia
-  for (let i = 0; i < firstDayOfWeek; i++) {
-    calendarDays.push(null);
+  // Função para calcular o saldo até uma determinada data (planejado vs realizado)
+  const calculateBalanceUntilDate = (targetDateStr: string): number => {
+    // Saldo inicial
+    let balance = initialBalance;
+
+    // Criar um array com todas as datas desde o início do ano (ou primeira transação) até a data alvo
+    // Sempre processar desde o início para garantir que todas as transações sejam consideradas
+    const allTransactionDates = [...transactions, ...hypotheticalTransactions].map(t => t.date).sort();
+    const firstTransactionDate = allTransactionDates.length > 0 ? allTransactionDates[0] : today;
+
+    // Usar o menor entre: primeira transação ou início do ano atual
+    const currentYear = new Date().getFullYear();
+    const yearStart = formatDateLocal(currentYear, 0, 1);
+    const startDate = firstTransactionDate < yearStart ? firstTransactionDate : yearStart;
+    const endDate = targetDateStr;
+
+    const allDates: string[] = [];
+
+    // Parse start and end dates
+    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
+
+    const startDateObj = new Date(startYear, startMonth - 1, startDay);
+    const endDateObj = new Date(endYear, endMonth - 1, endDay);
+
+    // Generate all dates between start and end
+    for (let d = new Date(startDateObj); d <= endDateObj; d.setDate(d.getDate() + 1)) {
+      allDates.push(formatDateLocal(d.getFullYear(), d.getMonth(), d.getDate()));
+    }
+
+    // Processar cada dia
+    allDates.forEach(dateStr => {
+      // Pegar todas as transações deste dia específico
+      const dayTransactions = [...transactions, ...hypotheticalTransactions].filter(t => t.date === dateStr);
+
+      // 1. ENTRADAS (income) - SOMAR
+      const incomes = dayTransactions.filter(t => t.type === 'income');
+      incomes.forEach(t => {
+        balance += t.amount;
+      });
+
+      // 2. GASTOS FIXOS (expense_fixed) - SUBTRAIR
+      const fixedExpenses = dayTransactions.filter(t => t.type === 'expense_fixed');
+      fixedExpenses.forEach(t => {
+        balance -= t.amount;
+      });
+
+      // 3. PARCELAS (installment) - SUBTRAIR
+      const installments = dayTransactions.filter(t => t.type === 'installment');
+      installments.forEach(t => {
+        balance -= t.amount;
+      });
+
+      // 4. INVESTIMENTOS (investment) - SUBTRAIR
+      const investments = dayTransactions.filter(t => t.type === 'investment');
+      investments.forEach(t => {
+        balance -= t.amount;
+      });
+
+      // 5. GASTOS VARIÁVEIS - usar REALIZADO se existir, senão usar PLANEJADO
+      const variableExpenses = dayTransactions.filter(t => t.type === 'expense_variable');
+
+      if (variableExpenses.length > 0) {
+        // Tem gasto real: usar o total real
+        const totalReal = variableExpenses.reduce((sum, t) => sum + t.amount, 0);
+        balance -= totalReal;
+      } else {
+        // Não tem gasto real: descontar o planejado (customizado ou padrão)
+        const customPlanned = getPlannedForDate(dateStr);
+        const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
+        balance -= plannedAmount;
+      }
+    });
+
+    return balance;
+  };
+
+  // Dias do mês anterior para completar a primeira semana
+  if (firstDayOfWeek > 0) {
+    const prevMonth = month === 0 ? 11 : month - 1;
+    const prevYear = month === 0 ? year - 1 : year;
+    const daysInPrevMonth = new Date(prevYear, prevMonth + 1, 0).getDate();
+
+    for (let i = firstDayOfWeek - 1; i >= 0; i--) {
+      const day = daysInPrevMonth - i;
+      const dateStr = formatDateLocal(prevYear, prevMonth, day);
+
+      // Calcular saldo real para este dia
+      const dayBalance = calculateBalanceUntilDate(dateStr);
+
+      // Calcular gastos do dia para exibição
+      const dayTransactions = [...transactions, ...hypotheticalTransactions].filter(t => t.date === dateStr);
+      const dayExpenses = dayTransactions
+        .filter(t => t.type !== 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      calendarDays.push({
+        day,
+        dateStr,
+        isPast: true,
+        isToday: false,
+        isFuture: false,
+        isOtherMonth: true,
+        status: 'neutral',
+        balance: dayBalance,
+        expense: dayExpenses
+      });
+    }
   }
 
   // Combinar transações reais com hipotéticas para projeção
   const allTransactions = [...transactions, ...hypotheticalTransactions];
 
-  // Calcular saldo para cada dia
-  let runningBalance = config?.initialBalance || 0;
-  const todayDate = new Date(today);
-
-  // Primeiro, processar todas as transações até hoje para ter o saldo correto
-  const sortedTransactions = [...allTransactions]
-    .filter(t => t.paid || hypotheticalTransactions.some(ht => ht.id === t.id))
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
-
-  // Criar um mapa de saldos por dia (dias passados)
-  const balanceByDay = new Map<string, number>();
-  let tempBalance = config.initialBalance;
-
-  sortedTransactions.forEach(t => {
-    const tDate = t.date;
-    if (t.type === 'income') {
-      tempBalance += t.amount;
-    } else {
-      tempBalance -= t.amount;
-    }
-    balanceByDay.set(tDate, tempBalance);
-  });
-
-  // Resetar runningBalance para começar do saldo atual
-  runningBalance = currentBalance;
-
   // Dias do mês
   for (let day = 1; day <= daysInMonth; day++) {
-    const date = new Date(year, month, day);
-    const dateStr = date.toISOString().split('T')[0];
-    const isPast = date < todayDate;
+    const dateStr = formatDateLocal(year, month, day);
+    const isPast = dateStr < today;
     const isToday = dateStr === today;
-    const isFuture = date > todayDate;
+    const isFuture = dateStr > today;
 
-    let status = 'neutral';
-    let dayBalance = 0;
-    let dayExpense = 0;
+    // Calcular saldo até este dia (simples: inicial + entradas - saídas)
+    const dayBalance = calculateBalanceUntilDate(dateStr);
 
-    if (isPast) {
-      // Dia passado: usar saldo calculado do histórico
-      dayBalance = balanceByDay.get(dateStr) || tempBalance;
-      dayExpense = getVariableExpensesForDate(dateStr, transactions);
-    } else if (isToday) {
-      // Hoje: usar saldo atual
-      dayBalance = currentBalance;
-      dayExpense = getVariableExpensesForDate(dateStr, transactions);
-    } else {
-      // Projeção futura
-      // Buscar compromissos do dia (incluindo transações hipotéticas)
-      const dayCommitments = allTransactions.filter(t =>
-        (!t.paid || hypotheticalTransactions.some(ht => ht.id === t.id)) &&
-        t.date === dateStr &&
-        (t.type === 'expense_fixed' || t.type === 'installment')
-      );
-      const commitmentsTotal = dayCommitments.reduce((sum, c) => sum + c.amount, 0);
-
-      // Adicionar entradas hipotéticas futuras
-      const dayHypotheticalIncomes = hypotheticalTransactions.filter(t =>
-        t.date === dateStr && t.type === 'income'
-      );
-      const hypotheticalIncomesTotal = dayHypotheticalIncomes.reduce((sum, t) => sum + t.amount, 0);
-
-      // Adicionar gastos variáveis hipotéticos
-      const dayHypotheticalExpenses = hypotheticalTransactions.filter(t =>
-        t.date === dateStr && t.type === 'expense_variable'
-      );
-      const hypotheticalExpensesTotal = dayHypotheticalExpenses.reduce((sum, t) => sum + t.amount, 0);
-
-      // Calcular saldo projetado (incluindo transações hipotéticas)
-      runningBalance = runningBalance - dailyStandard - commitmentsTotal - hypotheticalExpensesTotal + hypotheticalIncomesTotal;
-      dayBalance = runningBalance;
-      dayExpense = dailyStandard + commitmentsTotal + hypotheticalExpensesTotal; // Gasto projetado
-    }
+    // Calcular gastos do dia para exibição
+    const dayTransactions = allTransactions.filter(t => t.date === dateStr);
+    const dayExpenses = dayTransactions
+      .filter(t => t.type !== 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
 
     // Determinar status baseado no saldo
+    let status = 'neutral';
     if (dayBalance >= 2000) {
       status = 'comfortable';
     } else if (dayBalance < 2000 && dayBalance >= 1000) {
@@ -310,7 +441,49 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       status = 'critical';
     }
 
-    calendarDays.push({ day, dateStr, isPast, isToday, isFuture, status, balance: dayBalance, expense: dayExpense });
+    calendarDays.push({
+      day,
+      dateStr,
+      isPast,
+      isToday,
+      isFuture,
+      isOtherMonth: false,
+      status,
+      balance: dayBalance,
+      expense: dayExpenses
+    });
+  }
+
+  // Dias do próximo mês para completar a última semana
+  const remainingDays = 7 - (calendarDays.length % 7);
+  if (remainingDays < 7) {
+    const nextMonth = month === 11 ? 0 : month + 1;
+    const nextYear = month === 11 ? year + 1 : year;
+
+    for (let day = 1; day <= remainingDays; day++) {
+      const dateStr = formatDateLocal(nextYear, nextMonth, day);
+
+      // Calcular saldo real para este dia
+      const dayBalance = calculateBalanceUntilDate(dateStr);
+
+      // Calcular gastos do dia para exibição
+      const dayTransactions = [...transactions, ...hypotheticalTransactions].filter(t => t.date === dateStr);
+      const dayExpenses = dayTransactions
+        .filter(t => t.type !== 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      calendarDays.push({
+        day,
+        dateStr,
+        isPast: false,
+        isToday: false,
+        isFuture: true,
+        isOtherMonth: true,
+        status: 'neutral',
+        balance: dayBalance,
+        expense: dayExpenses
+      });
+    }
   }
 
   return (
@@ -363,21 +536,21 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-6">
           {/* Card 1 - Saldo Disponível */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
-            <p className="text-[#9CA3AF] text-sm mb-1">Saldo Disponível</p>
+            <p className="text-[#9CA3AF] text-sm mb-1">Saldo disponível</p>
             <p className="text-2xl sm:text-3xl font-bold text-white mb-1">R$ {currentBalance.toFixed(2)}</p>
             <p className="text-xs text-[#9CA3AF]">Saldo atual em conta</p>
           </div>
 
           {/* Card 2 - Valor Diário Padrão */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-x sm:border-white/10">
-            <p className="text-[#9CA3AF] text-sm mb-1">Valor Diário Padrão</p>
+            <p className="text-[#9CA3AF] text-sm mb-1">Valor diário padrão</p>
             <p className="text-2xl sm:text-3xl font-bold text-white mb-1">R$ {dailyStandard.toFixed(2)}</p>
             <p className="text-xs text-[#9CA3AF]">Base fixa calculada das estimativas</p>
           </div>
 
           {/* Card 3 - Gasto de Hoje */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-r sm:border-white/10">
-            <p className="text-[#9CA3AF] text-sm mb-1">Gasto de Hoje</p>
+            <p className="text-[#9CA3AF] text-sm mb-1">Gasto de hoje</p>
             <p className="text-2xl sm:text-3xl font-bold text-white mb-1">R$ {todayExpenses.toFixed(2)}</p>
             <p className={`text-xs ${todayVariation >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
               {todayVariation >= 0 ? 'Economizou' : 'Gastou'} R$ {Math.abs(todayVariation).toFixed(2)}
@@ -386,7 +559,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
           {/* Card 4 - Gastos do Mês */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
-            <p className="text-[#9CA3AF] text-sm mb-1">Gastos do Mês</p>
+            <p className="text-[#9CA3AF] text-sm mb-1">Gastos do mês</p>
             <p className={`text-2xl sm:text-3xl font-bold mb-1 ${accumulatedVariation >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
               {accumulatedVariation >= 0 ? '+' : ''}R$ {accumulatedVariation.toFixed(2)}
             </p>
@@ -397,14 +570,23 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
       {/* Balance Projection Section */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
-        <h2 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Projeção de Saldo</h2>
+        <h2 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Projeção de saldo</h2>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
           {/* Sub-card 1 - Dias até próxima renda */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Dias até próxima renda</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{nextIncomeInfo.days} dias</p>
-            <p className="text-xs text-[#9CA3AF]">Salário em {formatNextIncomeDate(nextIncomeInfo.date)}</p>
+            {nextIncomeInfo.days > 0 ? (
+              <>
+                <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{nextIncomeInfo.days} dias</p>
+                <p className="text-xs text-[#9CA3AF]">Salário em {formatNextIncomeDate(nextIncomeInfo.date)}</p>
+              </>
+            ) : (
+              <>
+                <p className="text-2xl sm:text-3xl font-bold text-white/50 mb-1">-</p>
+                <p className="text-xs text-[#9CA3AF]">Configure o dia do salário</p>
+              </>
+            )}
           </div>
 
           {/* Sub-card 2 - Status da projeção */}
@@ -433,6 +615,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
         {calendarDays.map((dayData, index) => {
           if (!dayData) return null;
+
+          // Pular dias de outros meses na versão mobile (só mostrar no desktop)
+          if (dayData.isOtherMonth) return null;
 
           let bgColor = 'bg-white/5';
           let borderColor = 'border-white/10';
@@ -470,40 +655,34 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           // Calcular entradas e saídas do dia
           const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
           const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-          const dayExpenses = dayTransactions.filter(t => t.type !== 'income').reduce((sum, t) => sum + t.amount, 0);
+
+          // Calcular saídas: considerar valor planejado se não houver gastos variáveis
+          const variableExpenses = dayTransactions.filter(t => t.type === 'expense_variable');
+          const otherExpenses = dayTransactions.filter(t => t.type !== 'income' && t.type !== 'expense_variable');
+          const otherExpensesTotal = otherExpenses.reduce((sum, t) => sum + t.amount, 0);
+
+          let dayExpenses = otherExpensesTotal;
+          if (variableExpenses.length > 0) {
+            // Tem gastos reais variáveis: usar o total real
+            dayExpenses += variableExpenses.reduce((sum, t) => sum + t.amount, 0);
+          } else {
+            // Não tem gastos reais: usar o planejado (customizado ou padrão)
+            const customPlanned = getPlannedForDate(dayData.dateStr);
+            const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
+            dayExpenses += plannedAmount;
+          }
 
           return (
             <div
-              key={dayData.day}
-              className={`${bgColor} ${borderColor} border-2 rounded-xl p-4`}
+              key={`${dayData.dateStr}-${index}`}
+              onClick={() => handleDayClick(dayData.dateStr)}
+              className={`${bgColor} ${borderColor} border-2 rounded-xl p-4 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-transform`}
             >
-              {/* Header: Dia da semana + número + botões */}
+              {/* Header: Dia da semana + número */}
               <div className="flex items-center justify-between mb-3">
                 <div>
                   <span className="text-xs text-[#9CA3AF] uppercase">{getDayOfWeek(dayData.dateStr)}</span>
                   <span className={`ml-2 text-xl font-bold ${dayNumberColor}`}>{dayData.day}</span>
-                </div>
-                <div className="flex items-center gap-2">
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleDayClick(dayData.dateStr);
-                    }}
-                    className="p-2 bg-[#76C893]/80 hover:bg-[#76C893] text-[#161618] rounded transition-colors"
-                    title="Adicionar gasto"
-                  >
-                    <Plus className="w-5 h-5" />
-                  </button>
-                  <button
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleOpenDayDetail(dayData.dateStr);
-                    }}
-                    className="p-2 bg-white/20 hover:bg-white/30 text-white rounded transition-colors"
-                    title="Ver detalhes"
-                  >
-                    <Eye className="w-5 h-5" />
-                  </button>
                 </div>
               </div>
 
@@ -515,19 +694,18 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 </p>
               </div>
 
-              {/* Entradas e Saídas */}
-              <div className="flex items-center justify-between pt-3 border-t border-white/10">
-                <div>
-                  <p className="text-xs text-[#9CA3AF]">Entradas</p>
-                  <p className="text-sm font-medium text-[#76C893]">
-                    {dayIncomes > 0 ? `R$ ${dayIncomes.toFixed(0)}` : '-'}
-                  </p>
-                </div>
-                <div className="text-right">
-                  <p className="text-xs text-[#9CA3AF]">Saídas</p>
-                  <p className="text-sm font-medium text-[#D97B7B]">
-                    {dayExpenses > 0 ? `R$ ${dayExpenses.toFixed(0)}` : '-'}
-                  </p>
+              {/* Total do Dia */}
+              <div className="flex items-center justify-center pt-3 border-t border-white/10">
+                <div className="text-center">
+                  <p className="text-xs text-[#9CA3AF] mb-1">Total do dia</p>
+                  {(() => {
+                    const dayTotal = dayIncomes - dayExpenses;
+                    return (
+                      <p className={`text-sm font-medium ${dayTotal >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+                        {dayTotal >= 0 ? '+' : ''}R$ {dayTotal.toFixed(0)}
+                      </p>
+                    );
+                  })()}
                 </div>
               </div>
             </div>
@@ -551,6 +729,63 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           {calendarDays.map((dayData, index) => {
             if (!dayData) {
               return <div key={`empty-${index}`} className="aspect-square" />;
+            }
+
+            // Estilos especiais para dias de outros meses
+            if (dayData.isOtherMonth) {
+              // Calcular entradas e saídas do dia
+              const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
+              const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+
+              // Calcular saídas: considerar valor planejado se não houver gastos variáveis
+              const variableExpenses = dayTransactions.filter(t => t.type === 'expense_variable');
+              const otherExpenses = dayTransactions.filter(t => t.type !== 'income' && t.type !== 'expense_variable');
+              const otherExpensesTotal = otherExpenses.reduce((sum, t) => sum + t.amount, 0);
+
+              let dayExpenses = otherExpensesTotal;
+              if (variableExpenses.length > 0) {
+                dayExpenses += variableExpenses.reduce((sum, t) => sum + t.amount, 0);
+              } else {
+                const customPlanned = getPlannedForDate(dayData.dateStr);
+                const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
+                dayExpenses += plannedAmount;
+              }
+
+              return (
+                <div
+                  key={`${dayData.dateStr}-${index}`}
+                  className="aspect-square bg-white/5 border border-white/5 rounded-2xl p-2 opacity-40 cursor-not-allowed relative flex flex-col"
+                >
+                  {/* Header: Número do dia */}
+                  <div className="flex items-start justify-between mb-1">
+                    <span className="text-lg font-bold text-white/70">
+                      {dayData.day}
+                    </span>
+                  </div>
+
+                  {/* Centro: Saldo */}
+                  <div className="flex-1 flex items-center justify-center">
+                    <div className="text-center">
+                      <p className="text-xs text-white/40 mb-0.5">Saldo</p>
+                      <p className="text-base font-bold text-white/70">
+                        R$ {dayData.balance.toFixed(0)}
+                      </p>
+                    </div>
+                  </div>
+
+                  {/* Footer: Total do Dia */}
+                  <div className="flex items-center justify-center text-xs pt-1 border-t border-white/10">
+                    {(() => {
+                      const dayTotal = dayIncomes - dayExpenses;
+                      return (
+                        <span className={`text-white/50 ${dayTotal >= 0 ? 'text-[#76C893]/70' : 'text-[#D97B7B]/70'}`}>
+                          {dayTotal >= 0 ? '+' : ''}R$ {dayTotal.toFixed(0)}
+                        </span>
+                      );
+                    })()}
+                  </div>
+                </div>
+              );
             }
 
             let bgColor = 'bg-white/5';
@@ -584,43 +819,32 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             // Calcular entradas e saídas do dia (incluindo transações hipotéticas)
             const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
             const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-            const dayExpenses = dayTransactions.filter(t => t.type !== 'income').reduce((sum, t) => sum + t.amount, 0);
+
+            // Calcular saídas: considerar valor planejado se não houver gastos variáveis
+            const variableExpenses = dayTransactions.filter(t => t.type === 'expense_variable');
+            const otherExpenses = dayTransactions.filter(t => t.type !== 'income' && t.type !== 'expense_variable');
+            const otherExpensesTotal = otherExpenses.reduce((sum, t) => sum + t.amount, 0);
+
+            let dayExpenses = otherExpensesTotal;
+            if (variableExpenses.length > 0) {
+              dayExpenses += variableExpenses.reduce((sum, t) => sum + t.amount, 0);
+            } else {
+              const customPlanned = getPlannedForDate(dayData.dateStr);
+              const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
+              dayExpenses += plannedAmount;
+            }
 
             return (
               <div
-                key={dayData.day}
-                className={`aspect-square ${bgColor} ${borderColor} border-2 rounded-2xl p-2 hover:scale-102 transition-all relative flex flex-col`}
+                key={`${dayData.dateStr}-${index}`}
+                onClick={() => handleDayClick(dayData.dateStr)}
+                className={`aspect-square ${bgColor} ${borderColor} border-2 rounded-2xl p-2 hover:scale-105 cursor-pointer transition-all relative flex flex-col`}
               >
-                {/* Header: Número do dia (esq) e Botões (dir) */}
+                {/* Header: Número do dia */}
                 <div className="flex items-start justify-between mb-1">
-                  {/* Número do dia */}
                   <span className={`text-lg font-bold ${dayNumberColor}`}>
                     {dayData.day}
                   </span>
-
-                  {/* Botões de ação */}
-                  <div className="flex items-center gap-1">
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleDayClick(dayData.dateStr);
-                      }}
-                      className="p-1 bg-[#76C893]/80 hover:bg-[#76C893] text-[#161618] rounded transition-colors"
-                      title="Adicionar gasto"
-                    >
-                      <Plus className="w-3 h-3" />
-                    </button>
-                    <button
-                      onClick={(e) => {
-                        e.stopPropagation();
-                        handleOpenDayDetail(dayData.dateStr);
-                      }}
-                      className="p-1 bg-white/20 hover:bg-white/30 text-white rounded transition-colors"
-                      title="Ver detalhes"
-                    >
-                      <Eye className="w-3 h-3" />
-                    </button>
-                  </div>
                 </div>
 
                 {/* Centro: Saldo */}
@@ -633,16 +857,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   </div>
                 </div>
 
-                {/* Footer: Resumo de Entradas e Saídas */}
-                <div className="flex items-center justify-between text-xs pt-1 border-t border-white/10">
-                  <div className="flex items-center gap-1">
-                    <span className="text-[#76C893]">↑</span>
-                    <span className="text-white/70">{dayIncomes > 0 ? `R$ ${dayIncomes.toFixed(0)}` : '-'}</span>
-                  </div>
-                  <div className="flex items-center gap-1">
-                    <span className="text-[#D97B7B]">↓</span>
-                    <span className="text-white/70">{dayExpenses > 0 ? `R$ ${dayExpenses.toFixed(0)}` : '-'}</span>
-                  </div>
+                {/* Footer: Total do Dia */}
+                <div className="flex items-center justify-center text-xs pt-1 border-t border-white/10">
+                  {(() => {
+                    const dayTotal = dayIncomes - dayExpenses;
+                    return (
+                      <span className={`${dayTotal >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+                        {dayTotal >= 0 ? '+' : ''}R$ {dayTotal.toFixed(0)}
+                      </span>
+                    );
+                  })()}
                 </div>
               </div>
             );
@@ -671,15 +895,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Quick Actions */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 sm:gap-4">
-        <button
-          onClick={() => handleDayClick(today)}
-          className="bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-2xl p-4 sm:p-6 flex items-center justify-center gap-3 transition-all shadow-lg hover:shadow-xl hover:scale-105"
-        >
-          <Plus className="w-5 h-5 sm:w-6 sm:h-6" />
-          <span className="font-semibold text-sm sm:text-base">Adicionar Gasto</span>
-        </button>
-
+      <div className="grid grid-cols-1 gap-3 sm:gap-4">
         <button
           onClick={handleOpenProjection}
           className="bg-white/10 backdrop-blur-xl border-2 border-[#a6c88c]/30 hover:border-[#a6c88c] text-white rounded-2xl p-4 sm:p-6 flex items-center justify-center gap-3 transition-all hover:scale-105"
@@ -689,315 +905,290 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         </button>
       </div>
 
-      {/* Modal de Cadastro de Gasto */}
-      <Dialog open={isExpenseModalOpen} onOpenChange={setIsExpenseModalOpen}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-md">
+      {/* Modal Unificado com Abas */}
+      <Dialog open={isDayModalOpen} onOpenChange={setIsDayModalOpen}>
+        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">
-              Adicionar Gasto
-            </DialogTitle>
-            <DialogDescription className="text-[#9CA3AF]">
-              {selectedDay && new Date(selectedDay).toLocaleDateString('pt-BR', {
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric'
-              })}
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="space-y-4 mt-4">
-            {/* Valor */}
-            <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Valor *
-              </label>
-              <input
-                type="number"
-                step="0.01"
-                placeholder="0,00"
-                value={expenseForm.amount}
-                onChange={(e) => setExpenseForm({ ...expenseForm, amount: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
-              />
-            </div>
-
-            {/* Categoria */}
-            <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Categoria *
-              </label>
-              <select
-                value={expenseForm.category}
-                onChange={(e) => setExpenseForm({ ...expenseForm, category: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
-              >
-                <option value="" className="bg-[#161618]">Selecione uma categoria</option>
-                {mockEstimates.map((estimate) => (
-                  <option key={estimate.id} value={estimate.category} className="bg-[#161618]">
-                    {estimate.icon} {estimate.category}
-                  </option>
-                ))}
-              </select>
-            </div>
-
-            {/* Horário */}
-            <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Horário *
-              </label>
-              <input
-                type="time"
-                value={expenseForm.time}
-                onChange={(e) => setExpenseForm({ ...expenseForm, time: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
-              />
-            </div>
-
-            {/* Local */}
-            <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Local
-              </label>
-              <input
-                type="text"
-                placeholder="Ex: Supermercado Central"
-                value={expenseForm.location}
-                onChange={(e) => setExpenseForm({ ...expenseForm, location: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
-              />
-            </div>
-          </div>
-
-          {/* Botões de ação */}
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={() => setIsExpenseModalOpen(false)}
-              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-white rounded-xl transition-colors"
-            >
-              Cancelar
-            </button>
-            <button
-              onClick={handleSaveExpense}
-              disabled={!expenseForm.amount || !expenseForm.category || !expenseForm.time || saving}
-              className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-            >
-              {saving ? 'Salvando...' : 'Salvar Gasto'}
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
-
-      {/* Modal de Detalhes do Dia */}
-      <Dialog open={isDayDetailModalOpen} onOpenChange={setIsDayDetailModalOpen}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-2xl">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">
-              Detalhes do Dia
-            </DialogTitle>
-            <DialogDescription className="text-[#9CA3AF]">
-              {detailDay && new Date(detailDay).toLocaleDateString('pt-BR', {
+              {selectedDay && formatDateToLocaleString(selectedDay, 'pt-BR', {
                 weekday: 'long',
                 day: '2-digit',
                 month: 'long',
                 year: 'numeric'
               })}
+            </DialogTitle>
+            <DialogDescription className="text-[#9CA3AF]">
+              Adicione gastos ou veja os detalhes deste dia
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 mt-4">
-            {(() => {
-              // Filtrar transações do dia
-              const dayTransactions = transactions.filter(t => t.date === detailDay);
-              const dayExpenses = dayTransactions.filter(t => t.type !== 'income');
-              const dayIncomes = dayTransactions.filter(t => t.type === 'income');
+          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+            <TabsList className="w-full bg-white/5 border border-white/10 grid grid-cols-2">
+              <TabsTrigger value="planned" className="flex-1 text-white/60 data-[state=active]:bg-white/10 data-[state=active]:text-white hover:text-white transition-colors">
+                <DollarSign className="w-4 h-4 mr-2" />
+                Gasto do dia
+              </TabsTrigger>
+              <TabsTrigger value="details" className="flex-1 text-white/60 data-[state=active]:bg-white/10 data-[state=active]:text-white hover:text-white transition-colors">
+                <Eye className="w-4 h-4 mr-2" />
+                Detalhes
+              </TabsTrigger>
+            </TabsList>
 
-              const totalExpenses = dayExpenses.reduce((sum, t) => sum + t.amount, 0);
-              const totalIncomes = dayIncomes.reduce((sum, t) => sum + t.amount, 0);
-              const balance = totalIncomes - totalExpenses;
+            <TabsContent value="planned" className="mt-6">
+              <div className="space-y-4">
+                {/* Info sobre planejado */}
+                <div className="p-4 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-xl">
+                  <p className="text-sm text-white/70">
+                    <strong className="text-[#9B97CE]">ℹ️ Como funciona:</strong> Se você não registrar gastos reais neste dia,
+                    o sistema vai descontar automaticamente o valor planejado do seu saldo.
+                    Defina um valor customizado aqui ou deixe em branco para usar o padrão.
+                  </p>
+                </div>
 
-              return (
-                <>
-                  {/* Resumo do Dia */}
-                  <div className="grid grid-cols-3 gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
-                    <div className="text-center">
-                      <p className="text-xs text-[#9CA3AF] mb-1">Entradas</p>
-                      <p className="text-lg font-bold text-[#76C893]">R$ {totalIncomes.toFixed(2)}</p>
-                    </div>
-                    <div className="text-center border-x border-white/10">
-                      <p className="text-xs text-[#9CA3AF] mb-1">Saídas</p>
-                      <p className="text-lg font-bold text-[#D97B7B]">R$ {totalExpenses.toFixed(2)}</p>
-                    </div>
-                    <div className="text-center">
-                      <p className="text-xs text-[#9CA3AF] mb-1">Saldo do Dia</p>
-                      <p className={`text-lg font-bold ${balance >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-                        {balance >= 0 ? '+' : ''}R$ {balance.toFixed(2)}
-                      </p>
-                    </div>
+                {/* Valor Padrão */}
+                <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                  <p className="text-xs text-[#9CA3AF] mb-1">Valor diário padrão (global)</p>
+                  <p className="text-2xl font-bold text-white">R$ {dailyStandard.toFixed(2)}</p>
+                </div>
+
+                {/* Valor Planejado Customizado para este dia */}
+                <div>
+                  <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                    Valor gasto neste dia
+                  </label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60">R$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      placeholder={`Padrão: ${dailyStandard.toFixed(2)}`}
+                      value={plannedForm.plannedAmount}
+                      onChange={(e) => setPlannedForm({ ...plannedForm, plannedAmount: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    />
                   </div>
+                  <p className="text-xs text-white/40 mt-1">
+                    Deixe em branco para usar o valor padrão. Defina um valor específico se este dia for diferente.
+                  </p>
+                </div>
 
-                  {/* Padrão vs Realizado (apenas para gastos variáveis) */}
-                  {(() => {
-                    const variableExpenses = dayTransactions
-                      .filter(t => t.type === 'expense_variable')
-                      .reduce((sum, t) => sum + t.amount, 0);
-                    const difference = dailyStandard - variableExpenses;
+                {/* Botões de ação */}
+                <div className="flex gap-3 mt-6">
+                  <button
+                    onClick={() => setIsDayModalOpen(false)}
+                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-white rounded-xl transition-colors"
+                  >
+                    Cancelar
+                  </button>
+                  <button
+                    onClick={handleSavePlanned}
+                    disabled={saving}
+                    className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  >
+                    {saving ? 'Salvando...' : 'Salvar planejamento'}
+                  </button>
+                </div>
+              </div>
+            </TabsContent>
 
-                    return (
-                      <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                        <div className="flex items-center justify-between">
-                          <div>
-                            <p className="text-sm text-[#9CA3AF]">Padrão Diário</p>
-                            <p className="text-2xl font-bold text-white">R$ {dailyStandard.toFixed(2)}</p>
-                          </div>
-                          <div className="text-center px-4">
-                            <p className="text-sm text-[#9CA3AF]">Gasto Real</p>
-                            <p className="text-2xl font-bold text-white">R$ {variableExpenses.toFixed(2)}</p>
-                          </div>
-                          <div className="text-right">
-                            <p className="text-sm text-[#9CA3AF]">Diferença</p>
-                            <p className={`text-2xl font-bold ${difference >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-                              {difference >= 0 ? '+' : ''}R$ {difference.toFixed(2)}
-                            </p>
-                          </div>
+            <TabsContent value="details" className="mt-6">
+              <div className="space-y-4">
+                {(() => {
+                  // Filtrar transações do dia
+                  const dayTransactions = transactions.filter(t => t.date === selectedDay);
+                  const dayExpenses = dayTransactions.filter(t => t.type !== 'income');
+                  const dayIncomes = dayTransactions.filter(t => t.type === 'income');
+
+                  const totalExpenses = dayExpenses.reduce((sum, t) => sum + t.amount, 0);
+                  const totalIncomes = dayIncomes.reduce((sum, t) => sum + t.amount, 0);
+                  const balance = totalIncomes - totalExpenses;
+
+                  return (
+                    <>
+                      {/* Resumo do Dia */}
+                      <div className="grid grid-cols-3 gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
+                        <div className="text-center">
+                          <p className="text-xs text-[#9CA3AF] mb-1">Entradas</p>
+                          <p className="text-lg font-bold text-[#76C893]">R$ {totalIncomes.toFixed(2)}</p>
+                        </div>
+                        <div className="text-center border-x border-white/10">
+                          <p className="text-xs text-[#9CA3AF] mb-1">Saídas</p>
+                          <p className="text-lg font-bold text-[#D97B7B]">R$ {totalExpenses.toFixed(2)}</p>
+                        </div>
+                        <div className="text-center">
+                          <p className="text-xs text-[#9CA3AF] mb-1">Saldo do dia</p>
+                          <p className={`text-lg font-bold ${balance >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+                            {balance >= 0 ? '+' : ''}R$ {balance.toFixed(2)}
+                          </p>
                         </div>
                       </div>
-                    );
-                  })()}
 
-                  {/* Lista de Transações */}
-                  <div className="space-y-3 max-h-96 overflow-y-auto">
-                    {dayTransactions.length === 0 ? (
-                      <div className="text-center py-8">
-                        <p className="text-[#9CA3AF]">Nenhuma transação neste dia</p>
-                      </div>
-                    ) : (
-                      <>
-                        {/* Entradas */}
-                        {dayIncomes.length > 0 && (
-                          <div>
-                            <h4 className="text-sm font-semibold text-[#76C893] mb-2">Entradas</h4>
-                            {dayIncomes.map(t => (
-                              <div key={t.id} className="flex items-center justify-between p-3 bg-[#76C893]/10 border border-[#76C893]/30 rounded-lg mb-2">
-                                <div>
-                                  <p className="font-medium text-white">{t.description}</p>
-                                  <p className="text-sm text-[#9CA3AF]">{t.category}</p>
-                                </div>
-                                <p className="text-lg font-bold text-[#76C893]">+R$ {t.amount.toFixed(2)}</p>
+                      {/* Planejado vs Realizado */}
+                      {(() => {
+                        const variableExpenses = dayTransactions
+                          .filter(t => t.type === 'expense_variable')
+                          .reduce((sum, t) => sum + t.amount, 0);
+
+                        // Pegar o planejado (customizado ou padrão)
+                        const customPlanned = getPlannedForDate(selectedDay);
+                        const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
+                        const difference = plannedAmount - variableExpenses;
+                        const hasRealExpenses = variableExpenses > 0;
+
+                        return (
+                          <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                            <h4 className="text-sm font-semibold text-white mb-3">Planejado vs Realizado</h4>
+                            <div className="grid grid-cols-3 gap-4">
+                              <div>
+                                <p className="text-xs text-[#9CA3AF] mb-1">Planejado</p>
+                                <p className="text-xl font-bold text-[#9B97CE]">R$ {plannedAmount.toFixed(2)}</p>
+                                {customPlanned !== null && (
+                                  <p className="text-xs text-[#9B97CE] mt-1">Customizado</p>
+                                )}
                               </div>
-                            ))}
+                              <div className="text-center border-x border-white/10">
+                                <p className="text-xs text-[#9CA3AF] mb-1">Realizado</p>
+                                <p className={`text-xl font-bold ${hasRealExpenses ? 'text-white' : 'text-white/30'}`}>
+                                  R$ {variableExpenses.toFixed(2)}
+                                </p>
+                                {!hasRealExpenses && (
+                                  <p className="text-xs text-white/50 mt-1">Sem gastos</p>
+                                )}
+                              </div>
+                              <div className="text-right">
+                                <p className="text-xs text-[#9CA3AF] mb-1">Diferença</p>
+                                <p className={`text-xl font-bold ${difference >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+                                  {difference >= 0 ? '+' : ''}R$ {difference.toFixed(2)}
+                                </p>
+                                {difference >= 0 ? (
+                                  <p className="text-xs text-[#76C893] mt-1">Economizou!</p>
+                                ) : (
+                                  <p className="text-xs text-[#D97B7B] mt-1">Excedeu</p>
+                                )}
+                              </div>
+                            </div>
                           </div>
+                        );
+                      })()}
+
+                      {/* Lista de Transações */}
+                      <div className="space-y-3 max-h-96 overflow-y-auto">
+                        {dayTransactions.length === 0 ? (
+                          <div className="text-center py-8">
+                            <p className="text-[#9CA3AF]">Nenhuma transação neste dia</p>
+                          </div>
+                        ) : (
+                          <>
+                            {/* Entradas */}
+                            {dayIncomes.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-[#76C893] mb-2">Entradas</h4>
+                                {dayIncomes.map(t => (
+                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#76C893]/10 border border-[#76C893]/30 rounded-lg mb-2">
+                                    <div>
+                                      <p className="font-medium text-white">{t.description}</p>
+                                      <p className="text-sm text-[#9CA3AF]">{t.category}</p>
+                                    </div>
+                                    <p className="text-lg font-bold text-[#76C893]">+R$ {t.amount.toFixed(2)}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {/* Gastos Variáveis */}
+                            {(() => {
+                              const variableExpenses = dayExpenses.filter(t => t.type === 'expense_variable');
+                              return variableExpenses.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Gastos Variáveis</h4>
+                                  {variableExpenses.map(t => (
+                                    <div key={t.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg mb-2">
+                                      <div>
+                                        <p className="font-medium text-white">{t.description}</p>
+                                        <p className="text-sm text-[#9CA3AF]">{t.category}</p>
+                                      </div>
+                                      <p className="text-lg font-bold text-white">R$ {t.amount.toFixed(2)}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+
+                            {/* Gastos Fixos */}
+                            {(() => {
+                              const fixedExpenses = dayExpenses.filter(t => t.type === 'expense_fixed');
+                              return fixedExpenses.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Gastos Fixos</h4>
+                                  {fixedExpenses.map(t => (
+                                    <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
+                                      <div>
+                                        <p className="font-medium text-white">{t.description}</p>
+                                        <p className="text-sm text-[#9CA3AF]">{t.category}</p>
+                                      </div>
+                                      <div className="text-right">
+                                        <p className="text-lg font-bold text-white">R$ {t.amount.toFixed(2)}</p>
+                                        {t.recurring && (
+                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#8B7AB8]/20 text-[#8B7AB8] rounded">
+                                            Recorrente
+                                          </span>
+                                        )}
+                                      </div>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+
+                            {/* Parcelas */}
+                            {(() => {
+                              const installments = dayExpenses.filter(t => t.type === 'installment');
+                              return installments.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Parcelas</h4>
+                                  {installments.map(t => (
+                                    <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
+                                      <div>
+                                        <p className="font-medium text-white">{t.description}</p>
+                                        <p className="text-sm text-[#9CA3AF]">
+                                          {t.category} • Parcela {t.installmentNumber}/{t.totalInstallments}
+                                        </p>
+                                      </div>
+                                      <p className="text-lg font-bold text-white">R$ {t.amount.toFixed(2)}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+
+                            {/* Investimentos */}
+                            {(() => {
+                              const investments = dayTransactions.filter(t => t.type === 'investment');
+                              return investments.length > 0 && (
+                                <div>
+                                  <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Investimentos</h4>
+                                  {investments.map(t => (
+                                    <div key={t.id} className="flex items-center justify-between p-3 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-lg mb-2">
+                                      <div>
+                                        <p className="font-medium text-white">{t.description}</p>
+                                        <p className="text-sm text-[#9CA3AF]">{t.category}</p>
+                                      </div>
+                                      <p className="text-lg font-bold text-[#9B97CE]">R$ {t.amount.toFixed(2)}</p>
+                                    </div>
+                                  ))}
+                                </div>
+                              );
+                            })()}
+                          </>
                         )}
-
-                        {/* Gastos Variáveis */}
-                        {(() => {
-                          const variableExpenses = dayExpenses.filter(t => t.type === 'expense_variable');
-                          return variableExpenses.length > 0 && (
-                            <div>
-                              <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Gastos Variáveis</h4>
-                              {variableExpenses.map(t => (
-                                <div key={t.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg mb-2">
-                                  <div>
-                                    <p className="font-medium text-white">{t.description}</p>
-                                    <p className="text-sm text-[#9CA3AF]">{t.category}</p>
-                                  </div>
-                                  <p className="text-lg font-bold text-white">R$ {t.amount.toFixed(2)}</p>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
-
-                        {/* Gastos Fixos */}
-                        {(() => {
-                          const fixedExpenses = dayExpenses.filter(t => t.type === 'expense_fixed');
-                          return fixedExpenses.length > 0 && (
-                            <div>
-                              <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Gastos Fixos</h4>
-                              {fixedExpenses.map(t => (
-                                <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
-                                  <div>
-                                    <p className="font-medium text-white">{t.description}</p>
-                                    <p className="text-sm text-[#9CA3AF]">{t.category}</p>
-                                  </div>
-                                  <div className="text-right">
-                                    <p className="text-lg font-bold text-white">R$ {t.amount.toFixed(2)}</p>
-                                    {t.recurring && (
-                                      <span className="inline-block text-xs px-2 py-0.5 bg-[#8B7AB8]/20 text-[#8B7AB8] rounded">
-                                        Recorrente
-                                      </span>
-                                    )}
-                                  </div>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
-
-                        {/* Parcelas */}
-                        {(() => {
-                          const installments = dayExpenses.filter(t => t.type === 'installment');
-                          return installments.length > 0 && (
-                            <div>
-                              <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Parcelas</h4>
-                              {installments.map(t => (
-                                <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
-                                  <div>
-                                    <p className="font-medium text-white">{t.description}</p>
-                                    <p className="text-sm text-[#9CA3AF]">
-                                      {t.category} • Parcela {t.installmentNumber}/{t.totalInstallments}
-                                    </p>
-                                  </div>
-                                  <p className="text-lg font-bold text-white">R$ {t.amount.toFixed(2)}</p>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
-
-                        {/* Investimentos */}
-                        {(() => {
-                          const investments = dayTransactions.filter(t => t.type === 'investment');
-                          return investments.length > 0 && (
-                            <div>
-                              <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Investimentos</h4>
-                              {investments.map(t => (
-                                <div key={t.id} className="flex items-center justify-between p-3 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-lg mb-2">
-                                  <div>
-                                    <p className="font-medium text-white">{t.description}</p>
-                                    <p className="text-sm text-[#9CA3AF]">{t.category}</p>
-                                  </div>
-                                  <p className="text-lg font-bold text-[#9B97CE]">R$ {t.amount.toFixed(2)}</p>
-                                </div>
-                              ))}
-                            </div>
-                          );
-                        })()}
-                      </>
-                    )}
-                  </div>
-                </>
-              );
-            })()}
-          </div>
-
-          {/* Botão de fechar */}
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={() => setIsDayDetailModalOpen(false)}
-              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-white rounded-xl transition-colors"
-            >
-              Fechar
-            </button>
-            <button
-              onClick={() => {
-                setIsDayDetailModalOpen(false);
-                handleDayClick(detailDay);
-              }}
-              className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors"
-            >
-              Adicionar Gasto neste Dia
-            </button>
-          </div>
+                      </div>
+                    </>
+                  );
+                })()}
+              </div>
+            </TabsContent>
+          </Tabs>
         </DialogContent>
       </Dialog>
 
@@ -1078,6 +1269,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     placeholder="0,00"
                     value={projectionForm.amount}
                     onChange={(e) => setProjectionForm({ ...projectionForm, amount: e.target.value })}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
                   />
                 </div>
@@ -1143,7 +1335,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                             </span>
                           </div>
                           <p className="text-sm text-white/50 mt-1">
-                            {new Date(transaction.date).toLocaleDateString('pt-BR', {
+                            {formatDateToLocaleString(transaction.date, 'pt-BR', {
                               day: '2-digit',
                               month: 'long',
                               year: 'numeric'

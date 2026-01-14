@@ -1,14 +1,15 @@
 import { useState } from 'react';
-import { Calendar as CalendarIcon, Check, X, AlertCircle, Plus, ChevronLeft, ChevronRight, Edit } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, X, AlertCircle, Plus, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTransactions } from '@/lib/hooks/useTransactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
+import { getTodayLocal, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
 
 export function CommitmentsView() {
   const { user } = useAuth();
-  const { transactions, loading, error, createTransaction, updateTransaction } = useTransactions(user?.id);
+  const { transactions, loading, error, createTransaction, updateTransaction, deleteTransaction, refresh } = useTransactions(user?.id);
   const today = new Date('2026-01-08');
   const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 0, 8)); // Janeiro 2026
   const [saving, setSaving] = useState(false);
@@ -17,6 +18,11 @@ export function CommitmentsView() {
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string>('');
+
+  // Estados do modal de confirmação de delete
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string>('');
+  const [deletingDescription, setDeletingDescription] = useState<string>('');
   const [commitmentForm, setCommitmentForm] = useState({
     type: 'expense_fixed' as 'expense_fixed' | 'installment',
     description: '',
@@ -86,6 +92,8 @@ export function CommitmentsView() {
         totalInstallments: commitmentForm.type === 'installment' ? parseInt(commitmentForm.totalInstallments) : undefined
       });
 
+      // Force refresh to update the list immediately
+      await refresh();
       setIsAddModalOpen(false);
       setCommitmentForm({
         type: 'expense_fixed',
@@ -109,7 +117,7 @@ export function CommitmentsView() {
   const handleOpenModal = () => {
     setIsAddModalOpen(true);
     // Definir data padrão como hoje
-    const todayStr = today.toISOString().split('T')[0];
+    const todayStr = getTodayLocal();
     setCommitmentForm({ ...commitmentForm, date: todayStr });
   };
 
@@ -149,6 +157,8 @@ export function CommitmentsView() {
         totalInstallments: commitmentForm.type === 'installment' ? parseInt(commitmentForm.totalInstallments) : undefined
       });
 
+      // Force refresh to update the list immediately
+      await refresh();
       setIsEditModalOpen(false);
       setEditingId('');
       setCommitmentForm({
@@ -173,9 +183,38 @@ export function CommitmentsView() {
   const handleTogglePaid = async (id: string, currentPaid: boolean) => {
     try {
       await updateTransaction(id, { paid: !currentPaid });
+      // Force refresh to update the list immediately
+      await refresh();
     } catch (err) {
       console.error('Error toggling paid status:', err);
       alert('Erro ao atualizar status. Tente novamente.');
+    }
+  };
+
+  // Função para abrir modal de confirmação de delete
+  const handleOpenDeleteModal = (id: string, description: string) => {
+    setDeletingId(id);
+    setDeletingDescription(description);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Função para deletar compromisso
+  const handleDeleteCommitment = async () => {
+    if (!deletingId) return;
+
+    try {
+      setSaving(true);
+      await deleteTransaction(deletingId);
+      // Force refresh to update the list immediately
+      await refresh();
+      setIsDeleteModalOpen(false);
+      setDeletingId('');
+      setDeletingDescription('');
+    } catch (err) {
+      console.error('Error deleting commitment:', err);
+      alert('Erro ao deletar compromisso. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -314,16 +353,28 @@ export function CommitmentsView() {
           <div className="space-y-2">
             {overdue.map(commitment => (
               <div key={commitment.id} className="bg-white rounded-lg p-4 flex items-center justify-between">
-                <div>
+                <div className="flex-1">
                   <p className="font-medium text-white">{commitment.description}</p>
                   <p className="text-sm text-[#D97B7B] mt-1">
-                    Venceu em {new Date(commitment.date).toLocaleDateString('pt-BR')}
+                    Venceu em {formatDateToLocaleString(commitment.date)}
                   </p>
                 </div>
-                <div className="text-right">
-                  <p className="text-lg font-bold text-white">R$ {commitment.amount.toFixed(2)}</p>
-                  <button className="mt-2 px-3 py-1 bg-[#D97B7B] hover:bg-[#C97A7A] text-white text-sm rounded transition-colors">
-                    Pagar Agora
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-lg font-bold text-white">R$ {commitment.amount.toFixed(2)}</p>
+                    <button
+                      onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
+                      className="mt-2 px-3 py-1 bg-[#D97B7B] hover:bg-[#C97A7A] text-white text-sm rounded transition-colors"
+                    >
+                      Pagar Agora
+                    </button>
+                  </div>
+                  <button
+                    onClick={() => handleOpenDeleteModal(commitment.id, commitment.description)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    title="Deletar compromisso"
+                  >
+                    <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
                   </button>
                 </div>
               </div>
@@ -372,7 +423,7 @@ export function CommitmentsView() {
                     </div>
 
                     <div className="flex items-center gap-4 mt-1 text-sm text-[#9CA3AF]">
-                      <span>Vence em {new Date(commitment.date).toLocaleDateString('pt-BR')}</span>
+                      <span>Vence em {formatDateToLocaleString(commitment.date)}</span>
                       <span>•</span>
                       <span>{commitment.category}</span>
                     </div>
@@ -394,7 +445,18 @@ export function CommitmentsView() {
                     <Edit className="w-5 h-5 text-[#9CA3AF]" />
                   </button>
 
-                  <button className="px-4 py-2 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-lg text-sm font-medium transition-colors">
+                  <button
+                    onClick={() => handleOpenDeleteModal(commitment.id, commitment.description)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    title="Deletar"
+                  >
+                    <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
+                  </button>
+
+                  <button
+                    onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
+                    className="px-4 py-2 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-lg text-sm font-medium transition-colors"
+                  >
                     Marcar como Pago
                   </button>
                 </div>
@@ -445,7 +507,7 @@ export function CommitmentsView() {
                     </div>
 
                     <div className="flex items-center gap-4 mt-1 text-sm text-[#9CA3AF]">
-                      <span>Pago em {new Date(commitment.date).toLocaleDateString('pt-BR')}</span>
+                      <span>Pago em {formatDateToLocaleString(commitment.date)}</span>
                       <span>•</span>
                       <span>{commitment.category}</span>
                     </div>
@@ -468,6 +530,14 @@ export function CommitmentsView() {
                     title="Editar"
                   >
                     <Edit className="w-5 h-5 text-[#9CA3AF]" />
+                  </button>
+
+                  <button
+                    onClick={() => handleOpenDeleteModal(commitment.id, commitment.description)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    title="Deletar"
+                  >
+                    <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
                   </button>
                 </div>
               </div>
@@ -525,6 +595,13 @@ export function CommitmentsView() {
                         title="Editar"
                       >
                         <Edit className="w-4 h-4 text-[#9CA3AF] hover:text-white" />
+                      </button>
+                      <button
+                        onClick={() => handleOpenDeleteModal(commitment.id, commitment.description)}
+                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                        title="Deletar"
+                      >
+                        <Trash2 className="w-4 h-4 text-red-400 hover:text-red-300" />
                       </button>
                       <button
                         onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
@@ -611,6 +688,7 @@ export function CommitmentsView() {
                 placeholder="0,00"
                 value={commitmentForm.amount}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, amount: e.target.value })}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
@@ -657,6 +735,7 @@ export function CommitmentsView() {
                     placeholder="1"
                     value={commitmentForm.installmentNumber}
                     onChange={(e) => setCommitmentForm({ ...commitmentForm, installmentNumber: e.target.value })}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
                   />
                 </div>
@@ -670,6 +749,7 @@ export function CommitmentsView() {
                     placeholder="12"
                     value={commitmentForm.totalInstallments}
                     onChange={(e) => setCommitmentForm({ ...commitmentForm, totalInstallments: e.target.value })}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
                   />
                 </div>
@@ -763,6 +843,7 @@ export function CommitmentsView() {
                 placeholder="0,00"
                 value={commitmentForm.amount}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, amount: e.target.value })}
+                onWheel={(e) => e.currentTarget.blur()}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               />
             </div>
@@ -809,6 +890,7 @@ export function CommitmentsView() {
                     placeholder="1"
                     value={commitmentForm.installmentNumber}
                     onChange={(e) => setCommitmentForm({ ...commitmentForm, installmentNumber: e.target.value })}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
                   />
                 </div>
@@ -822,6 +904,7 @@ export function CommitmentsView() {
                     placeholder="12"
                     value={commitmentForm.totalInstallments}
                     onChange={(e) => setCommitmentForm({ ...commitmentForm, totalInstallments: e.target.value })}
+                    onWheel={(e) => e.currentTarget.blur()}
                     className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
                   />
                 </div>
@@ -843,6 +926,46 @@ export function CommitmentsView() {
               className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Alterações
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação de Delete */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
+              <div className="w-12 h-12 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-400" />
+              </div>
+              Deletar Compromisso
+            </DialogTitle>
+            <DialogDescription className="text-[#9CA3AF] mt-4">
+              Tem certeza que deseja deletar este compromisso? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 p-4 bg-white/5 border border-white/10 rounded-xl">
+            <p className="text-sm text-[#9CA3AF] mb-1">Compromisso:</p>
+            <p className="text-white font-medium">{deletingDescription}</p>
+          </div>
+
+          {/* Botões de ação */}
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-[#9CA3AF] rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleDeleteCommitment}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Deletando...' : 'Deletar Compromisso'}
             </button>
           </div>
         </DialogContent>

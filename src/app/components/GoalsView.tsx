@@ -418,6 +418,7 @@ export function GoalsView() {
                 value={goalForm.targetAmount}
                 onChange={(e) => setGoalForm({ ...goalForm, targetAmount: e.target.value })}
                 placeholder="Ex: 2000"
+                onWheel={(e) => e.currentTarget.blur()}
                 className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
               />
             </div>
@@ -429,6 +430,7 @@ export function GoalsView() {
                 value={goalForm.currentAmount}
                 onChange={(e) => setGoalForm({ ...goalForm, currentAmount: e.target.value })}
                 placeholder="Ex: 500"
+                onWheel={(e) => e.currentTarget.blur()}
                 className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
               />
             </div>

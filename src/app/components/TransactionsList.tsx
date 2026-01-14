@@ -1,12 +1,23 @@
 import { useState } from 'react';
-import { Plus, Filter, Search, Calendar, TrendingUp, TrendingDown, DollarSign } from 'lucide-react';
-import { mockTransactions, Transaction } from '../data/mockData';
+import { Plus, Filter, Search, Calendar, TrendingUp, TrendingDown, DollarSign, Trash2 } from 'lucide-react';
+import { Transaction } from '../data/mockData';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useTransactions } from '@/lib/hooks/useTransactions';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 
 export function TransactionsList() {
+  const { user } = useAuth();
+  const { transactions, loading, deleteTransaction, refresh } = useTransactions(user?.id);
   const [filter, setFilter] = useState<'all' | 'income' | 'expense' | 'investment'>('all');
   const [searchTerm, setSearchTerm] = useState('');
-  
-  const filteredTransactions = mockTransactions
+  const [saving, setSaving] = useState(false);
+
+  // Estados do modal de confirmação de delete
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string>('');
+  const [deletingDescription, setDeletingDescription] = useState<string>('');
+
+  const filteredTransactions = transactions
     .filter(t => {
       if (filter === 'all') return true;
       if (filter === 'income') return t.type === 'income';
@@ -14,7 +25,7 @@ export function TransactionsList() {
       if (filter === 'investment') return t.type === 'investment';
       return true;
     })
-    .filter(t => 
+    .filter(t =>
       t.description.toLowerCase().includes(searchTerm.toLowerCase()) ||
       t.category.toLowerCase().includes(searchTerm.toLowerCase())
     )
@@ -48,13 +59,51 @@ export function TransactionsList() {
   };
 
   // Estatísticas rápidas
-  const totalIncome = mockTransactions
+  const totalIncome = transactions
     .filter(t => t.type === 'income' && t.paid)
     .reduce((sum, t) => sum + t.amount, 0);
-    
-  const totalExpenses = mockTransactions
+
+  const totalExpenses = transactions
     .filter(t => t.type !== 'income' && t.paid)
     .reduce((sum, t) => sum + t.amount, 0);
+
+  // Função para abrir modal de confirmação de delete
+  const handleOpenDeleteModal = (id: string, description: string) => {
+    setDeletingId(id);
+    setDeletingDescription(description);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Função para deletar transação
+  const handleDeleteTransaction = async () => {
+    if (!deletingId) return;
+
+    try {
+      setSaving(true);
+      await deleteTransaction(deletingId);
+      await refresh();
+      setIsDeleteModalOpen(false);
+      setDeletingId('');
+      setDeletingDescription('');
+    } catch (err) {
+      console.error('Error deleting transaction:', err);
+      alert('Erro ao deletar transação. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Loading state
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-[400px]">
+        <div className="text-center">
+          <div className="w-12 h-12 border-4 border-[#B4B0EE] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <p className="text-gray-600">Carregando transações...</p>
+        </div>
+      </div>
+    );
+  }
 
   return (
     <div className="space-y-6">
@@ -215,16 +264,28 @@ export function TransactionsList() {
                     </div>
                   </div>
                 </div>
-                
-                {/* Valor */}
-                <div className="text-right">
-                  <p className={`text-xl font-bold ${
-                    transaction.type === 'income'
-                      ? 'text-[#CEF05D]'
-                      : 'text-red-600'
-                  }`}>
-                    {transaction.type === 'income' ? '+' : '-'}R$ {transaction.amount.toFixed(2)}
-                  </p>
+
+                {/* Valor e Ações */}
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className={`text-xl font-bold ${
+                      transaction.type === 'income'
+                        ? 'text-[#CEF05D]'
+                        : 'text-red-600'
+                    }`}>
+                      {transaction.type === 'income' ? '+' : '-'}R$ {transaction.amount.toFixed(2)}
+                    </p>
+                  </div>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleOpenDeleteModal(transaction.id, transaction.description);
+                    }}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Deletar transação"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -258,6 +319,45 @@ export function TransactionsList() {
           </button>
         </div>
       )}
+
+      {/* Modal de Confirmação de Delete */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent className="bg-white border-gray-200 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+              <div className="w-12 h-12 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              Deletar Transação
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 mt-4">
+              Tem certeza que deseja deletar esta transação? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+            <p className="text-sm text-gray-600 mb-1">Transação:</p>
+            <p className="text-gray-900 font-medium">{deletingDescription}</p>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleDeleteTransaction}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Deletando...' : 'Deletar Transação'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

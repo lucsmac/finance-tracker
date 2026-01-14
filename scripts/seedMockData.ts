@@ -11,7 +11,89 @@
  */
 
 import { createClient } from '@supabase/supabase-js'
-import { mockEstimates, mockTransactions, mockInvestments, mockGoals, mockConfig } from '../src/app/data/mockData'
+
+// Mock data is now defined locally in this script since it was removed from mockData.ts
+const mockConfig = {
+  initialBalance: 2500,
+  monthStartDay: 5,
+  mainIncomeDay: 5,
+  mainIncomeAmount: 3000,
+}
+
+const mockEstimates = [
+  { id: '1', category: 'Mercado', monthlyAmount: 800, active: true, icon: '🛒', color: '#76C893' },
+  { id: '2', category: 'Transporte', monthlyAmount: 300, active: true, icon: '🚗', color: '#9B97CE' },
+  { id: '3', category: 'Farmácia', monthlyAmount: 150, active: true, icon: '💊', color: '#D97B7B' },
+  { id: '4', category: 'Comidinhas/Saídas', monthlyAmount: 450, active: true, icon: '🍕', color: '#FFA500' },
+  { id: '5', category: 'Lazer', monthlyAmount: 200, active: false, icon: '🎮', color: '#4ECDC4' },
+  { id: '6', category: 'Outros', monthlyAmount: 100, active: true, icon: '📦', color: '#95A5A6' },
+]
+
+const mockTransactions = [
+  // Income
+  { id: '1', date: '2026-01-05', type: 'income' as const, category: 'Salário', description: 'Salário Janeiro', amount: 3000, recurring: true, paid: true },
+  { id: '2', date: '2026-02-05', type: 'income' as const, category: 'Salário', description: 'Salário Fevereiro', amount: 3000, recurring: true, paid: false },
+
+  // Fixed expenses
+  { id: '3', date: '2026-01-10', type: 'expense_fixed' as const, category: 'Moradia', description: 'Aluguel', amount: 1200, recurring: true, paid: true },
+  { id: '4', date: '2026-01-15', type: 'expense_fixed' as const, category: 'Utilidades', description: 'Conta de Luz', amount: 150, recurring: true, paid: false },
+  { id: '5', date: '2026-01-20', type: 'expense_fixed' as const, category: 'Utilidades', description: 'Internet', amount: 100, recurring: true, paid: false },
+
+  // Variable expenses
+  { id: '6', date: '2026-01-06', type: 'expense_variable' as const, category: 'Mercado', description: 'Supermercado Extra', amount: 180, paid: true },
+  { id: '7', date: '2026-01-07', type: 'expense_variable' as const, category: 'Transporte', description: 'Uber', amount: 25, paid: true },
+  { id: '8', date: '2026-01-08', type: 'expense_variable' as const, category: 'Comidinhas/Saídas', description: 'Restaurante', amount: 85, paid: true },
+  { id: '9', date: '2026-01-09', type: 'expense_variable' as const, category: 'Farmácia', description: 'Farmácia São João', amount: 45, paid: true },
+  { id: '10', date: '2026-01-10', type: 'expense_variable' as const, category: 'Mercado', description: 'Padaria', amount: 30, paid: true },
+
+  // Installments
+  { id: '11', date: '2026-01-15', type: 'installment' as const, category: 'Eletrônicos', description: 'Notebook Dell', amount: 200, installmentGroup: 'notebook-2025-12', installmentNumber: 2, totalInstallments: 10, paid: false },
+  { id: '12', date: '2026-02-15', type: 'installment' as const, category: 'Eletrônicos', description: 'Notebook Dell', amount: 200, installmentGroup: 'notebook-2025-12', installmentNumber: 3, totalInstallments: 10, paid: false },
+
+  // Investments
+  { id: '13', date: '2026-01-05', type: 'investment' as const, category: 'Tesouro Direto', description: 'Aplicação Tesouro Selic', amount: 500, paid: true },
+  { id: '14', date: '2026-01-05', type: 'investment' as const, category: 'CDB', description: 'CDB Nubank', amount: 300, paid: true },
+  { id: '15', date: '2026-01-10', type: 'investment' as const, category: 'Ações', description: 'PETR4', amount: 200, paid: true },
+  { id: '16', date: '2026-01-12', type: 'investment' as const, category: 'Fundos', description: 'Fundo Imobiliário HGLG11', amount: 150, paid: true },
+]
+
+const mockInvestments = [
+  { id: '1', category: 'Tesouro Direto', amount: 8500, lastUpdate: '2026-01-08' },
+  { id: '2', category: 'CDB', amount: 12300, lastUpdate: '2026-01-08' },
+  { id: '3', category: 'Ações', amount: 5600, lastUpdate: '2026-01-08' },
+  { id: '4', category: 'Fundos Imobiliários', amount: 3200, lastUpdate: '2026-01-08' },
+]
+
+const mockGoals = [
+  {
+    id: '1',
+    name: 'Economizar R$ 2.000 este mês',
+    type: 'savings' as const,
+    targetAmount: 2000,
+    currentAmount: 800,
+    deadline: '2026-01-31',
+    period: 'month' as const,
+  },
+  {
+    id: '2',
+    name: 'Investir R$ 500 por mês',
+    type: 'savings_rate' as const,
+    targetAmount: 500,
+    currentAmount: 500,
+    deadline: '2026-01-31',
+    period: 'month' as const,
+  },
+  {
+    id: '3',
+    name: 'Reduzir gastos com Mercado em 20%',
+    type: 'category_reduction' as const,
+    targetAmount: 640,
+    currentAmount: 210,
+    deadline: '2026-01-31',
+    period: 'month' as const,
+    category: 'Mercado',
+  },
+]
 
 // IMPORTANT: Update this with your actual user ID after signup
 const USER_ID = '743d0e3a-8f59-44f4-b99a-f02f2bf6600f' // Get from Supabase Dashboard > Authentication > Users

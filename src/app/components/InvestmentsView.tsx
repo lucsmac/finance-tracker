@@ -1,14 +1,25 @@
 import { useState } from 'react';
-import { TrendingUp, Plus, ArrowUpRight, ArrowDownRight, DollarSign, X } from 'lucide-react';
+import { TrendingUp, Plus, ArrowUpRight, ArrowDownRight, DollarSign, X, Trash2 } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useInvestments } from '@/lib/hooks/useInvestments';
 import { useTransactions } from '@/lib/hooks/useTransactions';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 
 export function InvestmentsView() {
   const { user } = useAuth();
-  const { investments, loading: loadingInvestments } = useInvestments(user?.id);
-  const { transactions, loading: loadingTransactions, createTransaction } = useTransactions(user?.id);
+  const { investments, loading: loadingInvestments, deleteInvestment, refresh: refreshInvestments } = useInvestments(user?.id);
+  const { transactions, loading: loadingTransactions, createTransaction, deleteTransaction, refresh: refreshTransactions } = useTransactions(user?.id);
   const [saving, setSaving] = useState(false);
+
+  // Estados do modal de confirmação de delete para investimentos
+  const [isDeleteInvestmentModalOpen, setIsDeleteInvestmentModalOpen] = useState(false);
+  const [deletingInvestmentId, setDeletingInvestmentId] = useState<string>('');
+  const [deletingInvestmentCategory, setDeletingInvestmentCategory] = useState<string>('');
+
+  // Estados do modal de confirmação de delete para transações
+  const [isDeleteTransactionModalOpen, setIsDeleteTransactionModalOpen] = useState(false);
+  const [deletingTransactionId, setDeletingTransactionId] = useState<string>('');
+  const [deletingTransactionDescription, setDeletingTransactionDescription] = useState<string>('');
 
   const loading = loadingInvestments || loadingTransactions;
   const totalInvested = investments.reduce((sum, inv) => sum + inv.amount, 0);
@@ -19,6 +30,57 @@ export function InvestmentsView() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime());
 
   const totalApplied = investmentTransactions.reduce((sum, t) => sum + t.amount, 0);
+
+  // Funções para deletar investimento
+  const handleOpenDeleteInvestmentModal = (id: string, category: string) => {
+    setDeletingInvestmentId(id);
+    setDeletingInvestmentCategory(category);
+    setIsDeleteInvestmentModalOpen(true);
+  };
+
+  const handleDeleteInvestment = async () => {
+    if (!deletingInvestmentId) return;
+
+    try {
+      setSaving(true);
+      await deleteInvestment(deletingInvestmentId);
+      await refreshInvestments();
+      setIsDeleteInvestmentModalOpen(false);
+      setDeletingInvestmentId('');
+      setDeletingInvestmentCategory('');
+    } catch (err) {
+      console.error('Error deleting investment:', err);
+      alert('Erro ao deletar investimento. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Funções para deletar transação
+  const handleOpenDeleteTransactionModal = (id: string, description: string) => {
+    setDeletingTransactionId(id);
+    setDeletingTransactionDescription(description);
+    setIsDeleteTransactionModalOpen(true);
+  };
+
+  const handleDeleteTransaction = async () => {
+    if (!deletingTransactionId) return;
+
+    try {
+      setSaving(true);
+      await deleteTransaction(deletingTransactionId);
+      await refreshTransactions();
+      await refreshInvestments(); // Refresh investments também pois a transação pode afetar o total
+      setIsDeleteTransactionModalOpen(false);
+      setDeletingTransactionId('');
+      setDeletingTransactionDescription('');
+    } catch (err) {
+      console.error('Error deleting transaction:', err);
+      alert('Erro ao deletar transação. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
 
   // Loading state
   if (loading) {
@@ -97,7 +159,7 @@ export function InvestmentsView() {
             return (
               <div key={investment.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
                 <div className="flex items-center justify-between mb-3">
-                  <div>
+                  <div className="flex-1">
                     <h4 className="text-base font-medium text-gray-900">
                       {investment.category}
                     </h4>
@@ -105,14 +167,23 @@ export function InvestmentsView() {
                       Atualizado em {new Date(investment.lastUpdate).toLocaleDateString('pt-BR')}
                     </p>
                   </div>
-                  
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-gray-900">
-                      R$ {investment.amount.toFixed(2)}
-                    </p>
-                    <p className="text-sm text-gray-500">
-                      {percentage.toFixed(1)}% da carteira
-                    </p>
+
+                  <div className="flex items-center gap-3">
+                    <div className="text-right">
+                      <p className="text-xl font-bold text-gray-900">
+                        R$ {investment.amount.toFixed(2)}
+                      </p>
+                      <p className="text-sm text-gray-500">
+                        {percentage.toFixed(1)}% da carteira
+                      </p>
+                    </div>
+                    <button
+                      onClick={() => handleOpenDeleteInvestmentModal(investment.id, investment.category)}
+                      className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                      title="Deletar investimento"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
                 </div>
                 
@@ -139,12 +210,12 @@ export function InvestmentsView() {
           {investmentTransactions.map((transaction) => (
             <div key={transaction.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
               <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4">
+                <div className="flex items-center gap-4 flex-1">
                   <div className="w-12 h-12 bg-[#B4B0EE]/10 border border-[#B4B0EE]/30 rounded-lg flex items-center justify-center">
                     <ArrowUpRight className="w-6 h-6 text-[#B4B0EE]" />
                   </div>
-                  
-                  <div>
+
+                  <div className="flex-1">
                     <h4 className="text-base font-medium text-gray-900">
                       {transaction.description}
                     </h4>
@@ -157,14 +228,23 @@ export function InvestmentsView() {
                     </p>
                   </div>
                 </div>
-                
-                <div className="text-right">
-                  <p className="text-xl font-bold text-[#B4B0EE]">
-                    R$ {transaction.amount.toFixed(2)}
-                  </p>
-                  <span className="inline-block mt-1 px-2 py-1 bg-[#B4B0EE]/20 text-[#B4B0EE] rounded text-xs font-medium">
-                    Aplicação
-                  </span>
+
+                <div className="flex items-center gap-3">
+                  <div className="text-right">
+                    <p className="text-xl font-bold text-[#B4B0EE]">
+                      R$ {transaction.amount.toFixed(2)}
+                    </p>
+                    <span className="inline-block mt-1 px-2 py-1 bg-[#B4B0EE]/20 text-[#B4B0EE] rounded text-xs font-medium">
+                      Aplicação
+                    </span>
+                  </div>
+                  <button
+                    onClick={() => handleOpenDeleteTransactionModal(transaction.id, transaction.description)}
+                    className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                    title="Deletar transação"
+                  >
+                    <Trash2 className="w-5 h-5" />
+                  </button>
                 </div>
               </div>
             </div>
@@ -188,6 +268,84 @@ export function InvestmentsView() {
           <li>• Configure metas de investimento mensal na aba "Metas"</li>
         </ul>
       </div>
+
+      {/* Modal de Confirmação de Delete de Investimento */}
+      <Dialog open={isDeleteInvestmentModalOpen} onOpenChange={setIsDeleteInvestmentModalOpen}>
+        <DialogContent className="bg-white border-gray-200 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+              <div className="w-12 h-12 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              Deletar Investimento
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 mt-4">
+              Tem certeza que deseja deletar este investimento? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+            <p className="text-sm text-gray-600 mb-1">Categoria:</p>
+            <p className="text-gray-900 font-medium">{deletingInvestmentCategory}</p>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setIsDeleteInvestmentModalOpen(false)}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleDeleteInvestment}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Deletando...' : 'Deletar Investimento'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Confirmação de Delete de Transação */}
+      <Dialog open={isDeleteTransactionModalOpen} onOpenChange={setIsDeleteTransactionModalOpen}>
+        <DialogContent className="bg-white border-gray-200 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+              <div className="w-12 h-12 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              Deletar Transação
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 mt-4">
+              Tem certeza que deseja deletar esta transação? Esta ação não pode ser desfeita.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+            <p className="text-sm text-gray-600 mb-1">Transação:</p>
+            <p className="text-gray-900 font-medium">{deletingTransactionDescription}</p>
+          </div>
+
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setIsDeleteTransactionModalOpen(false)}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleDeleteTransaction}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Deletando...' : 'Deletar Transação'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }

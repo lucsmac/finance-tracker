@@ -7,6 +7,7 @@ export interface UserConfig {
   monthStartDay: number
   mainIncomeDay: number
   mainIncomeAmount: number
+  dailyStandard: number
 }
 
 export const configApi = {
@@ -28,7 +29,8 @@ export const configApi = {
       initialBalance: parseFloat(data.initial_balance),
       monthStartDay: data.month_start_day,
       mainIncomeDay: data.main_income_day,
-      mainIncomeAmount: parseFloat(data.main_income_amount)
+      mainIncomeAmount: parseFloat(data.main_income_amount),
+      dailyStandard: parseFloat(data.daily_standard || 0)
     } as UserConfig
   },
 
@@ -40,7 +42,8 @@ export const configApi = {
         initial_balance: config.initialBalance,
         month_start_day: config.monthStartDay,
         main_income_day: config.mainIncomeDay,
-        main_income_amount: config.mainIncomeAmount
+        main_income_amount: config.mainIncomeAmount,
+        daily_standard: config.dailyStandard || 0
       }])
       .select()
       .single()
@@ -53,7 +56,8 @@ export const configApi = {
       initialBalance: parseFloat(data.initial_balance),
       monthStartDay: data.month_start_day,
       mainIncomeDay: data.main_income_day,
-      mainIncomeAmount: parseFloat(data.main_income_amount)
+      mainIncomeAmount: parseFloat(data.main_income_amount),
+      dailyStandard: parseFloat(data.daily_standard || 0)
     } as UserConfig
   },
 
@@ -63,6 +67,7 @@ export const configApi = {
     if (updates.monthStartDay !== undefined) dbUpdates.month_start_day = updates.monthStartDay
     if (updates.mainIncomeDay !== undefined) dbUpdates.main_income_day = updates.mainIncomeDay
     if (updates.mainIncomeAmount !== undefined) dbUpdates.main_income_amount = updates.mainIncomeAmount
+    if (updates.dailyStandard !== undefined) dbUpdates.daily_standard = updates.dailyStandard
 
     const { data, error } = await supabase
       .from('user_configs')
@@ -79,7 +84,8 @@ export const configApi = {
       initialBalance: parseFloat(data.initial_balance),
       monthStartDay: data.month_start_day,
       mainIncomeDay: data.main_income_day,
-      mainIncomeAmount: parseFloat(data.main_income_amount)
+      mainIncomeAmount: parseFloat(data.main_income_amount),
+      dailyStandard: parseFloat(data.daily_standard || 0)
     } as UserConfig
   }
 }

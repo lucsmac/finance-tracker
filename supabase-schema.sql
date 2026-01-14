@@ -20,6 +20,7 @@ CREATE TABLE user_configs (
   month_start_day INTEGER DEFAULT 1,
   main_income_day INTEGER DEFAULT 5,
   main_income_amount DECIMAL(10,2) DEFAULT 0,
+  daily_standard DECIMAL(10,2) DEFAULT 0,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id)

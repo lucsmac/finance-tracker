@@ -156,3 +156,40 @@ export const checkProjectionStatus = (
   return projectedBalance >= 0 ? 'positive' : 'negative';
 };
 
+// TEMPORARY MOCK DATA - for components not yet migrated to Supabase
+// TODO: Remove these when ProjectionView, StatsView, and MonthCalendar are migrated
+
+export const mockConfig = {
+  initialBalance: 2000,
+  monthStartDay: 1,
+  mainIncomeDay: 5,
+  mainIncomeAmount: 5000
+};
+
+export const mockEstimates: Estimate[] = [
+  { id: '1', category: 'Mercado', monthlyAmount: 800, active: true, icon: '🛒', color: '#76C893' },
+  { id: '2', category: 'Transporte', monthlyAmount: 300, active: true, icon: '🚗', color: '#9B97CE' },
+  { id: '3', category: 'Farmácia', monthlyAmount: 150, active: true, icon: '💊', color: '#8B7AB8' },
+  { id: '4', category: 'Alimentação/Saídas', monthlyAmount: 450, active: true, icon: '🍔', color: '#E6C563' }
+];
+
+export const mockTransactions: Transaction[] = [
+  // Income
+  { id: 't1', date: '2026-01-05', type: 'income', category: 'Salário', description: 'Salário Janeiro', amount: 5000, recurring: true, paid: true },
+
+  // Variable expenses
+  { id: 't2', date: '2026-01-06', type: 'expense_variable', category: 'Mercado', description: 'Compras da semana', amount: 180, paid: true },
+  { id: 't3', date: '2026-01-07', type: 'expense_variable', category: 'Transporte', description: 'Uber', amount: 35, paid: true },
+  { id: 't4', date: '2026-01-08', type: 'expense_variable', category: 'Alimentação/Saídas', description: 'Almoço', amount: 45, paid: true },
+
+  // Fixed expenses
+  { id: 't5', date: '2026-01-10', type: 'expense_fixed', category: 'Aluguel', description: 'Aluguel Janeiro', amount: 1500, recurring: true, paid: false },
+  { id: 't6', date: '2026-01-15', type: 'expense_fixed', category: 'Internet', description: 'Internet Janeiro', amount: 100, recurring: true, paid: false },
+
+  // Installments
+  { id: 't7', date: '2026-01-20', type: 'installment', category: 'Notebook', description: 'Notebook Dell', amount: 400, installmentGroup: 'notebook-2025', installmentNumber: 3, totalInstallments: 12, paid: false },
+
+  // Future income
+  { id: 't8', date: '2026-02-05', type: 'income', category: 'Salário', description: 'Salário Fevereiro', amount: 5000, recurring: true, paid: false }
+];
+

@@ -1,15 +1,21 @@
 import { useState } from 'react';
-import { Edit2, Check, X, Plus, ToggleLeft, ToggleRight } from 'lucide-react';
+import { Edit2, Check, X, Plus, ToggleLeft, ToggleRight, Trash2 } from 'lucide-react';
 import { calculateDailyStandard, Estimate } from '../data/mockData';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useEstimates } from '@/lib/hooks/useEstimates';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 
 export function EstimatesManager() {
   const { user } = useAuth();
-  const { estimates, loading, error, updateEstimate } = useEstimates(user?.id);
+  const { estimates, loading, error, updateEstimate, deleteEstimate, refresh } = useEstimates(user?.id);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState(false);
+
+  // Estados do modal de confirmação de delete
+  const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
+  const [deletingId, setDeletingId] = useState<string>('');
+  const [deletingCategory, setDeletingCategory] = useState<string>('');
 
   const dailyStandard = calculateDailyStandard(estimates);
   const totalMonthly = estimates
@@ -25,6 +31,7 @@ export function EstimatesManager() {
     try {
       setSaving(true);
       await updateEstimate(id, { monthlyAmount: parseFloat(editValue) || 0 });
+      await refresh();
       setEditingId(null);
       setEditValue('');
     } catch (err) {
@@ -46,9 +53,36 @@ export function EstimatesManager() {
 
     try {
       await updateEstimate(id, { active: !estimate.active });
+      await refresh();
     } catch (err) {
       console.error('Error toggling estimate:', err);
       alert('Erro ao atualizar estimativa. Tente novamente.');
+    }
+  };
+
+  // Função para abrir modal de confirmação de delete
+  const handleOpenDeleteModal = (id: string, category: string) => {
+    setDeletingId(id);
+    setDeletingCategory(category);
+    setIsDeleteModalOpen(true);
+  };
+
+  // Função para deletar estimativa
+  const handleDeleteEstimate = async () => {
+    if (!deletingId) return;
+
+    try {
+      setSaving(true);
+      await deleteEstimate(deletingId);
+      await refresh();
+      setIsDeleteModalOpen(false);
+      setDeletingId('');
+      setDeletingCategory('');
+    } catch (err) {
+      console.error('Error deleting estimate:', err);
+      alert('Erro ao deletar estimativa. Tente novamente.');
+    } finally {
+      setSaving(false);
     }
   };
 
@@ -170,6 +204,7 @@ export function EstimatesManager() {
                           type="number"
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
+                          onWheel={(e) => e.currentTarget.blur()}
                           className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
                           autoFocus
                         />
@@ -203,8 +238,16 @@ export function EstimatesManager() {
                           onClick={() => handleEdit(estimate)}
                           className="p-2 text-gray-600 hover:bg-gray-100 rounded-lg transition-colors"
                           disabled={!estimate.active}
+                          title="Editar"
                         >
                           <Edit2 className="w-5 h-5" />
+                        </button>
+                        <button
+                          onClick={() => handleOpenDeleteModal(estimate.id, estimate.category)}
+                          className="p-2 text-red-600 hover:bg-red-50 rounded-lg transition-colors"
+                          title="Deletar"
+                        >
+                          <Trash2 className="w-5 h-5" />
                         </button>
                       </>
                     )}
@@ -267,6 +310,46 @@ export function EstimatesManager() {
           </p>
         </div>
       </div>
+
+      {/* Modal de Confirmação de Delete */}
+      <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
+        <DialogContent className="bg-white border-gray-200 max-w-md">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-gray-900 flex items-center gap-3">
+              <div className="w-12 h-12 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-center">
+                <Trash2 className="w-6 h-6 text-red-600" />
+              </div>
+              Deletar Estimativa
+            </DialogTitle>
+            <DialogDescription className="text-gray-600 mt-4">
+              Tem certeza que deseja deletar esta estimativa? Esta ação não pode ser desfeita e irá recalcular o valor diário padrão.
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="mt-4 p-4 bg-gray-50 border border-gray-200 rounded-xl">
+            <p className="text-sm text-gray-600 mb-1">Categoria:</p>
+            <p className="text-gray-900 font-medium">{deletingCategory}</p>
+          </div>
+
+          {/* Botões de ação */}
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setIsDeleteModalOpen(false)}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-gray-100 hover:bg-gray-200 border border-gray-300 text-gray-700 rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleDeleteEstimate}
+              disabled={saving}
+              className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Deletando...' : 'Deletar Estimativa'}
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
