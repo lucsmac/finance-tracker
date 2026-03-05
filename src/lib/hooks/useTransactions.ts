@@ -50,9 +50,24 @@ export function useTransactions(userId: string | undefined) {
     }
   }
 
+  const generateRecurringTransactions = async () => {
+    if (!userId) throw new Error('No user ID')
+    return transactionsApi.generateRecurringTransactions(userId)
+  }
+
   const createTransaction = async (transaction: Omit<Transaction, 'id'>) => {
     if (!userId) throw new Error('No user ID')
     return transactionsApi.create(userId, transaction)
+  }
+
+  const createInstallments = async (firstInstallment: Omit<Transaction, 'id'>) => {
+    if (!userId) throw new Error('No user ID')
+    return transactionsApi.createInstallments(userId, firstInstallment)
+  }
+
+  const cancelFutureRecurring = async (transactionId: string) => {
+    if (!userId) throw new Error('No user ID')
+    return transactionsApi.cancelFutureRecurring(transactionId, userId)
   }
 
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
@@ -73,9 +88,12 @@ export function useTransactions(userId: string | undefined) {
     loading,
     error,
     createTransaction,
+    createInstallments,
     updateTransaction,
     deleteTransaction,
     getByDateRange,
+    generateRecurringTransactions,
+    cancelFutureRecurring,
     refresh: loadTransactions
   }
 }

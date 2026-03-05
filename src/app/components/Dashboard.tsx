@@ -30,10 +30,10 @@ interface DashboardProps {
 export function Dashboard({ onNavigate }: DashboardProps) {
   const { user } = useAuth();
   const { estimates, loading: loadingEstimates } = useEstimates(user?.id);
-  const { transactions, loading: loadingTransactions, createTransaction } = useTransactions(user?.id);
+  const { transactions, loading: loadingTransactions, createTransaction, cancelFutureRecurring } = useTransactions(user?.id);
   const { config, loading: loadingConfig, createConfig } = useConfig(user?.id);
-  const { dailyPlans, loading: loadingPlans, upsertDailyPlan, getPlannedForDate } = useDailyPlans(user?.id);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 0, 8)); // Janeiro 2026, dia 8
+  const { dailyPlans, loading: loadingPlans, upsertDailyPlan, getPlannedForDate, refresh: refreshDailyPlans } = useDailyPlans(user?.id);
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Data atual
   const [saving, setSaving] = useState(false);
 
   // Auto-create default config if user doesn't have one
@@ -232,6 +232,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     try {
       setSaving(true);
       await upsertDailyPlan(selectedDay, value);
+      await refreshDailyPlans(); // Reload data after saving
       alert('Planejamento salvo com sucesso!');
       setIsDayModalOpen(false);
     } catch (err: any) {
@@ -302,18 +303,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   // Função para calcular o saldo até uma determinada data (planejado vs realizado)
   const calculateBalanceUntilDate = (targetDateStr: string): number => {
+    // Para dias anteriores a hoje, retornar apenas o saldo inicial (sem processar)
+    if (targetDateStr < today) {
+      return initialBalance;
+    }
+
     // Saldo inicial
     let balance = initialBalance;
 
-    // Criar um array com todas as datas desde o início do ano (ou primeira transação) até a data alvo
-    // Sempre processar desde o início para garantir que todas as transações sejam consideradas
-    const allTransactionDates = [...transactions, ...hypotheticalTransactions].map(t => t.date).sort();
-    const firstTransactionDate = allTransactionDates.length > 0 ? allTransactionDates[0] : today;
-
-    // Usar o menor entre: primeira transação ou início do ano atual
-    const currentYear = new Date().getFullYear();
-    const yearStart = formatDateLocal(currentYear, 0, 1);
-    const startDate = firstTransactionDate < yearStart ? firstTransactionDate : yearStart;
+    // A contagem começa de HOJE (data de cadastro do saldo) até a data alvo
+    const startDate = today;
     const endDate = targetDateStr;
 
     const allDates: string[] = [];
@@ -330,7 +329,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       allDates.push(formatDateLocal(d.getFullYear(), d.getMonth(), d.getDate()));
     }
 
-    // Processar cada dia
+    // Processar cada dia desde hoje até a data alvo
     allDates.forEach(dateStr => {
       // Pegar todas as transações deste dia específico
       const dayTransactions = [...transactions, ...hypotheticalTransactions].filter(t => t.date === dateStr);
@@ -486,6 +485,25 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     }
   }
 
+  const handleCancelRecurring = async (transactionId: string, description: string) => {
+    const confirmed = confirm(
+      `Tem certeza que deseja cancelar as futuras recorrências de "${description}"?\n\n` +
+      'Isso irá:\n' +
+      '• Remover o status "recorrente" das transações passadas\n' +
+      '• Deletar todas as transações futuras não pagas desta categoria'
+    );
+
+    if (!confirmed) return;
+
+    try {
+      await cancelFutureRecurring(transactionId);
+      alert('Recorrências futuras canceladas com sucesso!');
+    } catch (error) {
+      console.error('Error canceling recurring transactions:', error);
+      alert('Erro ao cancelar recorrências. Tente novamente.');
+    }
+  };
+
   return (
     <div className="space-y-6 pb-32">
       {/* Header */}
@@ -537,23 +555,23 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           {/* Card 1 - Saldo Disponível */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Saldo disponível</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">R$ {currentBalance.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{currentBalance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
             <p className="text-xs text-[#9CA3AF]">Saldo atual em conta</p>
           </div>
 
           {/* Card 2 - Valor Diário Padrão */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-x sm:border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Valor diário padrão</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">R$ {dailyStandard.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{dailyStandard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
             <p className="text-xs text-[#9CA3AF]">Base fixa calculada das estimativas</p>
           </div>
 
           {/* Card 3 - Gasto de Hoje */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-r sm:border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Gasto de hoje</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">R$ {todayExpenses.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{todayExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
             <p className={`text-xs ${todayVariation >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-              {todayVariation >= 0 ? 'Economizou' : 'Gastou'} R$ {Math.abs(todayVariation).toFixed(2)}
+              {todayVariation >= 0 ? 'Economizou' : 'Gastou'} {Math.abs(todayVariation).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </p>
           </div>
 
@@ -561,7 +579,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Gastos do mês</p>
             <p className={`text-2xl sm:text-3xl font-bold mb-1 ${accumulatedVariation >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-              {accumulatedVariation >= 0 ? '+' : ''}R$ {accumulatedVariation.toFixed(2)}
+              {accumulatedVariation >= 0 ? '+' : ''}{accumulatedVariation.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </p>
             <p className="text-xs text-[#9CA3AF]">{formatMonthYear(selectedDate)}</p>
           </div>
@@ -603,7 +621,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           {/* Sub-card 3 - Comprometido */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Comprometido</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">R$ {committedAmount.toFixed(2)}</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{committedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
             <p className="text-xs text-[#9CA3AF]">Fixos + Parcelas futuras</p>
           </div>
         </div>
@@ -690,7 +708,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <div className="mb-3">
                 <p className="text-xs text-[#9CA3AF] mb-1">Saldo</p>
                 <p className={`text-2xl font-bold ${balanceColor}`}>
-                  R$ {dayData.balance.toFixed(2)}
+                  {dayData.balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </p>
               </div>
 
@@ -702,7 +720,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     const dayTotal = dayIncomes - dayExpenses;
                     return (
                       <p className={`text-sm font-medium ${dayTotal >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-                        {dayTotal >= 0 ? '+' : ''}R$ {dayTotal.toFixed(0)}
+                        {dayTotal >= 0 ? '+' : ''}{dayTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
                     );
                   })()}
@@ -768,7 +786,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     <div className="text-center">
                       <p className="text-xs text-white/40 mb-0.5">Saldo</p>
                       <p className="text-base font-bold text-white/70">
-                        R$ {dayData.balance.toFixed(0)}
+                        {dayData.balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </p>
                     </div>
                   </div>
@@ -779,7 +797,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                       const dayTotal = dayIncomes - dayExpenses;
                       return (
                         <span className={`text-white/50 ${dayTotal >= 0 ? 'text-[#76C893]/70' : 'text-[#D97B7B]/70'}`}>
-                          {dayTotal >= 0 ? '+' : ''}R$ {dayTotal.toFixed(0)}
+                          {dayTotal >= 0 ? '+' : ''}{dayTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </span>
                       );
                     })()}
@@ -852,7 +870,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   <div className="text-center">
                     <p className="text-xs text-white/50 mb-0.5">Saldo</p>
                     <p className={`text-base font-bold ${dayNumberColor}`}>
-                      R$ {dayData.balance.toFixed(0)}
+                      {dayData.balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </p>
                   </div>
                 </div>
@@ -863,7 +881,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     const dayTotal = dayIncomes - dayExpenses;
                     return (
                       <span className={`${dayTotal >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-                        {dayTotal >= 0 ? '+' : ''}R$ {dayTotal.toFixed(0)}
+                        {dayTotal >= 0 ? '+' : ''}{dayTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </span>
                     );
                   })()}
@@ -948,7 +966,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 {/* Valor Padrão */}
                 <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
                   <p className="text-xs text-[#9CA3AF] mb-1">Valor diário padrão (global)</p>
-                  <p className="text-2xl font-bold text-white">R$ {dailyStandard.toFixed(2)}</p>
+                  <p className="text-2xl font-bold text-white">{dailyStandard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                 </div>
 
                 {/* Valor Planejado Customizado para este dia */}
@@ -1010,16 +1028,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                       <div className="grid grid-cols-3 gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
                         <div className="text-center">
                           <p className="text-xs text-[#9CA3AF] mb-1">Entradas</p>
-                          <p className="text-lg font-bold text-[#76C893]">R$ {totalIncomes.toFixed(2)}</p>
+                          <p className="text-lg font-bold text-[#76C893]">{totalIncomes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                         </div>
                         <div className="text-center border-x border-white/10">
                           <p className="text-xs text-[#9CA3AF] mb-1">Saídas</p>
-                          <p className="text-lg font-bold text-[#D97B7B]">R$ {totalExpenses.toFixed(2)}</p>
+                          <p className="text-lg font-bold text-[#D97B7B]">{totalExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-xs text-[#9CA3AF] mb-1">Saldo do dia</p>
                           <p className={`text-lg font-bold ${balance >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-                            {balance >= 0 ? '+' : ''}R$ {balance.toFixed(2)}
+                            {balance >= 0 ? '+' : ''}{balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </p>
                         </div>
                       </div>
@@ -1042,7 +1060,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                             <div className="grid grid-cols-3 gap-4">
                               <div>
                                 <p className="text-xs text-[#9CA3AF] mb-1">Planejado</p>
-                                <p className="text-xl font-bold text-[#9B97CE]">R$ {plannedAmount.toFixed(2)}</p>
+                                <p className="text-xl font-bold text-[#9B97CE]">{plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                 {customPlanned !== null && (
                                   <p className="text-xs text-[#9B97CE] mt-1">Customizado</p>
                                 )}
@@ -1050,7 +1068,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                               <div className="text-center border-x border-white/10">
                                 <p className="text-xs text-[#9CA3AF] mb-1">Realizado</p>
                                 <p className={`text-xl font-bold ${hasRealExpenses ? 'text-white' : 'text-white/30'}`}>
-                                  R$ {variableExpenses.toFixed(2)}
+                                  {variableExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                 </p>
                                 {!hasRealExpenses && (
                                   <p className="text-xs text-white/50 mt-1">Sem gastos</p>
@@ -1059,7 +1077,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                               <div className="text-right">
                                 <p className="text-xs text-[#9CA3AF] mb-1">Diferença</p>
                                 <p className={`text-xl font-bold ${difference >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-                                  {difference >= 0 ? '+' : ''}R$ {difference.toFixed(2)}
+                                  {difference >= 0 ? '+' : ''}{difference.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                                 </p>
                                 {difference >= 0 ? (
                                   <p className="text-xs text-[#76C893] mt-1">Economizou!</p>
@@ -1090,7 +1108,23 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                                       <p className="font-medium text-white">{t.description}</p>
                                       <p className="text-sm text-[#9CA3AF]">{t.category}</p>
                                     </div>
-                                    <p className="text-lg font-bold text-[#76C893]">+R$ {t.amount.toFixed(2)}</p>
+                                    <div className="text-right flex flex-col items-end gap-1">
+                                      <p className="text-lg font-bold text-[#76C893]">+{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                      {t.recurring && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#76C893]/20 text-[#76C893] rounded">
+                                            Recorrente
+                                          </span>
+                                          <button
+                                            onClick={() => handleCancelRecurring(t.id, t.description)}
+                                            className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors"
+                                            title="Cancelar recorrências futuras"
+                                          >
+                                            Cancelar
+                                          </button>
+                                        </div>
+                                      )}
+                                    </div>
                                   </div>
                                 ))}
                               </div>
@@ -1108,7 +1142,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                                         <p className="font-medium text-white">{t.description}</p>
                                         <p className="text-sm text-[#9CA3AF]">{t.category}</p>
                                       </div>
-                                      <p className="text-lg font-bold text-white">R$ {t.amount.toFixed(2)}</p>
+                                      <p className="text-lg font-bold text-white">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                     </div>
                                   ))}
                                 </div>
@@ -1127,12 +1161,21 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                                         <p className="font-medium text-white">{t.description}</p>
                                         <p className="text-sm text-[#9CA3AF]">{t.category}</p>
                                       </div>
-                                      <div className="text-right">
-                                        <p className="text-lg font-bold text-white">R$ {t.amount.toFixed(2)}</p>
+                                      <div className="text-right flex flex-col items-end gap-1">
+                                        <p className="text-lg font-bold text-white">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                         {t.recurring && (
-                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#8B7AB8]/20 text-[#8B7AB8] rounded">
-                                            Recorrente
-                                          </span>
+                                          <div className="flex items-center gap-2">
+                                            <span className="inline-block text-xs px-2 py-0.5 bg-[#8B7AB8]/20 text-[#8B7AB8] rounded">
+                                              Recorrente
+                                            </span>
+                                            <button
+                                              onClick={() => handleCancelRecurring(t.id, t.description)}
+                                              className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors"
+                                              title="Cancelar recorrências futuras"
+                                            >
+                                              Cancelar
+                                            </button>
+                                          </div>
                                         )}
                                       </div>
                                     </div>
@@ -1155,7 +1198,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                                           {t.category} • Parcela {t.installmentNumber}/{t.totalInstallments}
                                         </p>
                                       </div>
-                                      <p className="text-lg font-bold text-white">R$ {t.amount.toFixed(2)}</p>
+                                      <p className="text-lg font-bold text-white">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                     </div>
                                   ))}
                                 </div>
@@ -1174,7 +1217,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                                         <p className="font-medium text-white">{t.description}</p>
                                         <p className="text-sm text-[#9CA3AF]">{t.category}</p>
                                       </div>
-                                      <p className="text-lg font-bold text-[#9B97CE]">R$ {t.amount.toFixed(2)}</p>
+                                      <p className="text-lg font-bold text-[#9B97CE]">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                     </div>
                                   ))}
                                 </div>
@@ -1325,7 +1368,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                         <div className="flex-1">
                           <div className="flex items-center gap-3">
                             <span className={`text-lg font-bold ${textColor}`}>
-                              {isIncome ? '+' : '-'}R$ {transaction.amount.toFixed(2)}
+                              {isIncome ? '+' : '-'}{transaction.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </span>
                             <span className="text-white font-medium">
                               {transaction.description}

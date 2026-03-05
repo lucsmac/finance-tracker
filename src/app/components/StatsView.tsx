@@ -2,7 +2,6 @@ import { useState } from 'react';
 import {
   TrendingUp,
   TrendingDown,
-  DollarSign,
   Calendar as CalendarIcon,
   AlertCircle,
   CheckCircle,
@@ -14,8 +13,6 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import {
-  LineChart,
-  Line,
   BarChart,
   Bar,
   PieChart,
@@ -31,26 +28,68 @@ import {
   ResponsiveContainer
 } from 'recharts';
 import {
-  mockEstimates,
-  mockTransactions,
-  mockConfig,
   calculateDailyStandard,
   calculateCurrentBalance,
   getVariableExpensesForDate,
-  calculateAccumulatedVariation
+  type Transaction
 } from '../data/mockData';
+import { useAuth } from '@/lib/hooks/useAuth';
+import { useEstimates } from '../../lib/hooks/useEstimates';
+import { useTransactions } from '../../lib/hooks/useTransactions';
+import { useConfig } from '../../lib/hooks/useConfig';
 
 type ViewMode = 'month' | 'year';
 
+// Função para formatar valores em Real brasileiro
+const formatCurrency = (value: number): string => {
+  return value.toLocaleString('pt-BR', {
+    minimumFractionDigits: 2,
+    maximumFractionDigits: 2
+  });
+};
+
 export function StatsView() {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 0, 8));
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [viewMode, setViewMode] = useState<ViewMode>('month');
-  const today = '2026-01-08';
+
+  // Get authenticated user
+  const { user } = useAuth();
+
+  // Fetch data from Supabase
+  const { estimates, loading: estimatesLoading, error: estimatesError } = useEstimates(user?.id);
+  const { transactions, loading: transactionsLoading, error: transactionsError } = useTransactions(user?.id);
+  const { config, loading: configLoading, error: configError } = useConfig(user?.id);
+
+  const loading = estimatesLoading || transactionsLoading || configLoading;
+  const error = estimatesError || transactionsError || configError;
+
+  if (loading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#76C893] mx-auto mb-4"></div>
+          <p className="text-white/70">Carregando análises...</p>
+        </div>
+      </div>
+    );
+  }
+
+  if (error) {
+    return (
+      <div className="flex items-center justify-center min-h-screen">
+        <div className="text-center">
+          <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
+          <p className="text-white/70">Erro ao carregar dados: {error.message}</p>
+        </div>
+      </div>
+    );
+  }
+
+  const today = new Date().toISOString().split('T')[0];
 
   // Cálculos básicos
-  const dailyStandard = calculateDailyStandard(mockEstimates);
-  const currentBalance = calculateCurrentBalance(mockConfig.initialBalance, mockTransactions);
-  const accumulatedVariation = calculateAccumulatedVariation(dailyStandard, mockTransactions, today);
+  const dailyStandard = calculateDailyStandard(estimates);
+  const currentBalance = calculateCurrentBalance(config?.initialBalance || 0, transactions);
 
   // Funções de navegação
   const navigatePrevious = () => {
@@ -98,79 +137,62 @@ export function StatsView() {
     lastDay = new Date(year, 11, 31);
   }
 
-  const transactionsInPeriod = mockTransactions.filter(t => {
-    const tDate = new Date(t.date);
-    return tDate >= firstDay && tDate <= lastDay;
+  // Usar comparação de strings para evitar problemas de timezone
+  const firstDayStr = `${year}-${String(month + 1).padStart(2, '0')}-01`;
+  const lastDayStr = viewMode === 'month'
+    ? `${year}-${String(month + 1).padStart(2, '0')}-${String(lastDay.getDate()).padStart(2, '0')}`
+    : `${year}-12-31`;
+
+  const transactionsInPeriod = transactions.filter(t => {
+    return t.date >= firstDayStr && t.date <= lastDayStr;
   });
 
-  // Métricas gerais
+  // Métricas gerais - incluir tanto pagas quanto não pagas para análise completa
   const totalIncome = transactionsInPeriod
-    .filter(t => t.type === 'income' && t.paid)
+    .filter(t => t.type === 'income')
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalExpenses = transactionsInPeriod
-    .filter(t => t.type !== 'income' && t.paid)
+    .filter(t => t.type !== 'income')
     .reduce((sum, t) => sum + t.amount, 0);
 
   const variableExpenses = transactionsInPeriod
-    .filter(t => t.type === 'expense_variable' && t.paid)
+    .filter(t => t.type === 'expense_variable')
     .reduce((sum, t) => sum + t.amount, 0);
 
   const fixedExpenses = transactionsInPeriod
-    .filter(t => (t.type === 'expense_fixed' || t.type === 'installment') && t.paid)
+    .filter(t => (t.type === 'expense_fixed' || t.type === 'installment'))
     .reduce((sum, t) => sum + t.amount, 0);
 
-  // Dados para gráfico de linha do saldo
-  const balanceOverTime = [];
-  let runningBalance = mockConfig.initialBalance;
+  // Função auxiliar para calcular saldo sem filtro de 'paid' (para análise)
+  const calculateBalanceForAnalysis = (initialBalance: number, transactionsToInclude: Transaction[]): number => {
+    let balance = initialBalance;
+    transactionsToInclude.forEach(t => {
+      if (t.type === 'income') {
+        balance += t.amount;
+      } else {
+        balance -= t.amount;
+      }
+    });
+    return balance;
+  };
 
-  if (viewMode === 'month') {
-    const daysInMonth = new Date(year, month + 1, 0).getDate();
-    for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-      const dateStr = date.toISOString().split('T')[0];
+  // Calcular saldo no início do período (antes do primeiro dia)
+  // e saldo no final do período (após o último dia)
+  const transactionsBeforeFirstDay = transactions.filter(t => t.date < firstDayStr);
+  const transactionsUntilLastDay = transactions.filter(t => t.date <= lastDayStr);
 
-      const dayTransactions = mockTransactions.filter(t => t.date === dateStr && t.paid);
-      dayTransactions.forEach(t => {
-        if (t.type === 'income') {
-          runningBalance += t.amount;
-        } else {
-          runningBalance -= t.amount;
-        }
-      });
+  const balanceBeforePeriod = calculateBalanceForAnalysis(
+    config?.initialBalance || 0,
+    transactionsBeforeFirstDay
+  );
 
-      balanceOverTime.push({
-        label: `${day}`,
-        saldo: parseFloat(runningBalance.toFixed(2)),
-        date: dateStr
-      });
-    }
-  } else {
-    // Visualização anual - agregar por mês
-    for (let m = 0; m < 12; m++) {
-      const monthStart = new Date(year, m, 1);
-      const monthEnd = new Date(year, m + 1, 0);
+  const balanceAfterPeriod = calculateBalanceForAnalysis(
+    config?.initialBalance || 0,
+    transactionsUntilLastDay
+  );
 
-      const monthTransactions = mockTransactions.filter(t => {
-        const tDate = new Date(t.date);
-        return t.paid && tDate >= monthStart && tDate <= monthEnd;
-      });
-
-      monthTransactions.forEach(t => {
-        if (t.type === 'income') {
-          runningBalance += t.amount;
-        } else {
-          runningBalance -= t.amount;
-        }
-      });
-
-      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
-      balanceOverTime.push({
-        label: monthNames[m],
-        saldo: parseFloat(runningBalance.toFixed(2))
-      });
-    }
-  }
+  const periodBalanceChange = balanceAfterPeriod - balanceBeforePeriod;
 
   // Dados para gráfico de entradas vs saídas
   const incomeVsExpenses = [];
@@ -181,12 +203,12 @@ export function StatsView() {
       const date = new Date(year, month, day);
       const dateStr = date.toISOString().split('T')[0];
 
-      const dayIncome = mockTransactions
-        .filter(t => t.date === dateStr && t.type === 'income' && t.paid)
+      const dayIncome = transactions
+        .filter(t => t.date === dateStr && t.type === 'income')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const dayExpense = mockTransactions
-        .filter(t => t.date === dateStr && t.type !== 'income' && t.paid)
+      const dayExpense = transactions
+        .filter(t => t.date === dateStr && t.type !== 'income')
         .reduce((sum, t) => sum + t.amount, 0);
 
       if (dayIncome > 0 || dayExpense > 0) {
@@ -199,25 +221,21 @@ export function StatsView() {
     }
   } else {
     // Visualização anual
+    const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
+
     for (let m = 0; m < 12; m++) {
-      const monthStart = new Date(year, m, 1);
-      const monthEnd = new Date(year, m + 1, 0);
+      const monthStartStr = `${year}-${String(m + 1).padStart(2, '0')}-01`;
+      const lastDayOfMonth = new Date(year, m + 1, 0).getDate();
+      const monthEndStr = `${year}-${String(m + 1).padStart(2, '0')}-${String(lastDayOfMonth).padStart(2, '0')}`;
 
-      const monthIncome = mockTransactions
-        .filter(t => {
-          const tDate = new Date(t.date);
-          return t.paid && t.type === 'income' && tDate >= monthStart && tDate <= monthEnd;
-        })
+      const monthIncome = transactions
+        .filter(t => t.type === 'income' && t.date >= monthStartStr && t.date <= monthEndStr)
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const monthExpense = mockTransactions
-        .filter(t => {
-          const tDate = new Date(t.date);
-          return t.paid && t.type !== 'income' && tDate >= monthStart && tDate <= monthEnd;
-        })
+      const monthExpense = transactions
+        .filter(t => t.type !== 'income' && t.date >= monthStartStr && t.date <= monthEndStr)
         .reduce((sum, t) => sum + t.amount, 0);
 
-      const monthNames = ['Jan', 'Fev', 'Mar', 'Abr', 'Mai', 'Jun', 'Jul', 'Ago', 'Set', 'Out', 'Nov', 'Dez'];
       incomeVsExpenses.push({
         label: monthNames[m],
         entradas: parseFloat(monthIncome.toFixed(2)),
@@ -228,7 +246,7 @@ export function StatsView() {
 
   // Dados para gráfico de gastos por categoria
   const expensesByCategory = transactionsInPeriod
-    .filter(t => t.type !== 'income' && t.paid)
+    .filter(t => t.type !== 'income')
     .reduce((acc: any, t) => {
       if (!acc[t.category]) {
         acc[t.category] = 0;
@@ -256,7 +274,7 @@ export function StatsView() {
     for (let day = 1; day <= daysInMonth; day++) {
       const date = new Date(year, month, day);
       const dateStr = date.toISOString().split('T')[0];
-      const dayExpenses = getVariableExpensesForDate(dateStr, mockTransactions);
+      const dayExpenses = getVariableExpensesForDate(dateStr, transactions);
 
       if (date <= new Date(today) && dayExpenses > 0) {
         performanceData.push({
@@ -272,28 +290,12 @@ export function StatsView() {
   // Insights automáticos
   const insights = [];
 
-  if (accumulatedVariation >= 0) {
-    insights.push({
-      type: 'positive',
-      title: 'Você está economizando!',
-      description: `Você economizou R$ ${accumulatedVariation.toFixed(2)} em relação ao padrão ${viewMode === 'month' ? 'mensal' : 'anual'}.`,
-      icon: CheckCircle
-    });
-  } else {
-    insights.push({
-      type: 'warning',
-      title: 'Gastos acima do padrão',
-      description: `Você gastou R$ ${Math.abs(accumulatedVariation).toFixed(2)} a mais que o planejado.`,
-      icon: AlertCircle
-    });
-  }
-
   if (categoryChartData.length > 0) {
     const topCategory = categoryChartData[0];
     insights.push({
       type: 'info',
       title: 'Maior gasto por categoria',
-      description: `${topCategory.name} representa ${topCategory.percentage}% dos seus gastos (R$ ${topCategory.value.toFixed(2)}).`,
+      description: `${topCategory.name} representa ${topCategory.percentage}% dos seus gastos (R$ ${formatCurrency(topCategory.value)}).`,
       icon: PieChartIcon
     });
   }
@@ -393,22 +395,22 @@ export function StatsView() {
         <div className="grid grid-cols-4 gap-6">
           <div className="text-center">
             <p className="text-[#9CA3AF] text-sm mb-1">Total de Entradas</p>
-            <p className="text-3xl font-bold text-[#76C893] mb-1">R$ {totalIncome.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-[#76C893] mb-1">R$ {formatCurrency(totalIncome)}</p>
             <p className="text-xs text-[#9CA3AF]">Receitas do período</p>
           </div>
 
           <div className="text-center border-x border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Total de Gastos</p>
-            <p className="text-3xl font-bold text-[#D97B7B] mb-1">R$ {totalExpenses.toFixed(2)}</p>
+            <p className="text-3xl font-bold text-[#D97B7B] mb-1">R$ {formatCurrency(totalExpenses)}</p>
             <p className="text-xs text-[#9CA3AF]">Todas as despesas</p>
           </div>
 
           <div className="text-center border-r border-white/10">
-            <p className="text-[#9CA3AF] text-sm mb-1">Saldo do Período</p>
-            <p className={`text-3xl font-bold mb-1 ${(totalIncome - totalExpenses) >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-              {(totalIncome - totalExpenses) >= 0 ? '+' : ''}R$ {(totalIncome - totalExpenses).toFixed(2)}
+            <p className="text-[#9CA3AF] text-sm mb-1">Variação do Saldo</p>
+            <p className={`text-3xl font-bold mb-1 ${periodBalanceChange >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+              {periodBalanceChange >= 0 ? '+' : ''}R$ {formatCurrency(Math.abs(periodBalanceChange))}
             </p>
-            <p className="text-xs text-[#9CA3AF]">Entradas - Gastos</p>
+            <p className="text-xs text-[#9CA3AF]">Saldo final - Saldo inicial</p>
           </div>
 
           <div className="text-center">
@@ -419,43 +421,6 @@ export function StatsView() {
             <p className="text-xs text-[#9CA3AF]">da renda total</p>
           </div>
         </div>
-      </div>
-
-      {/* Gráfico: Evolução do Saldo */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
-        <h3 className="text-xl font-semibold text-white mb-6">Evolução do Saldo</h3>
-
-        <ResponsiveContainer width="100%" height={300}>
-          <LineChart data={balanceOverTime}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
-            <XAxis
-              dataKey="label"
-              stroke="#9CA3AF"
-              style={{ fontSize: '12px' }}
-            />
-            <YAxis
-              stroke="#9CA3AF"
-              style={{ fontSize: '12px' }}
-              tickFormatter={(value) => `R$ ${value}`}
-            />
-            <Tooltip
-              contentStyle={{
-                backgroundColor: '#161618',
-                border: '1px solid #ffffff20',
-                borderRadius: '8px'
-              }}
-              formatter={(value: any) => [`R$ ${value.toFixed(2)}`, 'Saldo']}
-            />
-            <Line
-              type="monotone"
-              dataKey="saldo"
-              stroke="#76C893"
-              strokeWidth={3}
-              dot={{ fill: '#76C893', r: 4 }}
-              activeDot={{ r: 6 }}
-            />
-          </LineChart>
-        </ResponsiveContainer>
       </div>
 
       {/* Gráfico: Entradas vs Saídas */}
@@ -481,7 +446,7 @@ export function StatsView() {
                 border: '1px solid #ffffff20',
                 borderRadius: '8px'
               }}
-              formatter={(value: any) => `R$ ${value.toFixed(2)}`}
+              formatter={(value: any) => `R$ ${formatCurrency(value)}`}
             />
             <Legend />
             <Bar dataKey="entradas" fill="#76C893" name="Entradas" radius={[8, 8, 0, 0]} />
@@ -519,7 +484,7 @@ export function StatsView() {
                   borderRadius: '8px'
                 }}
                 formatter={(value: any, name: any, props: any) => [
-                  `R$ ${value.toFixed(2)} (${props.payload.percentage}%)`,
+                  `R$ ${formatCurrency(value)} (${props.payload.percentage}%)`,
                   'Valor'
                 ]}
               />
@@ -558,7 +523,7 @@ export function StatsView() {
                   border: '1px solid #ffffff20',
                   borderRadius: '8px'
                 }}
-                formatter={(value: any) => `R$ ${value.toFixed(2)}`}
+                formatter={(value: any) => `R$ ${formatCurrency(value)}`}
               />
             </PieChart>
           </ResponsiveContainer>
@@ -590,7 +555,7 @@ export function StatsView() {
                   border: '1px solid #ffffff20',
                   borderRadius: '8px'
                 }}
-                formatter={(value: any) => `R$ ${value.toFixed(2)}`}
+                formatter={(value: any) => `R$ ${formatCurrency(value)}`}
               />
               <Legend />
               <Area
@@ -623,7 +588,7 @@ export function StatsView() {
             </div>
             <div>
               <p className="text-sm text-[#76C893]">Gastos Variáveis</p>
-              <p className="text-2xl font-bold text-white">R$ {variableExpenses.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-white">R$ {formatCurrency(variableExpenses)}</p>
             </div>
           </div>
           <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
@@ -644,7 +609,7 @@ export function StatsView() {
             </div>
             <div>
               <p className="text-sm text-[#8B7AB8]">Gastos Fixos</p>
-              <p className="text-2xl font-bold text-white">R$ {fixedExpenses.toFixed(2)}</p>
+              <p className="text-2xl font-bold text-white">R$ {formatCurrency(fixedExpenses)}</p>
             </div>
           </div>
           <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">

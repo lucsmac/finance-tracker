@@ -1,22 +1,25 @@
 import { useState } from 'react';
-import { Calendar as CalendarIcon, Check, X, AlertCircle, Plus, ChevronLeft, ChevronRight, Edit, Trash2 } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, X, AlertCircle, Plus, ChevronLeft, ChevronRight, Edit, Trash2, Copy } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTransactions } from '@/lib/hooks/useTransactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
-import { getTodayLocal, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
+import { getTodayLocal, formatDateToLocaleString, createDateFromString } from '@/lib/utils/dateHelpers';
 
 export function CommitmentsView() {
   const { user } = useAuth();
-  const { transactions, loading, error, createTransaction, updateTransaction, deleteTransaction, refresh } = useTransactions(user?.id);
-  const today = new Date('2026-01-08');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 0, 8)); // Janeiro 2026
+  const { transactions, loading, error, createTransaction, createInstallments, updateTransaction, deleteTransaction, refresh } = useTransactions(user?.id);
+  const todayStr = getTodayLocal();
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Mês atual
   const [saving, setSaving] = useState(false);
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description' | 'type'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Estados do modal de cadastro
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
+  const [isDuplicateModalOpen, setIsDuplicateModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string>('');
 
   // Estados do modal de confirmação de delete
@@ -24,28 +27,44 @@ export function CommitmentsView() {
   const [deletingId, setDeletingId] = useState<string>('');
   const [deletingDescription, setDeletingDescription] = useState<string>('');
   const [commitmentForm, setCommitmentForm] = useState({
-    type: 'expense_fixed' as 'expense_fixed' | 'installment',
+    type: 'expense_fixed' as 'expense_fixed' | 'expense_variable' | 'installment',
     description: '',
     category: '',
     amount: '',
     date: '',
     recurring: false,
+    generateNextMonths: false,
+    generateAllInstallments: true, // Por padrão, criar todas as parcelas
     totalInstallments: '',
-    installmentNumber: ''
+    installmentNumber: '1'
   });
 
-  // Filtrar compromissos do mês selecionado (fixos e parcelas)
+  // Filtrar compromissos do mês selecionado (fixos, variáveis e parcelas)
   const commitments = transactions
     .filter(t =>
-      (t.type === 'expense_fixed' || t.type === 'installment') &&
-      new Date(t.date).getMonth() === selectedDate.getMonth() &&
-      new Date(t.date).getFullYear() === selectedDate.getFullYear()
+      (t.type === 'expense_fixed' || t.type === 'expense_variable' || t.type === 'installment') &&
+      createDateFromString(t.date).getMonth() === selectedDate.getMonth() &&
+      createDateFromString(t.date).getFullYear() === selectedDate.getFullYear()
     )
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a, b) => {
+      let comparison = 0;
+
+      if (sortBy === 'date') {
+        comparison = createDateFromString(a.date).getTime() - createDateFromString(b.date).getTime();
+      } else if (sortBy === 'amount') {
+        comparison = a.amount - b.amount;
+      } else if (sortBy === 'description') {
+        comparison = a.description.localeCompare(b.description);
+      } else if (sortBy === 'type') {
+        comparison = a.type.localeCompare(b.type);
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   const paid = commitments.filter(c => c.paid);
   const pending = commitments.filter(c => !c.paid);
-  const overdue = pending.filter(c => new Date(c.date) < today);
+  const overdue = pending.filter(c => c.date < todayStr);
 
   const totalCommitted = commitments.reduce((sum, c) => sum + c.amount, 0);
   const totalPaid = paid.reduce((sum, c) => sum + c.amount, 0);
@@ -77,20 +96,105 @@ export function CommitmentsView() {
       return;
     }
 
+    // Validar campos de parcelamento
+    if (commitmentForm.type === 'installment') {
+      const currentInstallment = parseInt(commitmentForm.installmentNumber) || 1;
+      const totalInstallments = parseInt(commitmentForm.totalInstallments);
+
+      if (!commitmentForm.totalInstallments || totalInstallments < 1) {
+        alert('Informe o número total de parcelas');
+        return;
+      }
+
+      if (currentInstallment < 1) {
+        alert('A parcela atual deve ser pelo menos 1');
+        return;
+      }
+
+      if (currentInstallment > totalInstallments) {
+        alert('A parcela atual não pode ser maior que o total de parcelas');
+        return;
+      }
+    }
+
     try {
       setSaving(true);
-      await createTransaction({
-        type: commitmentForm.type,
-        category: commitmentForm.category || 'Geral',
-        description: commitmentForm.description,
-        amount: parseFloat(commitmentForm.amount),
-        date: commitmentForm.date,
-        recurring: commitmentForm.recurring,
-        paid: false,
-        installmentGroup: commitmentForm.type === 'installment' ? `${commitmentForm.description}-${Date.now()}` : undefined,
-        installmentNumber: commitmentForm.type === 'installment' ? parseInt(commitmentForm.installmentNumber) : undefined,
-        totalInstallments: commitmentForm.type === 'installment' ? parseInt(commitmentForm.totalInstallments) : undefined
-      });
+
+      // Se for parcelamento
+      if (commitmentForm.type === 'installment') {
+        if (commitmentForm.generateAllInstallments) {
+          // Criar todas as parcelas restantes
+          await createInstallments({
+            type: 'installment',
+            category: commitmentForm.category || 'Geral',
+            description: commitmentForm.description,
+            amount: parseFloat(commitmentForm.amount),
+            date: commitmentForm.date,
+            recurring: false,
+            paid: false,
+            installmentGroup: `${commitmentForm.description}-${Date.now()}`,
+            installmentNumber: parseInt(commitmentForm.installmentNumber) || 1,
+            totalInstallments: parseInt(commitmentForm.totalInstallments)
+          });
+        } else {
+          // Criar apenas a parcela atual
+          await createTransaction({
+            type: 'installment',
+            category: commitmentForm.category || 'Geral',
+            description: commitmentForm.description,
+            amount: parseFloat(commitmentForm.amount),
+            date: commitmentForm.date,
+            recurring: false,
+            paid: false,
+            installmentGroup: `${commitmentForm.description}-${Date.now()}`,
+            installmentNumber: parseInt(commitmentForm.installmentNumber) || 1,
+            totalInstallments: parseInt(commitmentForm.totalInstallments)
+          });
+        }
+      } else {
+        // Se for gasto fixo ou variável, usar createTransaction normal
+        const isRecurring = commitmentForm.type === 'expense_fixed' ? commitmentForm.recurring : false;
+
+        await createTransaction({
+          type: commitmentForm.type,
+          category: commitmentForm.category || 'Geral',
+          description: commitmentForm.description,
+          amount: parseFloat(commitmentForm.amount),
+          date: commitmentForm.date,
+          recurring: isRecurring,
+          paid: false
+        });
+
+        // Se marcou para gerar próximos meses e é recorrente, criar mais 2 réplicas
+        if (isRecurring && commitmentForm.generateNextMonths) {
+          const originalDate = new Date(commitmentForm.date + 'T00:00:00');
+          const dayOfMonth = originalDate.getDate();
+
+          // Criar réplica para o próximo mês
+          const nextMonth1 = new Date(originalDate.getFullYear(), originalDate.getMonth() + 1, dayOfMonth);
+          await createTransaction({
+            type: commitmentForm.type,
+            category: commitmentForm.category || 'Geral',
+            description: commitmentForm.description,
+            amount: parseFloat(commitmentForm.amount),
+            date: nextMonth1.toISOString().split('T')[0],
+            recurring: true,
+            paid: false
+          });
+
+          // Criar réplica para o segundo mês seguinte
+          const nextMonth2 = new Date(originalDate.getFullYear(), originalDate.getMonth() + 2, dayOfMonth);
+          await createTransaction({
+            type: commitmentForm.type,
+            category: commitmentForm.category || 'Geral',
+            description: commitmentForm.description,
+            amount: parseFloat(commitmentForm.amount),
+            date: nextMonth2.toISOString().split('T')[0],
+            recurring: true,
+            paid: false
+          });
+        }
+      }
 
       // Force refresh to update the list immediately
       await refresh();
@@ -102,8 +206,10 @@ export function CommitmentsView() {
         amount: '',
         date: '',
         recurring: false,
+        generateNextMonths: false,
+        generateAllInstallments: true,
         totalInstallments: '',
-        installmentNumber: ''
+        installmentNumber: '1'
       });
     } catch (err) {
       console.error('Error saving commitment:', err);
@@ -137,6 +243,21 @@ export function CommitmentsView() {
     setIsEditModalOpen(true);
   };
 
+  // Função para abrir modal de duplicação
+  const handleDuplicateCommitment = (commitment: any) => {
+    setCommitmentForm({
+      type: commitment.type,
+      description: commitment.description,
+      category: commitment.category,
+      amount: commitment.amount.toString(),
+      date: commitment.date,
+      recurring: commitment.recurring || false,
+      totalInstallments: commitment.totalInstallments?.toString() || '',
+      installmentNumber: commitment.installmentNumber?.toString() || '1'
+    });
+    setIsDuplicateModalOpen(true);
+  };
+
   // Função para salvar edição
   const handleSaveEdit = async () => {
     if (!editingId || !commitmentForm.description || !commitmentForm.amount || !commitmentForm.date) {
@@ -168,12 +289,96 @@ export function CommitmentsView() {
         amount: '',
         date: '',
         recurring: false,
+        generateNextMonths: false,
+        generateAllInstallments: true,
         totalInstallments: '',
-        installmentNumber: ''
+        installmentNumber: '1'
       });
     } catch (err) {
       console.error('Error editing commitment:', err);
       alert('Erro ao editar compromisso. Tente novamente.');
+    } finally {
+      setSaving(false);
+    }
+  };
+
+  // Função para salvar duplicação (usa a mesma lógica do handleSaveCommitment)
+  const handleSaveDuplicate = async () => {
+    if (!commitmentForm.description || !commitmentForm.amount || !commitmentForm.date) {
+      alert('Preencha todos os campos obrigatórios');
+      return;
+    }
+
+    // Validar campos de parcelamento
+    if (commitmentForm.type === 'installment') {
+      const currentInstallment = parseInt(commitmentForm.installmentNumber) || 1;
+      const totalInstallments = parseInt(commitmentForm.totalInstallments);
+
+      if (!commitmentForm.totalInstallments || totalInstallments < 1) {
+        alert('Informe o número total de parcelas');
+        return;
+      }
+
+      if (currentInstallment < 1) {
+        alert('A parcela atual deve ser pelo menos 1');
+        return;
+      }
+
+      if (currentInstallment > totalInstallments) {
+        alert('A parcela atual não pode ser maior que o total de parcelas');
+        return;
+      }
+    }
+
+    try {
+      setSaving(true);
+
+      // Se for parcelamento, usar createInstallments para criar todas as parcelas
+      if (commitmentForm.type === 'installment') {
+        await createInstallments({
+          type: 'installment',
+          category: commitmentForm.category || 'Geral',
+          description: commitmentForm.description,
+          amount: parseFloat(commitmentForm.amount),
+          date: commitmentForm.date,
+          recurring: false,
+          paid: false,
+          installmentGroup: `${commitmentForm.description}-${Date.now()}`,
+          installmentNumber: parseInt(commitmentForm.installmentNumber) || 1,
+          totalInstallments: parseInt(commitmentForm.totalInstallments)
+        });
+      } else {
+        // Se for gasto fixo ou variável, usar createTransaction normal
+        await createTransaction({
+          type: commitmentForm.type,
+          category: commitmentForm.category || 'Geral',
+          description: commitmentForm.description,
+          amount: parseFloat(commitmentForm.amount),
+          date: commitmentForm.date,
+          // Apenas gastos fixos podem ser recorrentes
+          recurring: commitmentForm.type === 'expense_fixed' ? commitmentForm.recurring : false,
+          paid: false
+        });
+      }
+
+      // Force refresh to update the list immediately
+      await refresh();
+      setIsDuplicateModalOpen(false);
+      setCommitmentForm({
+        type: 'expense_fixed',
+        description: '',
+        category: '',
+        amount: '',
+        date: '',
+        recurring: false,
+        generateNextMonths: false,
+        generateAllInstallments: true,
+        totalInstallments: '',
+        installmentNumber: '1'
+      });
+    } catch (err) {
+      console.error('Error duplicating commitment:', err);
+      alert('Erro ao duplicar compromisso. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -310,19 +515,19 @@ export function CommitmentsView() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
           <p className="text-sm text-[#9CA3AF] mb-2">Total Comprometido</p>
-          <p className="text-3xl font-bold text-white">R$ {totalCommitted.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-white">{totalCommitted.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
           <p className="text-xs text-[#9CA3AF] mt-1">{commitments.length} compromissos</p>
         </div>
 
         <div className="bg-[#76C893]/10 rounded-xl border border-[#76C893]/30 p-6">
           <p className="text-sm text-[#76C893] mb-2">Pagos</p>
-          <p className="text-3xl font-bold text-[#76C893]">R$ {totalPaid.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-[#76C893]">{totalPaid.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
           <p className="text-xs text-[#76C893] mt-1">{paid.length} itens</p>
         </div>
 
         <div className="bg-[#8B7AB8]/10 rounded-xl border border-[#8B7AB8]/30 p-6">
           <p className="text-sm text-[#8B7AB8] mb-2">Pendentes</p>
-          <p className="text-3xl font-bold text-[#8B7AB8]">R$ {totalPending.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-[#8B7AB8]">{totalPending.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
           <p className="text-xs text-[#8B7AB8] mt-1">{pending.length} itens</p>
         </div>
 
@@ -334,6 +539,65 @@ export function CommitmentsView() {
           <p className="text-xs text-[#D97B7B] mt-1">
             {overdue.length > 0 ? 'Necessita atenção' : 'Tudo em dia'}
           </p>
+        </div>
+      </div>
+
+      {/* Controles de Ordenação */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4">
+        <div className="flex items-center justify-between flex-wrap gap-4">
+          <h3 className="text-sm font-semibold text-[#9CA3AF]">Ordenar por:</h3>
+
+          <div className="flex items-center gap-2 flex-wrap">
+            <button
+              onClick={() => setSortBy('date')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                sortBy === 'date'
+                  ? 'bg-[#76C893] text-[#161618]'
+                  : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
+              }`}
+            >
+              Data
+            </button>
+            <button
+              onClick={() => setSortBy('amount')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                sortBy === 'amount'
+                  ? 'bg-[#76C893] text-[#161618]'
+                  : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
+              }`}
+            >
+              Valor
+            </button>
+            <button
+              onClick={() => setSortBy('description')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                sortBy === 'description'
+                  ? 'bg-[#76C893] text-[#161618]'
+                  : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
+              }`}
+            >
+              Nome
+            </button>
+            <button
+              onClick={() => setSortBy('type')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                sortBy === 'type'
+                  ? 'bg-[#76C893] text-[#161618]'
+                  : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
+              }`}
+            >
+              Tipo
+            </button>
+
+            <div className="w-px h-6 bg-white/20 mx-2"></div>
+
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-[#9CA3AF] hover:bg-white/10 transition-colors"
+            >
+              {sortOrder === 'asc' ? '↑ Crescente' : '↓ Decrescente'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -361,7 +625,7 @@ export function CommitmentsView() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-lg font-bold text-white">R$ {commitment.amount.toFixed(2)}</p>
+                    <p className="text-lg font-bold text-white">{commitment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                     <button
                       onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
                       className="mt-2 px-3 py-1 bg-[#D97B7B] hover:bg-[#C97A7A] text-white text-sm rounded transition-colors"
@@ -391,7 +655,7 @@ export function CommitmentsView() {
         </div>
 
         <div className="divide-y divide-white/10">
-          {pending.filter(c => new Date(c.date) >= today).map(commitment => (
+          {pending.filter(c => c.date >= todayStr).map(commitment => (
             <div key={commitment.id} className="px-6 py-4 hover:bg-white/10 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
@@ -404,11 +668,14 @@ export function CommitmentsView() {
                       <h4 className="text-base font-medium text-white">
                         {commitment.description}
                       </h4>
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${commitment.type === 'expense_fixed'
-                          ? 'bg-[#8B7AB8]/20 text-[#8B7AB8]'
-                          : 'bg-[#8B7AB8]/20 text-[#8B7AB8]'
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                        commitment.type === 'expense_fixed' ? 'bg-[#8B7AB8]/20 text-[#8B7AB8]' :
+                        commitment.type === 'expense_variable' ? 'bg-[#9B97CE]/20 text-[#9B97CE]' :
+                        'bg-[#8B7AB8]/20 text-[#8B7AB8]'
                         }`}>
-                        {commitment.type === 'expense_fixed' ? 'Fixo' : 'Parcela'}
+                        {commitment.type === 'expense_fixed' ? 'Fixo' :
+                         commitment.type === 'expense_variable' ? 'Variável' :
+                         'Parcela'}
                       </span>
                       {commitment.installmentNumber && (
                         <span className="text-sm text-[#9CA3AF]">
@@ -433,9 +700,17 @@ export function CommitmentsView() {
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <p className="text-xl font-bold text-white">
-                      R$ {commitment.amount.toFixed(2)}
+                      {commitment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
                   </div>
+
+                  <button
+                    onClick={() => handleDuplicateCommitment(commitment)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    title="Duplicar"
+                  >
+                    <Copy className="w-5 h-5 text-[#80bc96]" />
+                  </button>
 
                   <button
                     onClick={() => handleEditCommitment(commitment)}
@@ -464,7 +739,7 @@ export function CommitmentsView() {
             </div>
           ))}
 
-          {pending.filter(c => new Date(c.date) >= today).length === 0 && (
+          {pending.filter(c => c.date >= todayStr).length === 0 && (
             <div className="px-6 py-8 text-center">
               <p className="text-[#9CA3AF]">Nenhum compromisso pendente</p>
             </div>
@@ -493,11 +768,14 @@ export function CommitmentsView() {
                       <h4 className="text-base font-medium text-white">
                         {commitment.description}
                       </h4>
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${commitment.type === 'expense_fixed'
-                          ? 'bg-[#8B7AB8]/20 text-[#8B7AB8]'
-                          : 'bg-[#8B7AB8]/20 text-[#8B7AB8]'
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
+                        commitment.type === 'expense_fixed' ? 'bg-[#8B7AB8]/20 text-[#8B7AB8]' :
+                        commitment.type === 'expense_variable' ? 'bg-[#9B97CE]/20 text-[#9B97CE]' :
+                        'bg-[#8B7AB8]/20 text-[#8B7AB8]'
                         }`}>
-                        {commitment.type === 'expense_fixed' ? 'Fixo' : 'Parcela'}
+                        {commitment.type === 'expense_fixed' ? 'Fixo' :
+                         commitment.type === 'expense_variable' ? 'Variável' :
+                         'Parcela'}
                       </span>
                       {commitment.installmentNumber && (
                         <span className="text-sm text-[#9CA3AF]">
@@ -517,12 +795,20 @@ export function CommitmentsView() {
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <p className="text-xl font-bold text-white">
-                      R$ {commitment.amount.toFixed(2)}
+                      {commitment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
                     <span className="inline-block mt-1 px-2 py-1 bg-[#76C893]/20 text-[#76C893] rounded text-xs font-medium">
                       Pago
                     </span>
                   </div>
+
+                  <button
+                    onClick={() => handleDuplicateCommitment(commitment)}
+                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                    title="Duplicar"
+                  >
+                    <Copy className="w-5 h-5 text-[#80bc96]" />
+                  </button>
 
                   <button
                     onClick={() => handleEditCommitment(commitment)}
@@ -552,9 +838,9 @@ export function CommitmentsView() {
 
         <div className="space-y-4">
           {commitments.map((commitment, index) => {
-            const commitmentDate = new Date(commitment.date);
-            const isPast = commitmentDate < today;
-            const isToday = commitmentDate.toDateString() === today.toDateString();
+            const commitmentDate = createDateFromString(commitment.date);
+            const isPast = commitment.date < todayStr;
+            const isToday = commitment.date === todayStr;
 
             return (
               <div key={commitment.id} className="flex items-start gap-4">
@@ -582,7 +868,7 @@ export function CommitmentsView() {
                         })}
                       </p>
                       <p className="text-sm text-[#9CA3AF] mt-1">
-                        {commitment.description} - R$ {commitment.amount.toFixed(2)}
+                        {commitment.description} - {commitment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
                       {commitment.paid && (
                         <span className="inline-block mt-1 text-xs text-[#76C893]">✓ Pago</span>
@@ -641,10 +927,11 @@ export function CommitmentsView() {
               </label>
               <select
                 value={commitmentForm.type}
-                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'installment' })}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'expense_variable' | 'installment' })}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               >
                 <option value="expense_fixed" className="bg-[#161618]">Gasto Fixo</option>
+                <option value="expense_variable" className="bg-[#161618]">Gasto Variável</option>
                 <option value="installment" className="bg-[#161618]">Parcelamento</option>
               </select>
             </div>
@@ -708,50 +995,84 @@ export function CommitmentsView() {
 
             {/* Recorrente (apenas para gasto fixo) */}
             {commitmentForm.type === 'expense_fixed' && (
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="recurring"
-                  checked={commitmentForm.recurring}
-                  onChange={(e) => setCommitmentForm({ ...commitmentForm, recurring: e.target.checked })}
-                  className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
-                />
-                <label htmlFor="recurring" className="text-sm font-medium text-[#9CA3AF]">
-                  Compromisso recorrente (repete todo mês)
-                </label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="recurring"
+                    checked={commitmentForm.recurring}
+                    onChange={(e) => setCommitmentForm({ ...commitmentForm, recurring: e.target.checked, generateNextMonths: e.target.checked ? commitmentForm.generateNextMonths : false })}
+                    className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
+                  />
+                  <label htmlFor="recurring" className="text-sm font-medium text-[#9CA3AF]">
+                    Compromisso recorrente (repete todo mês)
+                  </label>
+                </div>
+
+                {/* Checkbox para gerar próximos 2 meses */}
+                {commitmentForm.recurring && (
+                  <div className="flex items-center gap-3 ml-8">
+                    <input
+                      type="checkbox"
+                      id="generateNextMonths"
+                      checked={commitmentForm.generateNextMonths}
+                      onChange={(e) => setCommitmentForm({ ...commitmentForm, generateNextMonths: e.target.checked })}
+                      className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
+                    />
+                    <label htmlFor="generateNextMonths" className="text-sm font-medium text-[#9CA3AF]">
+                      Criar também para os próximos 2 meses (total de 3)
+                    </label>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Campos de Parcelamento */}
             {commitmentForm.type === 'installment' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                    Parcela Atual *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="1"
-                    value={commitmentForm.installmentNumber}
-                    onChange={(e) => setCommitmentForm({ ...commitmentForm, installmentNumber: e.target.value })}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
-                  />
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                      Parcela Atual *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={commitmentForm.installmentNumber}
+                      onChange={(e) => setCommitmentForm({ ...commitmentForm, installmentNumber: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                      Total de Parcelas *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="12"
+                      value={commitmentForm.totalInstallments}
+                      onChange={(e) => setCommitmentForm({ ...commitmentForm, totalInstallments: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                    Total de Parcelas *
-                  </label>
+
+                {/* Checkbox para gerar todas as parcelas */}
+                <div className="flex items-center gap-3">
                   <input
-                    type="number"
-                    min="1"
-                    placeholder="12"
-                    value={commitmentForm.totalInstallments}
-                    onChange={(e) => setCommitmentForm({ ...commitmentForm, totalInstallments: e.target.value })}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    type="checkbox"
+                    id="generateAllInstallments"
+                    checked={commitmentForm.generateAllInstallments}
+                    onChange={(e) => setCommitmentForm({ ...commitmentForm, generateAllInstallments: e.target.checked })}
+                    className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
                   />
+                  <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[#9CA3AF]">
+                    Criar todas as parcelas restantes automaticamente
+                  </label>
                 </div>
               </div>
             )}
@@ -796,10 +1117,11 @@ export function CommitmentsView() {
               </label>
               <select
                 value={commitmentForm.type}
-                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'installment' })}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'expense_variable' | 'installment' })}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               >
                 <option value="expense_fixed" className="bg-[#161618]">Gasto Fixo</option>
+                <option value="expense_variable" className="bg-[#161618]">Gasto Variável</option>
                 <option value="installment" className="bg-[#161618]">Parcelamento</option>
               </select>
             </div>
@@ -863,50 +1185,84 @@ export function CommitmentsView() {
 
             {/* Recorrente (apenas para gasto fixo) */}
             {commitmentForm.type === 'expense_fixed' && (
-              <div className="flex items-center gap-3">
-                <input
-                  type="checkbox"
-                  id="recurring-edit"
-                  checked={commitmentForm.recurring}
-                  onChange={(e) => setCommitmentForm({ ...commitmentForm, recurring: e.target.checked })}
-                  className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
-                />
-                <label htmlFor="recurring-edit" className="text-sm font-medium text-[#9CA3AF]">
-                  Compromisso recorrente (repete todo mês)
-                </label>
+              <div className="space-y-3">
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="recurring-edit"
+                    checked={commitmentForm.recurring}
+                    onChange={(e) => setCommitmentForm({ ...commitmentForm, recurring: e.target.checked, generateNextMonths: e.target.checked ? commitmentForm.generateNextMonths : false })}
+                    className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
+                  />
+                  <label htmlFor="recurring-edit" className="text-sm font-medium text-[#9CA3AF]">
+                    Compromisso recorrente (repete todo mês)
+                  </label>
+                </div>
+
+                {/* Checkbox para gerar próximos 2 meses */}
+                {commitmentForm.recurring && (
+                  <div className="flex items-center gap-3 ml-8">
+                    <input
+                      type="checkbox"
+                      id="generateNextMonths-edit"
+                      checked={commitmentForm.generateNextMonths}
+                      onChange={(e) => setCommitmentForm({ ...commitmentForm, generateNextMonths: e.target.checked })}
+                      className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
+                    />
+                    <label htmlFor="generateNextMonths-edit" className="text-sm font-medium text-[#9CA3AF]">
+                      Criar também para os próximos 2 meses (total de 3)
+                    </label>
+                  </div>
+                )}
               </div>
             )}
 
             {/* Campos de Parcelamento */}
             {commitmentForm.type === 'installment' && (
-              <div className="grid grid-cols-2 gap-4">
-                <div>
-                  <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                    Parcela Atual *
-                  </label>
-                  <input
-                    type="number"
-                    min="1"
-                    placeholder="1"
-                    value={commitmentForm.installmentNumber}
-                    onChange={(e) => setCommitmentForm({ ...commitmentForm, installmentNumber: e.target.value })}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
-                  />
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                      Parcela Atual *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={commitmentForm.installmentNumber}
+                      onChange={(e) => setCommitmentForm({ ...commitmentForm, installmentNumber: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                      Total de Parcelas *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="12"
+                      value={commitmentForm.totalInstallments}
+                      onChange={(e) => setCommitmentForm({ ...commitmentForm, totalInstallments: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    />
+                  </div>
                 </div>
-                <div>
-                  <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                    Total de Parcelas *
-                  </label>
+
+                {/* Checkbox para gerar todas as parcelas */}
+                <div className="flex items-center gap-3">
                   <input
-                    type="number"
-                    min="1"
-                    placeholder="12"
-                    value={commitmentForm.totalInstallments}
-                    onChange={(e) => setCommitmentForm({ ...commitmentForm, totalInstallments: e.target.value })}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    type="checkbox"
+                    id="generateAllInstallments"
+                    checked={commitmentForm.generateAllInstallments}
+                    onChange={(e) => setCommitmentForm({ ...commitmentForm, generateAllInstallments: e.target.checked })}
+                    className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
                   />
+                  <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[#9CA3AF]">
+                    Criar todas as parcelas restantes automaticamente
+                  </label>
                 </div>
               </div>
             )}
@@ -926,6 +1282,182 @@ export function CommitmentsView() {
               className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Alterações
+            </button>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      {/* Modal de Duplicação */}
+      <Dialog open={isDuplicateModalOpen} onOpenChange={setIsDuplicateModalOpen}>
+        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-lg max-h-[85vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
+              <div className="w-12 h-12 bg-[#80bc96]/10 border border-[#80bc96]/30 rounded-xl flex items-center justify-center">
+                <Copy className="w-6 h-6 text-[#80bc96]" />
+              </div>
+              Duplicar Transação
+            </DialogTitle>
+            <DialogDescription className="text-[#9CA3AF] mt-2">
+              Ajuste a data e/ou valor da transação duplicada
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-4 mt-4">
+            {/* Usa o mesmo formulário do modal de adicionar */}
+            {/* Tipo de Compromisso */}
+            <div>
+              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                Tipo *
+              </label>
+              <select
+                value={commitmentForm.type}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'expense_variable' | 'installment' })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+              >
+                <option value="expense_fixed" className="bg-[#161618]">Gasto Fixo</option>
+                <option value="expense_variable" className="bg-[#161618]">Gasto Variável</option>
+                <option value="installment" className="bg-[#161618]">Parcelamento</option>
+              </select>
+            </div>
+
+            {/* Descrição */}
+            <div>
+              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                Descrição *
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Aluguel, Internet, Notebook"
+                value={commitmentForm.description}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, description: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+              />
+            </div>
+
+            {/* Categoria */}
+            <div>
+              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                Categoria *
+              </label>
+              <input
+                type="text"
+                placeholder="Ex: Moradia, Lazer, Educação"
+                value={commitmentForm.category}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, category: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+              />
+            </div>
+
+            {/* Valor */}
+            <div>
+              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                Valor (R$) *
+              </label>
+              <input
+                type="number"
+                step="0.01"
+                placeholder="0,00"
+                value={commitmentForm.amount}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, amount: e.target.value })}
+                onWheel={(e) => e.currentTarget.blur()}
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+              />
+            </div>
+
+            {/* Data */}
+            <div>
+              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                Data *
+              </label>
+              <input
+                type="date"
+                value={commitmentForm.date}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, date: e.target.value })}
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+              />
+            </div>
+
+            {/* Recorrente (apenas para gasto fixo) */}
+            {commitmentForm.type === 'expense_fixed' && (
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="recurring-duplicate"
+                  checked={commitmentForm.recurring}
+                  onChange={(e) => setCommitmentForm({ ...commitmentForm, recurring: e.target.checked })}
+                  className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
+                />
+                <label htmlFor="recurring-duplicate" className="text-sm font-medium text-[#9CA3AF]">
+                  Compromisso recorrente (repete todo mês)
+                </label>
+              </div>
+            )}
+
+            {/* Campos de Parcelamento */}
+            {commitmentForm.type === 'installment' && (
+              <div className="space-y-4">
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
+                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                      Parcela Atual *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="1"
+                      value={commitmentForm.installmentNumber}
+                      onChange={(e) => setCommitmentForm({ ...commitmentForm, installmentNumber: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                      Total de Parcelas *
+                    </label>
+                    <input
+                      type="number"
+                      min="1"
+                      placeholder="12"
+                      value={commitmentForm.totalInstallments}
+                      onChange={(e) => setCommitmentForm({ ...commitmentForm, totalInstallments: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    />
+                  </div>
+                </div>
+
+                {/* Checkbox para gerar todas as parcelas */}
+                <div className="flex items-center gap-3">
+                  <input
+                    type="checkbox"
+                    id="generateAllInstallments"
+                    checked={commitmentForm.generateAllInstallments}
+                    onChange={(e) => setCommitmentForm({ ...commitmentForm, generateAllInstallments: e.target.checked })}
+                    className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
+                  />
+                  <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[#9CA3AF]">
+                    Criar todas as parcelas restantes automaticamente
+                  </label>
+                </div>
+              </div>
+            )}
+          </div>
+
+          {/* Botões de ação */}
+          <div className="flex gap-3 mt-6">
+            <button
+              onClick={() => setIsDuplicateModalOpen(false)}
+              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-[#9CA3AF] rounded-xl transition-colors"
+            >
+              Cancelar
+            </button>
+            <button
+              onClick={handleSaveDuplicate}
+              disabled={saving || !commitmentForm.description || !commitmentForm.category || !commitmentForm.amount || !commitmentForm.date}
+              className="flex-1 px-4 py-3 bg-[#80bc96] hover:bg-[#76C893] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+              {saving ? 'Duplicando...' : 'Duplicar'}
             </button>
           </div>
         </DialogContent>

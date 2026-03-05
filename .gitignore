@@ -4,3 +4,11 @@ CLAUDE.md
 # Environment variables
 .env.local
 .env*.local
+
+# Docker volumes
+postgres_data/
+
+# Supabase local
+.supabase/
+supabase/.branches/
+supabase/.temp/

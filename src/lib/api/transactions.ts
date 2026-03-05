@@ -88,6 +88,69 @@ export const transactionsApi = {
     } as Transaction
   },
 
+  /**
+   * Cria todas as parcelas de um parcelamento automaticamente
+   * Recebe os dados da primeira parcela e gera as demais nos meses seguintes
+   * Se a parcela inicial não for 1, cria apenas as parcelas restantes
+   */
+  async createInstallments(userId: string, firstInstallment: Omit<Transaction, 'id'>) {
+    if (firstInstallment.type !== 'installment' || !firstInstallment.totalInstallments || !firstInstallment.installmentGroup) {
+      throw new Error('Invalid installment data')
+    }
+
+    const startDate = new Date(firstInstallment.date + 'T00:00:00')
+    const dayOfMonth = startDate.getDate()
+    const startInstallment = firstInstallment.installmentNumber || 1
+    const totalInstallments = firstInstallment.totalInstallments
+
+    const installmentsToCreate = []
+
+    // Calcular quantas parcelas criar (da parcela inicial até a última)
+    const remainingInstallments = totalInstallments - startInstallment + 1
+
+    // Gerar apenas as parcelas restantes
+    for (let i = 0; i < remainingInstallments; i++) {
+      const installmentNumber = startInstallment + i
+      const installmentDate = new Date(startDate.getFullYear(), startDate.getMonth() + i, dayOfMonth)
+      const installmentDateStr = installmentDate.toISOString().split('T')[0]
+
+      installmentsToCreate.push({
+        user_id: userId,
+        date: installmentDateStr,
+        type: 'installment',
+        category: firstInstallment.category,
+        description: firstInstallment.description,
+        amount: firstInstallment.amount,
+        installment_group: firstInstallment.installmentGroup,
+        installment_number: installmentNumber,
+        total_installments: totalInstallments,
+        recurring: false,
+        paid: i === 0 ? (firstInstallment.paid || false) : false
+      })
+    }
+
+    const { data, error } = await supabase
+      .from('transactions')
+      .insert(installmentsToCreate)
+      .select()
+
+    if (error) throw error
+
+    return (data || []).map(item => ({
+      id: item.id,
+      date: item.date,
+      type: item.type,
+      category: item.category,
+      description: item.description,
+      amount: parseFloat(item.amount),
+      installmentGroup: item.installment_group,
+      installmentNumber: item.installment_number,
+      totalInstallments: item.total_installments,
+      recurring: item.recurring,
+      paid: item.paid
+    })) as Transaction[]
+  },
+
   async update(id: string, updates: Partial<Transaction>) {
     const dbUpdates: any = {}
     if (updates.date !== undefined) dbUpdates.date = updates.date
@@ -132,5 +195,134 @@ export const transactionsApi = {
       .eq('id', id)
 
     if (error) throw error
+  },
+
+  /**
+   * Gera transações recorrentes para os próximos meses
+   * Para cada transação marcada como recorrente, verifica se já existe
+   * uma transação similar no mês seguinte. Se não existir, cria automaticamente.
+   */
+  async generateRecurringTransactions(userId: string) {
+    // Buscar todas as transações recorrentes
+    const { data: recurringTransactions, error: fetchError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('user_id', userId)
+      .eq('recurring', true)
+      .order('date', { ascending: false })
+
+    if (fetchError) throw fetchError
+    if (!recurringTransactions || recurringTransactions.length === 0) return
+
+    const today = new Date()
+    const currentMonth = today.getMonth()
+    const currentYear = today.getFullYear()
+
+    // Gerar transações para os próximos 3 meses
+    const monthsToGenerate = 3
+    const createdTransactions: Transaction[] = []
+
+    for (const recurring of recurringTransactions) {
+      const originalDate = new Date(recurring.date + 'T00:00:00')
+      const dayOfMonth = originalDate.getDate()
+
+      for (let monthOffset = 1; monthOffset <= monthsToGenerate; monthOffset++) {
+        const targetDate = new Date(currentYear, currentMonth + monthOffset, dayOfMonth)
+        const targetDateStr = targetDate.toISOString().split('T')[0]
+
+        // Verificar se já existe uma transação similar nesse mês
+        const { data: existing } = await supabase
+          .from('transactions')
+          .select('*')
+          .eq('user_id', userId)
+          .eq('category', recurring.category)
+          .eq('type', recurring.type)
+          .eq('date', targetDateStr)
+          .maybeSingle()
+
+        // Se não existe, criar
+        if (!existing) {
+          const { data: created, error: createError } = await supabase
+            .from('transactions')
+            .insert([{
+              user_id: userId,
+              date: targetDateStr,
+              type: recurring.type,
+              category: recurring.category,
+              description: recurring.description,
+              amount: recurring.amount,
+              recurring: true,
+              paid: false
+            }])
+            .select()
+            .single()
+
+          if (createError) {
+            console.error('Error creating recurring transaction:', createError)
+            continue
+          }
+
+          if (created) {
+            createdTransactions.push({
+              id: created.id,
+              date: created.date,
+              type: created.type,
+              category: created.category,
+              description: created.description,
+              amount: parseFloat(created.amount),
+              recurring: created.recurring,
+              paid: created.paid
+            } as Transaction)
+          }
+        }
+      }
+    }
+
+    return createdTransactions
+  },
+
+  /**
+   * Cancela recorrências futuras de uma transação sem afetar as passadas
+   * Remove o flag 'recurring' e deleta todas as transações futuras não pagas
+   * da mesma categoria e tipo
+   */
+  async cancelFutureRecurring(transactionId: string, userId: string) {
+    // Buscar a transação original
+    const { data: originalTransaction, error: fetchError } = await supabase
+      .from('transactions')
+      .select('*')
+      .eq('id', transactionId)
+      .eq('user_id', userId)
+      .single()
+
+    if (fetchError) throw fetchError
+    if (!originalTransaction) throw new Error('Transaction not found')
+
+    const today = new Date().toISOString().split('T')[0]
+
+    // 1. Remover flag recurring da transação original e de todas as passadas/presentes
+    const { error: updateError } = await supabase
+      .from('transactions')
+      .update({ recurring: false })
+      .eq('user_id', userId)
+      .eq('category', originalTransaction.category)
+      .eq('type', originalTransaction.type)
+      .lte('date', today)
+
+    if (updateError) throw updateError
+
+    // 2. Deletar todas as transações futuras não pagas da mesma categoria/tipo
+    const { error: deleteError } = await supabase
+      .from('transactions')
+      .delete()
+      .eq('user_id', userId)
+      .eq('category', originalTransaction.category)
+      .eq('type', originalTransaction.type)
+      .eq('paid', false)
+      .gt('date', today)
+
+    if (deleteError) throw deleteError
+
+    return { success: true }
   }
 }

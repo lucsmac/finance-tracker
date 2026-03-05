@@ -2,11 +2,11 @@
 -- Execute this in Supabase SQL Editor: https://supabase.com/dashboard/project/urprwefnujrdrqwkafan/sql
 
 -- Enable UUID extension
-CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
+-- UUID function gen_random_uuid() is built-in PostgreSQL 13+
 
 -- Create users table (simple single-user for MVP)
 CREATE TABLE users (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   email TEXT UNIQUE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
@@ -14,7 +14,7 @@ CREATE TABLE users (
 
 -- Create config table (user settings like initial balance, income day)
 CREATE TABLE user_configs (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   initial_balance DECIMAL(10,2) DEFAULT 0,
   month_start_day INTEGER DEFAULT 1,
@@ -28,7 +28,7 @@ CREATE TABLE user_configs (
 
 -- Create estimates table
 CREATE TABLE estimates (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   category TEXT NOT NULL,
   monthly_amount DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -41,7 +41,7 @@ CREATE TABLE estimates (
 
 -- Create transactions table
 CREATE TABLE transactions (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   date DATE NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('income', 'expense_variable', 'expense_fixed', 'investment', 'installment')),
@@ -59,7 +59,7 @@ CREATE TABLE transactions (
 
 -- Create investments table
 CREATE TABLE investments (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   category TEXT NOT NULL,
   amount DECIMAL(10,2) NOT NULL DEFAULT 0,
@@ -70,7 +70,7 @@ CREATE TABLE investments (
 
 -- Create goals table (unified schema)
 CREATE TABLE goals (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   type TEXT NOT NULL CHECK (type IN ('save', 'invest', 'savings', 'max_spending', 'savings_rate', 'category_reduction')),
@@ -83,17 +83,6 @@ CREATE TABLE goals (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Create daily_plans table (custom planned amounts for specific days)
-CREATE TABLE daily_plans (
-  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-  date DATE NOT NULL,
-  planned_amount DECIMAL(10,2) NOT NULL,
-  created_at TIMESTAMPTZ DEFAULT NOW(),
-  updated_at TIMESTAMPTZ DEFAULT NOW(),
-  UNIQUE(user_id, date)
-);
-
 -- Create indexes for performance
 CREATE INDEX idx_estimates_user_id ON estimates(user_id);
 CREATE INDEX idx_estimates_active ON estimates(user_id, active);
@@ -102,8 +91,6 @@ CREATE INDEX idx_transactions_date ON transactions(user_id, date DESC);
 CREATE INDEX idx_transactions_type ON transactions(user_id, type);
 CREATE INDEX idx_investments_user_id ON investments(user_id);
 CREATE INDEX idx_goals_user_id ON goals(user_id);
-CREATE INDEX idx_daily_plans_user_id ON daily_plans(user_id);
-CREATE INDEX idx_daily_plans_date ON daily_plans(user_id, date);
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -112,7 +99,6 @@ ALTER TABLE estimates ENABLE ROW LEVEL SECURITY;
 ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
-ALTER TABLE daily_plans ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (MVP: single authenticated user)
 -- Users can only see their own data
@@ -143,11 +129,6 @@ CREATE POLICY "Users can insert own goals" ON goals FOR INSERT WITH CHECK (auth.
 CREATE POLICY "Users can update own goals" ON goals FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own goals" ON goals FOR DELETE USING (auth.uid() = user_id);
 
-CREATE POLICY "Users can view own daily plans" ON daily_plans FOR SELECT USING (auth.uid() = user_id);
-CREATE POLICY "Users can insert own daily plans" ON daily_plans FOR INSERT WITH CHECK (auth.uid() = user_id);
-CREATE POLICY "Users can update own daily plans" ON daily_plans FOR UPDATE USING (auth.uid() = user_id);
-CREATE POLICY "Users can delete own daily plans" ON daily_plans FOR DELETE USING (auth.uid() = user_id);
-
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -164,4 +145,3 @@ CREATE TRIGGER update_estimates_updated_at BEFORE UPDATE ON estimates FOR EACH R
 CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_investments_updated_at BEFORE UPDATE ON investments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_goals_updated_at BEFORE UPDATE ON goals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
-CREATE TRIGGER update_daily_plans_updated_at BEFORE UPDATE ON daily_plans FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();

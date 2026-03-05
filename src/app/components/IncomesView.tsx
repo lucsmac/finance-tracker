@@ -5,14 +5,15 @@ import { useTransactions } from '@/lib/hooks/useTransactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
-import { getTodayLocal, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
+import { getTodayLocal, formatDateToLocaleString, createDateFromString } from '@/lib/utils/dateHelpers';
 
 export function IncomesView() {
   const { user } = useAuth();
   const { transactions, loading, createTransaction, updateTransaction, deleteTransaction, refresh } = useTransactions(user?.id);
-  const today = new Date('2026-01-08');
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date(2026, 0, 8)); // Janeiro 2026
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Mês atual
   const [saving, setSaving] = useState(false);
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description'>('date');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
   // Estados do modal de cadastro
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -29,20 +30,34 @@ export function IncomesView() {
     amount: '',
     date: '',
     recurring: false,
+    generateNextMonths: false,
   });
 
   // Filtrar entradas do mês selecionado
   const incomes = transactions
     .filter(t =>
       t.type === 'income' &&
-      new Date(t.date).getMonth() === selectedDate.getMonth() &&
-      new Date(t.date).getFullYear() === selectedDate.getFullYear()
+      createDateFromString(t.date).getMonth() === selectedDate.getMonth() &&
+      createDateFromString(t.date).getFullYear() === selectedDate.getFullYear()
     )
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .sort((a, b) => {
+      let comparison = 0;
+
+      if (sortBy === 'date') {
+        comparison = createDateFromString(a.date).getTime() - createDateFromString(b.date).getTime();
+      } else if (sortBy === 'amount') {
+        comparison = a.amount - b.amount;
+      } else if (sortBy === 'description') {
+        comparison = a.description.localeCompare(b.description);
+      }
+
+      return sortOrder === 'asc' ? comparison : -comparison;
+    });
 
   const received = incomes.filter(c => c.paid);
   const pending = incomes.filter(c => !c.paid);
-  const overdue = pending.filter(c => new Date(c.date) < today);
+  const todayStr = getTodayLocal();
+  const overdue = pending.filter(c => c.date < todayStr);
 
   const totalExpected = incomes.reduce((sum, c) => sum + c.amount, 0);
   const totalReceived = received.reduce((sum, c) => sum + c.amount, 0);
@@ -97,6 +112,36 @@ export function IncomesView() {
         paid: false, // Por padrão, começa como não recebido
       });
 
+      // Se marcou para gerar próximos meses e é recorrente, criar mais 2 réplicas
+      if (incomeForm.recurring && incomeForm.generateNextMonths) {
+        const originalDate = new Date(incomeForm.date + 'T00:00:00');
+        const dayOfMonth = originalDate.getDate();
+
+        // Criar réplica para o próximo mês
+        const nextMonth1 = new Date(originalDate.getFullYear(), originalDate.getMonth() + 1, dayOfMonth);
+        await createTransaction({
+          type: 'income',
+          category: incomeForm.category,
+          description: incomeForm.description,
+          amount: parseFloat(incomeForm.amount),
+          date: nextMonth1.toISOString().split('T')[0],
+          recurring: true,
+          paid: false
+        });
+
+        // Criar réplica para o segundo mês seguinte
+        const nextMonth2 = new Date(originalDate.getFullYear(), originalDate.getMonth() + 2, dayOfMonth);
+        await createTransaction({
+          type: 'income',
+          category: incomeForm.category,
+          description: incomeForm.description,
+          amount: parseFloat(incomeForm.amount),
+          date: nextMonth2.toISOString().split('T')[0],
+          recurring: true,
+          paid: false
+        });
+      }
+
       // Force refresh to update the list immediately
       await refresh();
       setIsAddModalOpen(false);
@@ -106,6 +151,7 @@ export function IncomesView() {
         amount: '',
         date: '',
         recurring: false,
+        generateNextMonths: false,
       });
     } catch (error) {
       console.error('Erro ao salvar entrada:', error);
@@ -161,6 +207,7 @@ export function IncomesView() {
         amount: '',
         date: '',
         recurring: false,
+        generateNextMonths: false,
       });
     } catch (error) {
       console.error('Erro ao editar entrada:', error);
@@ -268,19 +315,19 @@ export function IncomesView() {
       <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
         <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
           <p className="text-sm text-[#9CA3AF] mb-2">Total Esperado</p>
-          <p className="text-3xl font-bold text-white">R$ {totalExpected.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-white">{totalExpected.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
           <p className="text-xs text-[#9CA3AF] mt-1">{incomes.length} entradas</p>
         </div>
 
         <div className="bg-[#76C893]/10 rounded-xl border border-[#76C893]/30 p-6">
           <p className="text-sm text-[#76C893] mb-2">Recebidos</p>
-          <p className="text-3xl font-bold text-[#76C893]">R$ {totalReceived.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-[#76C893]">{totalReceived.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
           <p className="text-xs text-[#76C893] mt-1">{received.length} itens</p>
         </div>
 
         <div className="bg-[#9B97CE]/10 rounded-xl border border-[#9B97CE]/30 p-6">
           <p className="text-sm text-[#9B97CE] mb-2">A Receber</p>
-          <p className="text-3xl font-bold text-[#9B97CE]">R$ {totalPending.toFixed(2)}</p>
+          <p className="text-3xl font-bold text-[#9B97CE]">{totalPending.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
           <p className="text-xs text-[#9B97CE] mt-1">{pending.length} itens</p>
         </div>
 
@@ -292,6 +339,55 @@ export function IncomesView() {
           <p className="text-xs text-[#D97B7B] mt-1">
             {overdue.length > 0 ? 'Necessita atenção' : 'Tudo em dia'}
           </p>
+        </div>
+      </div>
+
+      {/* Sorting Controls */}
+      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4">
+        <div className="flex flex-wrap items-center gap-3">
+          <span className="text-sm text-[#9CA3AF] font-medium">Ordenar por:</span>
+
+          <button
+            onClick={() => setSortBy('date')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              sortBy === 'date'
+                ? 'bg-[#76C893] text-[#161618]'
+                : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
+            }`}
+          >
+            Data
+          </button>
+
+          <button
+            onClick={() => setSortBy('amount')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              sortBy === 'amount'
+                ? 'bg-[#76C893] text-[#161618]'
+                : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
+            }`}
+          >
+            Valor
+          </button>
+
+          <button
+            onClick={() => setSortBy('description')}
+            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              sortBy === 'description'
+                ? 'bg-[#76C893] text-[#161618]'
+                : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
+            }`}
+          >
+            Nome
+          </button>
+
+          <div className="ml-auto">
+            <button
+              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
+              className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium text-[#9CA3AF] transition-colors flex items-center gap-2"
+            >
+              {sortOrder === 'asc' ? '↑ Crescente' : '↓ Decrescente'}
+            </button>
+          </div>
         </div>
       </div>
 
@@ -319,7 +415,7 @@ export function IncomesView() {
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-lg font-bold text-white">R$ {income.amount.toFixed(2)}</p>
+                    <p className="text-lg font-bold text-white">{income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                     <button
                       onClick={() => handleTogglePaid(income.id, income.paid)}
                       className="mt-2 px-3 py-1 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] text-sm rounded font-medium transition-colors"
@@ -349,7 +445,7 @@ export function IncomesView() {
         </div>
 
         <div className="divide-y divide-white/10">
-          {pending.filter(c => new Date(c.date) >= today).map(income => (
+          {pending.filter(c => c.date >= todayStr).map(income => (
             <div key={income.id} className="px-6 py-4 hover:bg-white/10 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
@@ -380,7 +476,7 @@ export function IncomesView() {
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <p className="text-xl font-bold text-white">
-                      R$ {income.amount.toFixed(2)}
+                      {income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
                   </div>
 
@@ -411,7 +507,7 @@ export function IncomesView() {
             </div>
           ))}
 
-          {pending.filter(c => new Date(c.date) >= today).length === 0 && (
+          {pending.filter(c => c.date >= todayStr).length === 0 && (
             <div className="px-6 py-8 text-center">
               <p className="text-[#9CA3AF]">Nenhuma entrada pendente</p>
             </div>
@@ -458,7 +554,7 @@ export function IncomesView() {
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <p className="text-xl font-bold text-white">
-                      R$ {income.amount.toFixed(2)}
+                      {income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
                     <span className="inline-block mt-1 px-2 py-1 bg-[#76C893]/20 text-[#76C893] rounded text-xs font-medium">
                       Recebido
@@ -493,9 +589,9 @@ export function IncomesView() {
 
         <div className="space-y-4">
           {incomes.map((income, index) => {
-            const incomeDate = new Date(income.date);
-            const isPast = incomeDate < today;
-            const isToday = incomeDate.toDateString() === today.toDateString();
+            const incomeDate = createDateFromString(income.date);
+            const isPast = income.date < todayStr;
+            const isToday = income.date === todayStr;
 
             return (
               <div key={income.id} className="flex items-start gap-4">
@@ -523,7 +619,7 @@ export function IncomesView() {
                         })}
                       </p>
                       <p className="text-sm text-[#9CA3AF] mt-1">
-                        {income.description} - R$ {income.amount.toFixed(2)}
+                        {income.description} - {income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
                       {income.paid && (
                         <span className="inline-block mt-1 text-xs text-[#76C893]">✓ Recebido</span>
@@ -633,17 +729,35 @@ export function IncomesView() {
             </div>
 
             {/* Recorrente */}
-            <div className="flex items-center gap-3">
-              <input
-                type="checkbox"
-                id="recurring"
-                checked={incomeForm.recurring}
-                onChange={(e) => setIncomeForm({ ...incomeForm, recurring: e.target.checked })}
-                className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
-              />
-              <label htmlFor="recurring" className="text-sm font-medium text-[#9CA3AF]">
-                Entrada recorrente (repete todo mês)
-              </label>
+            <div className="space-y-3">
+              <div className="flex items-center gap-3">
+                <input
+                  type="checkbox"
+                  id="recurring"
+                  checked={incomeForm.recurring}
+                  onChange={(e) => setIncomeForm({ ...incomeForm, recurring: e.target.checked, generateNextMonths: e.target.checked ? incomeForm.generateNextMonths : false })}
+                  className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
+                />
+                <label htmlFor="recurring" className="text-sm font-medium text-[#9CA3AF]">
+                  Entrada recorrente (repete todo mês)
+                </label>
+              </div>
+
+              {/* Checkbox para gerar próximos 2 meses */}
+              {incomeForm.recurring && (
+                <div className="flex items-center gap-3 ml-8">
+                  <input
+                    type="checkbox"
+                    id="generateNextMonths"
+                    checked={incomeForm.generateNextMonths}
+                    onChange={(e) => setIncomeForm({ ...incomeForm, generateNextMonths: e.target.checked })}
+                    className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
+                  />
+                  <label htmlFor="generateNextMonths" className="text-sm font-medium text-[#9CA3AF]">
+                    Criar também para os próximos 2 meses (total de 3)
+                  </label>
+                </div>
+              )}
             </div>
           </div>
 
