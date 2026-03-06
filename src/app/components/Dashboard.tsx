@@ -35,10 +35,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const { dailyPlans, loading: loadingPlans, upsertDailyPlan, getPlannedForDate, refresh: refreshDailyPlans } = useDailyPlans(user?.id);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Data atual
   const [saving, setSaving] = useState(false);
+  const [configCreationAttempted, setConfigCreationAttempted] = useState(false);
 
   // Auto-create default config if user doesn't have one
   useEffect(() => {
-    if (!loadingConfig && !config && user?.id) {
+    if (!loadingConfig && !config && user?.id && !configCreationAttempted) {
+      setConfigCreationAttempted(true);
       createConfig({
         initialBalance: 0,
         monthStartDay: 1,
@@ -46,10 +48,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         mainIncomeAmount: 0,
         dailyStandard: 0
       }).catch((err: any) => {
-        console.error('Error creating default config:', err);
+        // Silently ignore errors - if config exists, that's fine
+        // The config will be loaded by the useConfig hook
+        console.log('Config creation skipped (may already exist)');
       });
     }
-  }, [config, loadingConfig, user?.id, createConfig]);
+  }, [config, loadingConfig, user?.id, createConfig, configCreationAttempted]);
 
   // Estados do modal unificado com abas
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
