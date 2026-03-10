@@ -8,6 +8,7 @@ export interface UserConfig {
   mainIncomeDay: number
   mainIncomeAmount: number
   dailyStandard: number
+  balanceStartDate?: string // YYYY-MM-DD format
 }
 
 export const configApi = {
@@ -30,7 +31,8 @@ export const configApi = {
       monthStartDay: data.month_start_day,
       mainIncomeDay: data.main_income_day,
       mainIncomeAmount: parseFloat(data.main_income_amount),
-      dailyStandard: parseFloat(data.daily_standard || 0)
+      dailyStandard: parseFloat(data.daily_standard || 0),
+      balanceStartDate: data.balance_start_date || undefined
     } as UserConfig
   },
 
@@ -43,7 +45,8 @@ export const configApi = {
         month_start_day: config.monthStartDay,
         main_income_day: config.mainIncomeDay,
         main_income_amount: config.mainIncomeAmount,
-        daily_standard: config.dailyStandard || 0
+        daily_standard: config.dailyStandard || 0,
+        balance_start_date: config.balanceStartDate || new Date().toISOString().split('T')[0]
       }])
       .select()
       .single()
@@ -57,7 +60,8 @@ export const configApi = {
       monthStartDay: data.month_start_day,
       mainIncomeDay: data.main_income_day,
       mainIncomeAmount: parseFloat(data.main_income_amount),
-      dailyStandard: parseFloat(data.daily_standard || 0)
+      dailyStandard: parseFloat(data.daily_standard || 0),
+      balanceStartDate: data.balance_start_date || undefined
     } as UserConfig
   },
 
@@ -68,6 +72,7 @@ export const configApi = {
     if (updates.mainIncomeDay !== undefined) dbUpdates.main_income_day = updates.mainIncomeDay
     if (updates.mainIncomeAmount !== undefined) dbUpdates.main_income_amount = updates.mainIncomeAmount
     if (updates.dailyStandard !== undefined) dbUpdates.daily_standard = updates.dailyStandard
+    if (updates.balanceStartDate !== undefined) dbUpdates.balance_start_date = updates.balanceStartDate
 
     const { data, error } = await supabase
       .from('user_configs')
@@ -85,7 +90,8 @@ export const configApi = {
       monthStartDay: data.month_start_day,
       mainIncomeDay: data.main_income_day,
       mainIncomeAmount: parseFloat(data.main_income_amount),
-      dailyStandard: parseFloat(data.daily_standard || 0)
+      dailyStandard: parseFloat(data.daily_standard || 0),
+      balanceStartDate: data.balance_start_date || undefined
     } as UserConfig
   }
 }

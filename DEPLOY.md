@@ -17,7 +17,10 @@ Se você ainda não tem um projeto Supabase em produção:
 1. Acesse [supabase.com](https://supabase.com)
 2. Crie um novo projeto
 3. Aguarde a criação do banco de dados
-4. Vá em **SQL Editor** e execute o arquivo `supabase-schema.sql` ou as migrations em `supabase/migrations/`
+4. **Aplique as migrations** (veja [MIGRATIONS.md](./MIGRATIONS.md) para detalhes):
+   - **Opção A (Recomendada)**: Use Supabase CLI com `supabase db push`
+   - **Opção B**: Execute manualmente cada arquivo em `supabase/migrations/` no SQL Editor
+   - ⚠️ **IMPORTANTE**: Execute `02-auth-triggers.sql` para evitar erro PGRST116
 5. Anote as credenciais:
    - **Project URL**: `https://seu-projeto.supabase.co`
    - **Anon Key**: Encontre em Settings > API > Project API keys > `anon` `public`

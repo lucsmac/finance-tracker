@@ -21,6 +21,7 @@ CREATE TABLE user_configs (
   main_income_day INTEGER DEFAULT 5,
   main_income_amount DECIMAL(10,2) DEFAULT 0,
   daily_standard DECIMAL(10,2) DEFAULT 0,
+  balance_start_date DATE NOT NULL DEFAULT CURRENT_DATE,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id)
@@ -165,3 +166,31 @@ CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions FOR 
 CREATE TRIGGER update_investments_updated_at BEFORE UPDATE ON investments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_goals_updated_at BEFORE UPDATE ON goals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_daily_plans_updated_at BEFORE UPDATE ON daily_plans FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Function to automatically create a user record when someone signs up
+CREATE OR REPLACE FUNCTION handle_new_user()
+RETURNS TRIGGER AS $$
+BEGIN
+  INSERT INTO public.users (id, email, created_at, updated_at)
+  VALUES (NEW.id, NEW.email, NOW(), NOW())
+  ON CONFLICT (id) DO NOTHING;
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql SECURITY DEFINER;
+
+-- Trigger to auto-create user record on signup
+CREATE TRIGGER on_auth_user_created
+  AFTER INSERT ON auth.users
+  FOR EACH ROW
+  EXECUTE FUNCTION handle_new_user();
+
+-- Backfill: Create user records for existing auth users (run once after migration)
+-- This ensures existing users have corresponding records in the users table
+INSERT INTO public.users (id, email, created_at, updated_at)
+SELECT
+  id,
+  email,
+  created_at,
+  updated_at
+FROM auth.users
+ON CONFLICT (id) DO NOTHING;

@@ -46,7 +46,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         monthStartDay: 1,
         mainIncomeDay: 5,
         mainIncomeAmount: 0,
-        dailyStandard: 0
+        dailyStandard: 0,
+        balanceStartDate: getTodayLocal()
       }).catch((err: any) => {
         // Silently ignore errors - if config exists, that's fine
         // The config will be loaded by the useConfig hook
@@ -307,16 +308,19 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   // Função para calcular o saldo até uma determinada data (planejado vs realizado)
   const calculateBalanceUntilDate = (targetDateStr: string): number => {
-    // Para dias anteriores a hoje, retornar apenas o saldo inicial (sem processar)
-    if (targetDateStr < today) {
+    // Usar a data de início do saldo configurada pelo usuário, ou hoje como fallback
+    const balanceStartDate = config?.balanceStartDate || today;
+
+    // Para dias anteriores à data de início, retornar apenas o saldo inicial (sem processar)
+    if (targetDateStr < balanceStartDate) {
       return initialBalance;
     }
 
     // Saldo inicial
     let balance = initialBalance;
 
-    // A contagem começa de HOJE (data de cadastro do saldo) até a data alvo
-    const startDate = today;
+    // A contagem começa da DATA DE INÍCIO configurada até a data alvo
+    const startDate = balanceStartDate;
     const endDate = targetDateStr;
 
     const allDates: string[] = [];
