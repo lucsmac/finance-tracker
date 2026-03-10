@@ -13,6 +13,7 @@ import { useGoals } from '@/lib/hooks/useGoals';
 import { useConfig } from '@/lib/hooks/useConfig';
 import { Calendar, TrendingUp, Target, ClipboardList, DollarSign, LogOut, Settings, User, Trash2, ChevronDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './components/ui/dialog';
+import { getTodayLocal } from '@/lib/utils/dateHelpers';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'commitments' | 'incomes' | 'stats' | 'goals'>('dashboard');
@@ -30,7 +31,8 @@ export default function App() {
     monthStartDay: '',
     mainIncomeDay: '',
     mainIncomeAmount: '',
-    dailyStandard: ''
+    dailyStandard: '',
+    balanceStartDate: ''
   });
 
   // Hooks para deletar dados
@@ -59,7 +61,8 @@ export default function App() {
         monthStartDay: config.monthStartDay.toString(),
         mainIncomeDay: config.mainIncomeDay.toString(),
         mainIncomeAmount: config.mainIncomeAmount.toString(),
-        dailyStandard: config.dailyStandard.toString()
+        dailyStandard: config.dailyStandard.toString(),
+        balanceStartDate: config.balanceStartDate || getTodayLocal()
       });
     }
   }, [config]);
@@ -75,7 +78,8 @@ export default function App() {
         monthStartDay: parseInt(configForm.monthStartDay) || 1,
         mainIncomeDay: parseInt(configForm.mainIncomeDay) || 5,
         mainIncomeAmount: parseFloat(configForm.mainIncomeAmount) || 0,
-        dailyStandard: parseFloat(configForm.dailyStandard) || 0
+        dailyStandard: parseFloat(configForm.dailyStandard) || 0,
+        balanceStartDate: configForm.balanceStartDate
       });
       alert('Configurações salvas com sucesso!');
     } catch (err) {
@@ -347,6 +351,26 @@ export default function App() {
                     />
                   </div>
                   <p className="text-xs text-white/40 mt-1">Quanto você planeja gastar por dia (gastos variáveis)</p>
+                </div>
+
+                {/* Data de Início do Saldo */}
+                <div>
+                  <label className="block text-sm text-white/60 mb-2">Data de início do saldo</label>
+                  <input
+                    type="date"
+                    value={configForm.balanceStartDate}
+                    onChange={(e) => setConfigForm({ ...configForm, balanceStartDate: e.target.value })}
+                    className="w-full px-4 py-2 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                  />
+                  <p className="text-xs text-white/40 mt-1">A partir desta data, o sistema começará a descontar os gastos diários do seu saldo</p>
+                </div>
+
+                {/* Info Box */}
+                <div className="p-3 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-lg">
+                  <p className="text-xs text-white/70">
+                    <strong className="text-[#9B97CE]">💡 Importante:</strong> Alterar a data de início do saldo
+                    recalculará todos os valores do calendário a partir dessa nova data.
+                  </p>
                 </div>
 
                 {/* Save Button */}
