@@ -81,10 +81,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const currentDateStr = formatDateLocal(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
   const dailyStandard = config?.dailyStandard || 0;
   const initialBalance = config?.initialBalance || 0;
-  const currentBalance = calculateCurrentBalance(initialBalance, transactions, config?.balanceStartDate, today);
 
   // Usar a data real atual
   const today = getTodayLocal();
+  const currentBalance = calculateCurrentBalance(initialBalance, transactions, config?.balanceStartDate, today);
   const todayExpenses = getVariableExpensesForDate(today, transactions);
   const todayVariation = dailyStandard - todayExpenses;
 
