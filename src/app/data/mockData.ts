@@ -50,13 +50,22 @@ export const calculateDailyStandard = (estimates: Estimate[]): number => {
 // Função para calcular saldo atual
 export const calculateCurrentBalance = (
   initialBalance: number,
-  transactions: Transaction[]
+  transactions: Transaction[],
+  balanceStartDate?: string,
+  today?: string
 ): number => {
   let balance = initialBalance;
 
+  const todayStr = today || new Date().toISOString().split('T')[0];
+
   const sortedTransactions = [...transactions]
-    .filter(t => t.paid && new Date(t.date) <= new Date())
-    .sort((a, b) => new Date(a.date).getTime() - new Date(b.date).getTime());
+    .filter(t => {
+      if (!t.paid) return false;
+      if (t.date > todayStr) return false;
+      if (balanceStartDate && t.date < balanceStartDate) return false;
+      return true;
+    })
+    .sort((a, b) => a.date.localeCompare(b.date));
 
   sortedTransactions.forEach(t => {
     if (t.type === 'income') {

@@ -89,7 +89,7 @@ export function StatsView() {
 
   // Cálculos básicos
   const dailyStandard = calculateDailyStandard(estimates);
-  const currentBalance = calculateCurrentBalance(config?.initialBalance || 0, transactions);
+  const currentBalance = calculateCurrentBalance(config?.initialBalance || 0, transactions, config?.balanceStartDate, today);
 
   // Funções de navegação
   const navigatePrevious = () => {
