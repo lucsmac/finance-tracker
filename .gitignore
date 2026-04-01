@@ -1,6 +1,10 @@
 node_modules
 CLAUDE.md
 
+# Codex
+.codex
+.agents/
+
 # Environment variables
 .env.local
 .env*.local
@@ -12,3 +16,8 @@ postgres_data/
 .supabase/
 supabase/.branches/
 supabase/.temp/
+
+# Build artifacts
+dist/
+build/
+.vite/

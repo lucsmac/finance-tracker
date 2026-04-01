@@ -13,8 +13,9 @@ export function CommitmentsView() {
   const todayStr = getTodayLocal();
   const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Mês atual
   const [saving, setSaving] = useState(false);
-  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description' | 'type'>('date');
-  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
+  const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description' | 'type'>('amount');
+  const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
+  const [statusFilter, setStatusFilter] = useState<'all' | 'paid' | 'pending'>('all');
 
   // Estados do modal de cadastro
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
@@ -65,6 +66,14 @@ export function CommitmentsView() {
   const paid = commitments.filter(c => c.paid);
   const pending = commitments.filter(c => !c.paid);
   const overdue = pending.filter(c => c.date < todayStr);
+  const upcomingPending = pending.filter(c => c.date >= todayStr);
+
+  const filteredCommitments = commitments.filter(c => {
+    if (statusFilter === 'paid') return !!c.paid;
+    if (statusFilter === 'pending') return !c.paid;
+    return true;
+  });
+  const upcomingPendingTotal = upcomingPending.reduce((sum, c) => sum + c.amount, 0);
 
   const totalCommitted = commitments.reduce((sum, c) => sum + c.amount, 0);
   const totalPaid = paid.reduce((sum, c) => sum + c.amount, 0);
@@ -87,6 +96,24 @@ export function CommitmentsView() {
     const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
       'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
+  };
+
+  const getCategoryBadgeClass = (category: string) => {
+    const palette = [
+      'bg-[#5DADE2]/20 text-[#5DADE2] border border-[#5DADE2]/40',
+      'bg-[#F5B041]/20 text-[#F5B041] border border-[#F5B041]/40',
+      'bg-[#58D68D]/20 text-[#58D68D] border border-[#58D68D]/40',
+      'bg-[#AF7AC5]/20 text-[#AF7AC5] border border-[#AF7AC5]/40',
+      'bg-[#EC7063]/20 text-[#EC7063] border border-[#EC7063]/40',
+      'bg-[#48C9B0]/20 text-[#48C9B0] border border-[#48C9B0]/40',
+      'bg-[#F4D03F]/20 text-[#F4D03F] border border-[#F4D03F]/40',
+      'bg-[#7FB3D5]/20 text-[#7FB3D5] border border-[#7FB3D5]/40'
+    ];
+
+    const hash = category
+      .split('')
+      .reduce((acc, char) => acc + char.charCodeAt(0), 0);
+    return palette[hash % palette.length];
   };
 
   // Função para salvar compromisso
@@ -542,12 +569,11 @@ export function CommitmentsView() {
         </div>
       </div>
 
-      {/* Controles de Ordenação */}
+      {/* Controles de Ordenação e Filtro */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4">
         <div className="flex items-center justify-between flex-wrap gap-4">
-          <h3 className="text-sm font-semibold text-[#9CA3AF]">Ordenar por:</h3>
-
-          <div className="flex items-center gap-2 flex-wrap">
+          <div className="flex items-center gap-3 flex-wrap">
+            <h3 className="text-sm font-semibold text-[#9CA3AF]">Ordenar por:</h3>
             <button
               onClick={() => setSortBy('date')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
@@ -588,9 +614,6 @@ export function CommitmentsView() {
             >
               Tipo
             </button>
-
-            <div className="w-px h-6 bg-white/20 mx-2"></div>
-
             <button
               onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
               className="px-3 py-1.5 rounded-lg text-sm font-medium bg-white/5 text-[#9CA3AF] hover:bg-white/10 transition-colors"
@@ -598,11 +621,45 @@ export function CommitmentsView() {
               {sortOrder === 'asc' ? '↑ Crescente' : '↓ Decrescente'}
             </button>
           </div>
+
+          <div className="flex items-center gap-3 flex-wrap">
+            <h3 className="text-sm font-semibold text-[#9CA3AF]">Filtrar por:</h3>
+            <button
+              onClick={() => setStatusFilter('all')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                statusFilter === 'all'
+                  ? 'bg-[#76C893] text-[#161618]'
+                  : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
+              }`}
+            >
+              Todos
+            </button>
+            <button
+              onClick={() => setStatusFilter('paid')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                statusFilter === 'paid'
+                  ? 'bg-[#76C893] text-[#161618]'
+                  : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
+              }`}
+            >
+              Pagos
+            </button>
+            <button
+              onClick={() => setStatusFilter('pending')}
+              className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
+                statusFilter === 'pending'
+                  ? 'bg-[#76C893] text-[#161618]'
+                  : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
+              }`}
+            >
+              Não pagos
+            </button>
+          </div>
         </div>
       </div>
 
       {/* Compromissos Atrasados */}
-      {overdue.length > 0 && (
+      {(statusFilter === 'all' || statusFilter === 'pending') && overdue.length > 0 && (
         <div className="bg-[#D97B7B]/10 border border-[#D97B7B]/50 rounded-xl p-6">
           <div className="flex items-start gap-3 mb-4">
             <AlertCircle className="w-5 h-5 text-[#D97B7B] mt-0.5" />
@@ -619,9 +676,14 @@ export function CommitmentsView() {
               <div key={commitment.id} className="bg-white rounded-lg p-4 flex items-center justify-between">
                 <div className="flex-1">
                   <p className="font-medium text-white">{commitment.description}</p>
-                  <p className="text-sm text-[#D97B7B] mt-1">
-                    Venceu em {formatDateToLocaleString(commitment.date)}
-                  </p>
+                  <div className="flex items-center gap-2 mt-1">
+                    <p className="text-sm text-[#D97B7B]">
+                      Venceu em {formatDateToLocaleString(commitment.date)}
+                    </p>
+                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getCategoryBadgeClass(commitment.category)}`}>
+                      {commitment.category}
+                    </span>
+                  </div>
                 </div>
                 <div className="flex items-center gap-3">
                   <div className="text-right">
@@ -648,14 +710,20 @@ export function CommitmentsView() {
       )}
 
       {/* Pendentes */}
+      {(statusFilter === 'all' || statusFilter === 'pending') && (
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
         <div className="px-6 py-4 bg-white/10 border-b border-white/10">
-          <h3 className="text-lg font-semibold text-white">Pendentes</h3>
-          <p className="text-sm text-[#9CA3AF] mt-1">{pending.length - overdue.length} compromissos a vencer</p>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-white">Pendentes</h3>
+            <span className="text-lg font-semibold text-[#8B7AB8]">
+              {upcomingPendingTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </span>
+          </div>
+          <p className="text-sm text-[#9CA3AF] mt-1">{upcomingPending.length} compromissos a vencer</p>
         </div>
 
         <div className="divide-y divide-white/10">
-          {pending.filter(c => c.date >= todayStr).map(commitment => (
+          {upcomingPending.map(commitment => (
             <div key={commitment.id} className="px-6 py-4 hover:bg-white/10 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
@@ -668,6 +736,14 @@ export function CommitmentsView() {
                       <h4 className="text-base font-medium text-white">
                         {commitment.description}
                       </h4>
+                      {commitment.installmentNumber && (
+                        <>
+                          <span className="text-sm text-[#9CA3AF]">•</span>
+                          <span className="text-sm font-semibold text-white">
+                            {commitment.installmentNumber}/{commitment.totalInstallments}
+                          </span>
+                        </>
+                      )}
                       <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
                         commitment.type === 'expense_fixed' ? 'bg-[#8B7AB8]/20 text-[#8B7AB8]' :
                         commitment.type === 'expense_variable' ? 'bg-[#9B97CE]/20 text-[#9B97CE]' :
@@ -677,11 +753,9 @@ export function CommitmentsView() {
                          commitment.type === 'expense_variable' ? 'Variável' :
                          'Parcela'}
                       </span>
-                      {commitment.installmentNumber && (
-                        <span className="text-sm text-[#9CA3AF]">
-                          {commitment.installmentNumber}/{commitment.totalInstallments}
-                        </span>
-                      )}
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getCategoryBadgeClass(commitment.category)}`}>
+                        {commitment.category}
+                      </span>
                       {commitment.recurring && (
                         <span className="inline-block px-2 py-1 bg-[#9B97CE]/20 text-[#9B97CE] rounded text-xs font-medium">
                           Recorrente
@@ -691,8 +765,6 @@ export function CommitmentsView() {
 
                     <div className="flex items-center gap-4 mt-1 text-sm text-[#9CA3AF]">
                       <span>Vence em {formatDateToLocaleString(commitment.date)}</span>
-                      <span>•</span>
-                      <span>{commitment.category}</span>
                     </div>
                   </div>
                 </div>
@@ -739,18 +811,25 @@ export function CommitmentsView() {
             </div>
           ))}
 
-          {pending.filter(c => c.date >= todayStr).length === 0 && (
+          {upcomingPending.length === 0 && (
             <div className="px-6 py-8 text-center">
               <p className="text-[#9CA3AF]">Nenhum compromisso pendente</p>
             </div>
           )}
         </div>
       </div>
+      )}
 
       {/* Pagos */}
+      {(statusFilter === 'all' || statusFilter === 'paid') && (
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
         <div className="px-6 py-4 bg-white/10 border-b border-white/10">
-          <h3 className="text-lg font-semibold text-white">Pagos</h3>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-white">Pagos</h3>
+            <span className="text-lg font-semibold text-[#76C893]">
+              {totalPaid.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </span>
+          </div>
           <p className="text-sm text-[#9CA3AF] mt-1">{paid.length} compromissos quitados</p>
         </div>
 
@@ -768,6 +847,14 @@ export function CommitmentsView() {
                       <h4 className="text-base font-medium text-white">
                         {commitment.description}
                       </h4>
+                      {commitment.installmentNumber && (
+                        <>
+                          <span className="text-sm text-[#9CA3AF]">•</span>
+                          <span className="text-sm font-semibold text-white">
+                            {commitment.installmentNumber}/{commitment.totalInstallments}
+                          </span>
+                        </>
+                      )}
                       <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
                         commitment.type === 'expense_fixed' ? 'bg-[#8B7AB8]/20 text-[#8B7AB8]' :
                         commitment.type === 'expense_variable' ? 'bg-[#9B97CE]/20 text-[#9B97CE]' :
@@ -777,17 +864,13 @@ export function CommitmentsView() {
                          commitment.type === 'expense_variable' ? 'Variável' :
                          'Parcela'}
                       </span>
-                      {commitment.installmentNumber && (
-                        <span className="text-sm text-[#9CA3AF]">
-                          {commitment.installmentNumber}/{commitment.totalInstallments}
-                        </span>
-                      )}
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getCategoryBadgeClass(commitment.category)}`}>
+                        {commitment.category}
+                      </span>
                     </div>
 
                     <div className="flex items-center gap-4 mt-1 text-sm text-[#9CA3AF]">
                       <span>Pago em {formatDateToLocaleString(commitment.date)}</span>
-                      <span>•</span>
-                      <span>{commitment.category}</span>
                     </div>
                   </div>
                 </div>
@@ -825,19 +908,33 @@ export function CommitmentsView() {
                   >
                     <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
                   </button>
+
+                  <button
+                    onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
+                    className="px-4 py-2 bg-white/10 hover:bg-white/20 text-white rounded-lg text-sm font-medium transition-colors"
+                  >
+                    Marcar como Não Pago
+                  </button>
                 </div>
               </div>
             </div>
           ))}
+
+          {paid.length === 0 && (
+            <div className="px-6 py-8 text-center">
+              <p className="text-[#9CA3AF]">Nenhum compromisso pago</p>
+            </div>
+          )}
         </div>
       </div>
+      )}
 
       {/* Timeline */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
         <h3 className="text-lg font-semibold text-white mb-4">Timeline de Vencimentos</h3>
 
         <div className="space-y-4">
-          {commitments.map((commitment, index) => {
+          {filteredCommitments.map((commitment, index) => {
             const commitmentDate = createDateFromString(commitment.date);
             const isPast = commitment.date < todayStr;
             const isToday = commitment.date === todayStr;
@@ -853,7 +950,7 @@ export function CommitmentsView() {
                           ? 'bg-[#9B97CE]'
                           : 'bg-gray-300'
                     }`}></div>
-                  {index < commitments.length - 1 && (
+                  {index < filteredCommitments.length - 1 && (
                     <div className="w-0.5 h-12 bg-gray-200"></div>
                   )}
                 </div>
@@ -870,6 +967,9 @@ export function CommitmentsView() {
                       <p className="text-sm text-[#9CA3AF] mt-1">
                         {commitment.description} - {commitment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
+                      <span className={`inline-block mt-1 px-2 py-0.5 rounded text-xs font-medium ${getCategoryBadgeClass(commitment.category)}`}>
+                        {commitment.category}
+                      </span>
                       {commitment.paid && (
                         <span className="inline-block mt-1 text-xs text-[#76C893]">✓ Pago</span>
                       )}
@@ -904,6 +1004,10 @@ export function CommitmentsView() {
               </div>
             );
           })}
+
+          {filteredCommitments.length === 0 && (
+            <p className="text-[#9CA3AF] text-sm">Nenhum compromisso para o filtro selecionado</p>
+          )}
         </div>
       </div>
 
