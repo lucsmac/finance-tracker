@@ -1,26 +1,58 @@
 import { useState } from 'react';
-import { Calendar as CalendarIcon, Check, X, AlertCircle, Plus, ChevronLeft, ChevronRight, Edit, DollarSign, Trash2 } from 'lucide-react';
+import {
+  AlertCircle,
+  Calendar as CalendarIcon,
+  Check,
+  ChevronLeft,
+  ChevronRight,
+  DollarSign,
+  Edit,
+  Plus,
+  Trash2
+} from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTransactions } from '@/lib/hooks/useTransactions';
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { getTodayLocal, formatDateToLocaleString, createDateFromString } from '@/lib/utils/dateHelpers';
 
+const summaryCardClass = 'app-panel min-w-0 rounded-[1.5rem] p-4 sm:p-5';
+const summaryValueClass =
+  'max-w-full text-[clamp(1.45rem,7vw,1.875rem)] font-bold leading-tight text-white tabular-nums [overflow-wrap:anywhere]';
+const inlineAmountClass =
+  'max-w-full text-xl font-bold leading-tight text-white tabular-nums [overflow-wrap:anywhere]';
+const neutralBadgeClass =
+  'inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-[var(--app-text-muted)]';
+const recurringBadgeClass =
+  'inline-flex items-center rounded-full border border-[rgba(133,55,253,0.28)] bg-[rgba(133,55,253,0.14)] px-2.5 py-1 text-xs font-medium text-[var(--app-accent)]';
+const iconButtonClass =
+  'rounded-lg p-2 text-[var(--app-text-muted)] transition-colors hover:bg-white/10 hover:text-white';
+const modalContentClass = 'app-panel-strong max-h-[90vh] overflow-y-auto rounded-[2rem] p-4 text-white sm:p-6';
+const modalFieldClass =
+  'w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-white focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]';
+const modalActionRowClass = 'mt-6 flex flex-col gap-3 sm:flex-row';
+const checkboxClass = 'h-5 w-5 rounded border-white/20 bg-white/5 text-[var(--app-accent)] focus:ring-[var(--app-accent)]';
+
+const getToolbarButtonClass = (isActive: boolean) =>
+  `rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
+    isActive
+      ? 'border-white/20 bg-white/10 text-white'
+      : 'border-white/10 bg-white/[0.03] text-[var(--app-text-muted)] hover:bg-white/[0.06] hover:text-white'
+  }`;
+
 export function IncomesView() {
   const { user } = useAuth();
   const { transactions, loading, createTransaction, updateTransaction, deleteTransaction, refresh } = useTransactions(user?.id);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Mês atual
+  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
   const [saving, setSaving] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description'>('date');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('asc');
 
-  // Estados do modal de cadastro
   const [isAddModalOpen, setIsAddModalOpen] = useState(false);
   const [isEditModalOpen, setIsEditModalOpen] = useState(false);
   const [editingId, setEditingId] = useState<string>('');
 
-  // Estados do modal de confirmação de delete
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string>('');
   const [deletingDescription, setDeletingDescription] = useState<string>('');
@@ -30,15 +62,15 @@ export function IncomesView() {
     amount: '',
     date: '',
     recurring: false,
-    generateNextMonths: false,
+    generateNextMonths: false
   });
 
-  // Filtrar entradas do mês selecionado
   const incomes = transactions
-    .filter(t =>
-      t.type === 'income' &&
-      createDateFromString(t.date).getMonth() === selectedDate.getMonth() &&
-      createDateFromString(t.date).getFullYear() === selectedDate.getFullYear()
+    .filter(
+      (transaction) =>
+        transaction.type === 'income' &&
+        createDateFromString(transaction.date).getMonth() === selectedDate.getMonth() &&
+        createDateFromString(transaction.date).getFullYear() === selectedDate.getFullYear()
     )
     .sort((a, b) => {
       let comparison = 0;
@@ -47,37 +79,46 @@ export function IncomesView() {
         comparison = createDateFromString(a.date).getTime() - createDateFromString(b.date).getTime();
       } else if (sortBy === 'amount') {
         comparison = a.amount - b.amount;
-      } else if (sortBy === 'description') {
+      } else {
         comparison = a.description.localeCompare(b.description);
       }
 
       return sortOrder === 'asc' ? comparison : -comparison;
     });
 
-  const received = incomes.filter(c => c.paid);
-  const pending = incomes.filter(c => !c.paid);
+  const received = incomes.filter((income) => income.paid);
+  const pending = incomes.filter((income) => !income.paid);
   const todayStr = getTodayLocal();
-  const overdue = pending.filter(c => c.date < todayStr);
-  const upcomingPending = pending.filter(c => c.date >= todayStr);
+  const overdue = pending.filter((income) => income.date < todayStr);
+  const upcomingPending = pending.filter((income) => income.date >= todayStr);
 
-  const totalExpected = incomes.reduce((sum, c) => sum + c.amount, 0);
-  const totalReceived = received.reduce((sum, c) => sum + c.amount, 0);
-  const totalPending = pending.reduce((sum, c) => sum + c.amount, 0);
-  const upcomingPendingTotal = upcomingPending.reduce((sum, c) => sum + c.amount, 0);
+  const totalExpected = incomes.reduce((sum, income) => sum + income.amount, 0);
+  const totalReceived = received.reduce((sum, income) => sum + income.amount, 0);
+  const totalPending = pending.reduce((sum, income) => sum + income.amount, 0);
+  const upcomingPendingTotal = upcomingPending.reduce((sum, income) => sum + income.amount, 0);
 
-  // Loading state
+  const resetIncomeForm = () => {
+    setIncomeForm({
+      description: '',
+      category: '',
+      amount: '',
+      date: '',
+      recurring: false,
+      generateNextMonths: false
+    });
+  };
+
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-[400px]">
+      <div className="flex min-h-[400px] items-center justify-center">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[var(--app-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[var(--app-accent)] border-t-transparent" />
           <p className="text-[#9CA3AF]">Carregando entradas...</p>
         </div>
       </div>
     );
   }
 
-  // Funções de navegação de mês
   const navigateToPreviousMonth = () => {
     const newDate = new Date(selectedDate);
     newDate.setMonth(newDate.getMonth() - 1);
@@ -91,12 +132,24 @@ export function IncomesView() {
   };
 
   const formatMonthYear = (date: Date) => {
-    const months = ['Janeiro', 'Fevereiro', 'Março', 'Abril', 'Maio', 'Junho',
-      'Julho', 'Agosto', 'Setembro', 'Outubro', 'Novembro', 'Dezembro'];
+    const months = [
+      'Janeiro',
+      'Fevereiro',
+      'Março',
+      'Abril',
+      'Maio',
+      'Junho',
+      'Julho',
+      'Agosto',
+      'Setembro',
+      'Outubro',
+      'Novembro',
+      'Dezembro'
+    ];
+
     return `${months[date.getMonth()]} ${date.getFullYear()}`;
   };
 
-  // Função para salvar entrada
   const handleSaveIncome = async () => {
     if (!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date) {
       return;
@@ -111,15 +164,13 @@ export function IncomesView() {
         amount: parseFloat(incomeForm.amount),
         date: incomeForm.date,
         recurring: incomeForm.recurring,
-        paid: false, // Por padrão, começa como não recebido
+        paid: false
       });
 
-      // Se marcou para gerar próximos meses e é recorrente, criar mais 2 réplicas
       if (incomeForm.recurring && incomeForm.generateNextMonths) {
-        const originalDate = new Date(incomeForm.date + 'T00:00:00');
+        const originalDate = new Date(`${incomeForm.date}T00:00:00`);
         const dayOfMonth = originalDate.getDate();
 
-        // Criar réplica para o próximo mês
         const nextMonth1 = new Date(originalDate.getFullYear(), originalDate.getMonth() + 1, dayOfMonth);
         await createTransaction({
           type: 'income',
@@ -131,7 +182,6 @@ export function IncomesView() {
           paid: false
         });
 
-        // Criar réplica para o segundo mês seguinte
         const nextMonth2 = new Date(originalDate.getFullYear(), originalDate.getMonth() + 2, dayOfMonth);
         await createTransaction({
           type: 'income',
@@ -144,17 +194,9 @@ export function IncomesView() {
         });
       }
 
-      // Force refresh to update the list immediately
       await refresh();
       setIsAddModalOpen(false);
-      setIncomeForm({
-        description: '',
-        category: '',
-        amount: '',
-        date: '',
-        recurring: false,
-        generateNextMonths: false,
-      });
+      resetIncomeForm();
     } catch (error) {
       console.error('Erro ao salvar entrada:', error);
     } finally {
@@ -162,15 +204,14 @@ export function IncomesView() {
     }
   };
 
-  // Função para abrir modal de cadastro
   const handleOpenModal = () => {
     setIsAddModalOpen(true);
-    // Definir data padrão como hoje
-    const todayStr = getTodayLocal();
-    setIncomeForm({ ...incomeForm, date: todayStr });
+    setIncomeForm((current) => ({
+      ...current,
+      date: getTodayLocal()
+    }));
   };
 
-  // Função para abrir modal de edição
   const handleEditIncome = (income: any) => {
     setEditingId(income.id);
     setIncomeForm({
@@ -179,11 +220,11 @@ export function IncomesView() {
       amount: income.amount.toString(),
       date: income.date,
       recurring: income.recurring || false,
+      generateNextMonths: false
     });
     setIsEditModalOpen(true);
   };
 
-  // Função para salvar edição
   const handleSaveEdit = async () => {
     if (!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date) {
       return;
@@ -196,21 +237,13 @@ export function IncomesView() {
         category: incomeForm.category,
         amount: parseFloat(incomeForm.amount),
         date: incomeForm.date,
-        recurring: incomeForm.recurring,
+        recurring: incomeForm.recurring
       });
 
-      // Force refresh to update the list immediately
       await refresh();
       setIsEditModalOpen(false);
       setEditingId('');
-      setIncomeForm({
-        description: '',
-        category: '',
-        amount: '',
-        date: '',
-        recurring: false,
-        generateNextMonths: false,
-      });
+      resetIncomeForm();
     } catch (error) {
       console.error('Erro ao editar entrada:', error);
     } finally {
@@ -218,34 +251,27 @@ export function IncomesView() {
     }
   };
 
-  // Função para marcar como recebido
   const handleTogglePaid = async (incomeId: string, currentPaid: boolean) => {
     try {
-      await updateTransaction(incomeId, {
-        paid: !currentPaid,
-      });
-      // Force refresh to update the list immediately
+      await updateTransaction(incomeId, { paid: !currentPaid });
       await refresh();
     } catch (error) {
       console.error('Erro ao atualizar status:', error);
     }
   };
 
-  // Função para abrir modal de confirmação de delete
   const handleOpenDeleteModal = (id: string, description: string) => {
     setDeletingId(id);
     setDeletingDescription(description);
     setIsDeleteModalOpen(true);
   };
 
-  // Função para deletar entrada
   const handleDeleteIncome = async () => {
     if (!deletingId) return;
 
     try {
       setSaving(true);
       await deleteTransaction(deletingId);
-      // Force refresh to update the list immediately
       await refresh();
       setIsDeleteModalOpen(false);
       setDeletingId('');
@@ -260,40 +286,41 @@ export function IncomesView() {
 
   return (
     <div className="space-y-6 pb-32">
-      {/* Header */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-semibold text-white">Entradas</h2>
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+          <div>
+            <p className="app-kicker mb-1">Fluxo de caixa</p>
+            <h2 className="app-page-title text-2xl font-semibold sm:text-4xl">Entradas</h2>
+          </div>
 
           <button
             onClick={handleOpenModal}
-            className="flex items-center gap-2 rounded-lg bg-[var(--app-accent)] px-4 py-2 font-semibold text-white transition-opacity hover:opacity-90"
+            className="app-button-primary inline-flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 font-semibold sm:w-auto"
           >
-            <Plus className="w-5 h-5" />
+            <Plus className="h-5 w-5" />
             Adicionar Entrada
           </button>
         </div>
 
-        {/* Month/Year Navigation */}
-        <div className="flex items-center gap-3">
+        <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={navigateToPreviousMonth}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="app-pill rounded-2xl p-2 transition-colors hover:bg-white/10"
             aria-label="Mês anterior"
           >
-            <ChevronLeft className="w-5 h-5 text-[var(--app-accent)]" />
+            <ChevronLeft className="h-5 w-5 text-white" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">
-                <span className="text-[var(--app-accent)] text-lg font-medium">
+              <button className="app-pill flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 transition-colors hover:bg-white/10 sm:px-4">
+                <span className="max-w-[10.5rem] truncate text-sm font-medium text-white sm:max-w-none sm:text-lg">
                   {formatMonthYear(selectedDate)}
                 </span>
-                <CalendarIcon className="w-4 h-4 text-[var(--app-accent)]" />
+                <CalendarIcon className="h-4 w-4 text-white/80" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-[#111214] border-white/20">
+            <PopoverContent className="app-panel-strong w-auto border-white/20 p-0">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -305,133 +332,118 @@ export function IncomesView() {
 
           <button
             onClick={navigateToNextMonth}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="app-pill rounded-2xl p-2 transition-colors hover:bg-white/10"
             aria-label="Próximo mês"
           >
-            <ChevronRight className="w-5 h-5 text-[var(--app-accent)]" />
+            <ChevronRight className="h-5 w-5 text-white" />
           </button>
         </div>
       </div>
 
-      {/* Stats */}
-      <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-          <p className="text-sm text-[#9CA3AF] mb-2">Total Esperado</p>
-          <p className="text-3xl font-bold text-white">{totalExpected.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-          <p className="text-xs text-[#9CA3AF] mt-1">{incomes.length} entradas</p>
+      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
+        <div className={summaryCardClass}>
+          <p className="mb-2 text-sm text-[var(--app-text-muted)]">Total esperado</p>
+          <p className={summaryValueClass}>{totalExpected.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+          <p className="mt-1 text-xs text-[var(--app-text-faint)]">{incomes.length} entradas</p>
         </div>
 
-        <div className="rounded-xl border border-[#AFFD37]/30 bg-[#AFFD37]/10 p-6">
+        <div className={summaryCardClass}>
           <p className="mb-2 text-sm text-[#AFFD37]">Recebidos</p>
-          <p className="text-3xl font-bold text-[#AFFD37]">{totalReceived.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+          <p className={summaryValueClass}>{totalReceived.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
           <p className="mt-1 text-xs text-[#AFFD37]">{received.length} itens</p>
         </div>
 
-        <div className="rounded-xl border border-[#8537FD]/30 bg-[#8537FD]/10 p-6">
-          <p className="mb-2 text-sm text-[#8537FD]">A Receber</p>
-          <p className="text-3xl font-bold text-[#8537FD]">{totalPending.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-          <p className="mt-1 text-xs text-[#8537FD]">{pending.length} itens</p>
+        <div className={summaryCardClass}>
+          <p className="mb-2 text-sm text-[var(--app-text-muted)]">A receber</p>
+          <p className={summaryValueClass}>{totalPending.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+          <p className="mt-1 text-xs text-[var(--app-text-faint)]">{pending.length} itens</p>
         </div>
 
-        <div className="rounded-xl border border-[#E837FD]/40 bg-[#E837FD]/10 p-6">
-          <p className="mb-2 text-sm text-[#E837FD]">Atrasados</p>
-          <p className="text-3xl font-bold text-[#E837FD]">
-            {overdue.length > 0 ? overdue.length : '0'}
-          </p>
-          <p className="mt-1 text-xs text-[#E837FD]">
+        <div className={summaryCardClass}>
+          <p className="mb-2 text-sm text-[#f1d5d1]">Atrasados</p>
+          <p className={summaryValueClass}>{overdue.length > 0 ? overdue.length : '0'}</p>
+          <p className="mt-1 text-xs text-[#f1d5d1]">
             {overdue.length > 0 ? 'Necessita atenção' : 'Tudo em dia'}
           </p>
         </div>
       </div>
 
-      {/* Sorting Controls */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-4">
-        <div className="flex flex-wrap items-center gap-3">
-          <span className="text-sm text-[#9CA3AF] font-medium">Ordenar por:</span>
+      <div className="app-panel rounded-[1.5rem] p-4">
+        <div className="flex flex-col gap-3 sm:flex-row sm:flex-wrap sm:items-center sm:justify-between">
+          <span className="text-sm font-medium text-[var(--app-text-muted)]">Ordenar por</span>
 
-          <button
-            onClick={() => setSortBy('date')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              sortBy === 'date'
-                ? 'bg-[var(--app-accent)] text-white'
-                : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
-            }`}
-          >
-            Data
-          </button>
-
-          <button
-            onClick={() => setSortBy('amount')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              sortBy === 'amount'
-                ? 'bg-[var(--app-accent)] text-white'
-                : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
-            }`}
-          >
-            Valor
-          </button>
-
-          <button
-            onClick={() => setSortBy('description')}
-            className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
-              sortBy === 'description'
-                ? 'bg-[var(--app-accent)] text-white'
-                : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
-            }`}
-          >
-            Nome
-          </button>
-
-          <div className="ml-auto">
+          <div className="flex flex-wrap gap-2">
+            <button onClick={() => setSortBy('date')} className={getToolbarButtonClass(sortBy === 'date')}>
+              Data
+            </button>
+            <button onClick={() => setSortBy('amount')} className={getToolbarButtonClass(sortBy === 'amount')}>
+              Valor
+            </button>
             <button
-              onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')}
-              className="px-4 py-2 bg-white/5 hover:bg-white/10 rounded-lg text-sm font-medium text-[#9CA3AF] transition-colors flex items-center gap-2"
+              onClick={() => setSortBy('description')}
+              className={getToolbarButtonClass(sortBy === 'description')}
             >
+              Nome
+            </button>
+            <button onClick={() => setSortOrder(sortOrder === 'asc' ? 'desc' : 'asc')} className={getToolbarButtonClass(false)}>
               {sortOrder === 'asc' ? '↑ Crescente' : '↓ Decrescente'}
             </button>
           </div>
         </div>
       </div>
 
-      {/* Entradas Atrasadas */}
       {overdue.length > 0 && (
-        <div className="bg-[#C27C75]/10 border border-[#C27C75]/50 rounded-xl p-6">
-          <div className="flex items-start gap-3 mb-4">
-            <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
+        <div className="app-panel rounded-[1.75rem] border border-[#C27C75]/30 p-4 sm:p-6">
+          <div className="mb-4 flex items-start gap-3">
+            <AlertCircle className="mt-0.5 h-5 w-5 text-[#f1d5d1]" />
             <div>
-              <h3 className="text-lg font-semibold text-[#C27C75]">Entradas Atrasadas</h3>
-              <p className="text-sm text-[#C27C75] mt-1">
+              <h3 className="text-lg font-semibold text-white">Entradas Atrasadas</h3>
+              <p className="mt-1 text-sm text-[#f1d5d1]">
                 Você tem {overdue.length} entrada(s) pendente(s) com data anterior a hoje.
               </p>
             </div>
           </div>
 
           <div className="space-y-2">
-            {overdue.map(income => (
-              <div key={income.id} className="bg-white/5 rounded-lg p-4 flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-white">{income.description}</p>
-                  <p className="text-sm text-[#C27C75] mt-1">
+            {overdue.map((income) => (
+              <div
+                key={income.id}
+                className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between"
+              >
+                <div className="min-w-0 flex-1">
+                  <p className="font-medium text-white [overflow-wrap:anywhere]">{income.description}</p>
+                  <div className="mt-2 flex flex-wrap items-center gap-2">
+                    <span className={neutralBadgeClass}>{income.category}</span>
+                    {income.recurring && <span className={recurringBadgeClass}>Recorrente</span>}
+                  </div>
+                  <p className="mt-2 text-sm text-[#f1d5d1]">
                     Previsto para {formatDateToLocaleString(income.date)}
                   </p>
                 </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-white">{income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+
+                <div className="flex flex-col gap-3 sm:items-end">
+                  <div className="text-left sm:text-right">
+                    <p className={inlineAmountClass}>{income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                     <button
                       onClick={() => handleTogglePaid(income.id, income.paid)}
-                      className="mt-2 rounded bg-[var(--app-accent)] px-3 py-1 text-sm font-medium text-white transition-opacity hover:opacity-90"
+                      className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 sm:w-auto"
                     >
                       Marcar como Recebido
                     </button>
                   </div>
-                  <button
-                    onClick={() => handleOpenDeleteModal(income.id, income.description)}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    title="Deletar entrada"
-                  >
-                    <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
-                  </button>
+
+                  <div className="flex items-center gap-2 sm:justify-end">
+                    <button onClick={() => handleEditIncome(income)} className={iconButtonClass} title="Editar entrada">
+                      <Edit className="h-5 w-5" />
+                    </button>
+                    <button
+                      onClick={() => handleOpenDeleteModal(income.id, income.description)}
+                      className={`${iconButtonClass} text-red-400 hover:text-red-300`}
+                      title="Deletar entrada"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             ))}
@@ -439,76 +451,68 @@ export function IncomesView() {
         </div>
       )}
 
-      {/* A Receber */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 bg-white/10 border-b border-white/10">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-white">A Receber</h3>
-            <span className="text-lg font-semibold text-[#8537FD]">
+      <div className="app-panel overflow-hidden rounded-[1.75rem]">
+        <div className="border-b border-white/10 bg-white/[0.03] px-4 py-4 sm:px-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-white">A Receber</h3>
+              <p className="mt-1 text-sm text-[var(--app-text-faint)]">{upcomingPending.length} entradas previstas</p>
+            </div>
+            <span className="max-w-full text-lg font-semibold text-white tabular-nums [overflow-wrap:anywhere]">
               {upcomingPendingTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
-          <p className="text-sm text-[#9CA3AF] mt-1">{upcomingPending.length} entradas previstas</p>
         </div>
 
         <div className="divide-y divide-white/10">
-          {upcomingPending.map(income => (
-            <div key={income.id} className="px-6 py-4 hover:bg-white/10 transition-colors">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 bg-[#8537FD]/10 border border-[#8537FD]/30 rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-[#8537FD]" />
+          {upcomingPending.map((income) => (
+            <div key={income.id} className="px-4 py-4 transition-colors hover:bg-white/[0.03] sm:px-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
+                    <DollarSign className="h-5 w-5 text-white/75" />
                   </div>
 
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <h4 className="text-base font-medium text-white">
-                        {income.description}
-                      </h4>
-                      {income.recurring && (
-                        <span className="inline-block rounded bg-[#AFFD37]/20 px-2 py-1 text-xs font-medium text-[#AFFD37]">
-                          Recorrente
-                        </span>
-                      )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="text-base font-medium text-white [overflow-wrap:anywhere]">{income.description}</h4>
+                      <span className={neutralBadgeClass}>{income.category}</span>
+                      {income.recurring && <span className={recurringBadgeClass}>Recorrente</span>}
                     </div>
 
-                    <div className="flex items-center gap-4 mt-1 text-sm text-[#9CA3AF]">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--app-text-muted)]">
                       <span>Previsto para {formatDateToLocaleString(income.date)}</span>
-                      <span>•</span>
-                      <span>{income.category}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-white">
-                      {income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </p>
+                <div className="flex flex-col gap-3 lg:items-end">
+                  <div className="text-left lg:text-right">
+                    <p className={inlineAmountClass}>{income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                   </div>
 
-                  <button
-                    onClick={() => handleEditIncome(income)}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    title="Editar"
-                  >
-                    <Edit className="w-5 h-5 text-[#9CA3AF]" />
-                  </button>
+                  <div className="flex flex-col gap-2 sm:flex-row sm:flex-wrap sm:items-center sm:justify-end">
+                    <div className="flex items-center gap-2">
+                      <button onClick={() => handleEditIncome(income)} className={iconButtonClass} title="Editar">
+                        <Edit className="h-5 w-5" />
+                      </button>
 
-                  <button
-                    onClick={() => handleOpenDeleteModal(income.id, income.description)}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    title="Deletar"
-                  >
-                    <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
-                  </button>
+                      <button
+                        onClick={() => handleOpenDeleteModal(income.id, income.description)}
+                        className={`${iconButtonClass} text-red-400 hover:text-red-300`}
+                        title="Deletar"
+                      >
+                        <Trash2 className="h-5 w-5" />
+                      </button>
+                    </div>
 
-                  <button
-                    onClick={() => handleTogglePaid(income.id, income.paid)}
-                    className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
-                  >
-                    Marcar como Recebido
-                  </button>
+                    <button
+                      onClick={() => handleTogglePaid(income.id, income.paid)}
+                      className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 sm:w-auto"
+                    >
+                      Marcar como Recebido
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
@@ -522,82 +526,77 @@ export function IncomesView() {
         </div>
       </div>
 
-      {/* Recebidos */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
-        <div className="px-6 py-4 bg-white/10 border-b border-white/10">
-          <div className="flex items-center justify-between gap-3">
-            <h3 className="text-lg font-semibold text-white">Recebidos</h3>
-            <span className="text-lg font-semibold text-[#AFFD37]">
+      <div className="app-panel overflow-hidden rounded-[1.75rem]">
+        <div className="border-b border-white/10 bg-white/[0.03] px-4 py-4 sm:px-6">
+          <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+            <div>
+              <h3 className="text-lg font-semibold text-white">Recebidos</h3>
+              <p className="mt-1 text-sm text-[var(--app-text-faint)]">{received.length} entradas recebidas</p>
+            </div>
+            <span className="max-w-full text-lg font-semibold text-white tabular-nums [overflow-wrap:anywhere]">
               {totalReceived.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
-          <p className="text-sm text-[#9CA3AF] mt-1">{received.length} entradas recebidas</p>
         </div>
 
         <div className="divide-y divide-white/10">
-          {received.map(income => (
-            <div key={income.id} className="px-6 py-4 bg-[#AFFD37]/5">
-              <div className="flex items-center justify-between">
-                <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 bg-[#AFFD37]/10 border border-[#AFFD37]/30 rounded-lg flex items-center justify-center">
-                    <Check className="w-6 h-6 text-[#AFFD37]" />
+          {received.map((income) => (
+            <div key={income.id} className="px-4 py-4 transition-colors hover:bg-white/[0.03] sm:px-6">
+              <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+                <div className="flex min-w-0 items-start gap-3 sm:gap-4">
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#AFFD37]/25 bg-[#AFFD37]/10">
+                    <Check className="h-6 w-6 text-[#AFFD37]" />
                   </div>
 
-                  <div className="flex-1">
-                    <div className="flex items-center gap-3">
-                      <h4 className="text-base font-medium text-white">
-                        {income.description}
-                      </h4>
-                      {income.recurring && (
-                        <span className="inline-block rounded bg-[#AFFD37]/20 px-2 py-1 text-xs font-medium text-[#AFFD37]">
-                          Recorrente
-                        </span>
-                      )}
+                  <div className="min-w-0 flex-1">
+                    <div className="flex flex-wrap items-center gap-2">
+                      <h4 className="text-base font-medium text-white [overflow-wrap:anywhere]">{income.description}</h4>
+                      <span className={neutralBadgeClass}>{income.category}</span>
+                      {income.recurring && <span className={recurringBadgeClass}>Recorrente</span>}
                     </div>
 
-                    <div className="flex items-center gap-4 mt-1 text-sm text-[#9CA3AF]">
+                    <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--app-text-muted)]">
                       <span>Recebido em {formatDateToLocaleString(income.date)}</span>
-                      <span>•</span>
-                      <span>{income.category}</span>
                     </div>
                   </div>
                 </div>
 
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-xl font-bold text-white">
-                      {income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                    </p>
-                    <span className="inline-block mt-1 rounded bg-[#AFFD37]/20 px-2 py-1 text-xs font-medium text-[#AFFD37]">
+                <div className="flex flex-col gap-3 lg:items-end">
+                  <div className="text-left lg:text-right">
+                    <p className={inlineAmountClass}>{income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                    <span className="mt-2 inline-flex items-center rounded-full border border-[#AFFD37]/25 bg-[#AFFD37]/10 px-2.5 py-1 text-xs font-medium text-[#AFFD37]">
                       Recebido
                     </span>
                   </div>
 
-                  <button
-                    onClick={() => handleEditIncome(income)}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    title="Editar"
-                  >
-                    <Edit className="w-5 h-5 text-[#9CA3AF]" />
-                  </button>
+                  <div className="flex items-center gap-2 sm:justify-end">
+                    <button onClick={() => handleEditIncome(income)} className={iconButtonClass} title="Editar">
+                      <Edit className="h-5 w-5" />
+                    </button>
 
-                  <button
-                    onClick={() => handleOpenDeleteModal(income.id, income.description)}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    title="Deletar"
-                  >
-                    <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
-                  </button>
+                    <button
+                      onClick={() => handleOpenDeleteModal(income.id, income.description)}
+                      className={`${iconButtonClass} text-red-400 hover:text-red-300`}
+                      title="Deletar"
+                    >
+                      <Trash2 className="h-5 w-5" />
+                    </button>
+                  </div>
                 </div>
               </div>
             </div>
           ))}
+
+          {received.length === 0 && (
+            <div className="px-6 py-8 text-center">
+              <p className="text-[#9CA3AF]">Nenhuma entrada recebida</p>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* Timeline */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Timeline de Entradas</h3>
+      <div className="app-panel rounded-[1.75rem] p-4 sm:p-6">
+        <h3 className="mb-4 text-lg font-semibold text-white">Timeline de Entradas</h3>
 
         <div className="space-y-4">
           {incomes.map((income, index) => {
@@ -606,60 +605,53 @@ export function IncomesView() {
             const isToday = income.date === todayStr;
 
             return (
-              <div key={income.id} className="flex items-start gap-4">
+              <div key={income.id} className="flex items-start gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.03] p-4">
                 <div className="flex flex-col items-center">
-                  <div className={`w-3 h-3 rounded-full ${income.paid
-                      ? 'bg-[#AFFD37]'
-                      : isPast
-                        ? 'bg-[#C27C75]'
-                        : isToday
-                          ? 'bg-[#8537FD]'
-                          : 'bg-gray-300'
-                    }`}></div>
-                  {index < incomes.length - 1 && (
-                    <div className="w-0.5 h-12 bg-gray-200"></div>
-                  )}
+                  <div
+                    className={`h-3 w-3 rounded-full ${
+                      income.paid ? 'bg-[#AFFD37]' : isPast ? 'bg-[#C27C75]' : isToday ? 'bg-[#8537FD]' : 'bg-gray-300'
+                    }`}
+                  />
+                  {index < incomes.length - 1 && <div className="h-12 w-0.5 bg-gray-200" />}
                 </div>
 
-                <div className="flex-1 pb-4">
-                  <div className="flex items-start justify-between">
-                    <div>
+                <div className="min-w-0 flex-1">
+                  <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="min-w-0">
                       <p className="text-sm font-medium text-white">
                         {incomeDate.toLocaleDateString('pt-BR', {
                           day: '2-digit',
                           month: 'long'
                         })}
                       </p>
-                      <p className="text-sm text-[#9CA3AF] mt-1">
-                        {income.description} - {income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                      <p className="mt-1 text-sm text-[var(--app-text-muted)] [overflow-wrap:anywhere]">{income.description}</p>
+                      <p className="mt-2 max-w-full text-sm font-semibold text-white tabular-nums [overflow-wrap:anywhere]">
+                        {income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
-                      {income.paid && (
-                        <span className="inline-block mt-1 text-xs text-[#AFFD37]">✓ Recebido</span>
-                      )}
+                      <div className="mt-2 flex flex-wrap items-center gap-2">
+                        <span className={neutralBadgeClass}>{income.category}</span>
+                        {income.recurring && <span className={recurringBadgeClass}>Recorrente</span>}
+                      </div>
+                      {income.paid && <span className="mt-2 inline-flex items-center text-xs text-[#AFFD37]">✓ Recebido</span>}
                     </div>
-                    <div className="flex items-center gap-2">
-                      <button
-                        onClick={() => handleEditIncome(income)}
-                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
-                        title="Editar"
-                      >
-                        <Edit className="w-4 h-4 text-[#9CA3AF] hover:text-white" />
+
+                    <div className="flex items-center gap-2 self-end sm:self-auto">
+                      <button onClick={() => handleEditIncome(income)} className={iconButtonClass} title="Editar">
+                        <Edit className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleOpenDeleteModal(income.id, income.description)}
-                        className="p-1.5 hover:bg-white/10 rounded-lg transition-colors"
+                        className={`${iconButtonClass} text-red-400 hover:text-red-300`}
                         title="Deletar"
                       >
-                        <Trash2 className="w-4 h-4 text-red-400 hover:text-red-300" />
+                        <Trash2 className="h-4 w-4" />
                       </button>
                       <button
                         onClick={() => handleTogglePaid(income.id, income.paid || false)}
-                        className={`p-1.5 hover:bg-white/10 rounded-lg transition-colors ${
-                          income.paid ? 'text-[#AFFD37]' : 'text-[#9CA3AF]'
-                        }`}
+                        className={`${iconButtonClass} ${income.paid ? 'text-[#AFFD37]' : 'text-[#9CA3AF]'}`}
                         title={income.paid ? 'Marcar como não recebido' : 'Marcar como recebido'}
                       >
-                        <Check className="w-4 h-4" />
+                        <Check className="h-4 w-4" />
                       </button>
                     </div>
                   </div>
@@ -667,55 +659,47 @@ export function IncomesView() {
               </div>
             );
           })}
+
+          {incomes.length === 0 && (
+            <p className="text-sm text-[#9CA3AF]">Nenhuma entrada cadastrada neste mês.</p>
+          )}
         </div>
       </div>
 
-      {/* Modal de Cadastro de Entrada */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="bg-[#111214] border-white/20 text-white max-w-lg">
+        <DialogContent className={`${modalContentClass} max-w-lg`}>
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">
-              Adicionar Entrada
-            </DialogTitle>
-            <DialogDescription className="text-[#9CA3AF]">
+            <DialogTitle className="text-xl font-bold text-white sm:text-2xl">Adicionar Entrada</DialogTitle>
+            <DialogDescription className="text-[var(--app-text-muted)]">
               Cadastre entradas recorrentes ou outras receitas planejadas
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 mt-4">
-            {/* Descrição */}
+          <div className="mt-4 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Descrição *
-              </label>
+              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Descrição *</label>
               <input
                 type="text"
                 placeholder="Ex: Salário, Freelance, Bônus"
                 value={incomeForm.description}
                 onChange={(e) => setIncomeForm({ ...incomeForm, description: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+                className={modalFieldClass}
               />
             </div>
 
-            {/* Categoria */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Categoria *
-              </label>
+              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Categoria *</label>
               <input
                 type="text"
                 placeholder="Ex: Salário, Trabalho Autônomo, Investimentos"
                 value={incomeForm.category}
                 onChange={(e) => setIncomeForm({ ...incomeForm, category: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+                className={modalFieldClass}
               />
             </div>
 
-            {/* Valor */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Valor *
-              </label>
+              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Valor *</label>
               <input
                 type="number"
                 step="0.01"
@@ -723,47 +707,48 @@ export function IncomesView() {
                 value={incomeForm.amount}
                 onChange={(e) => setIncomeForm({ ...incomeForm, amount: e.target.value })}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+                className={modalFieldClass}
               />
             </div>
 
-            {/* Data */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Data de Recebimento *
-              </label>
+              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Data de Recebimento *</label>
               <input
                 type="date"
                 value={incomeForm.date}
                 onChange={(e) => setIncomeForm({ ...incomeForm, date: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+                className={modalFieldClass}
               />
             </div>
 
-            {/* Recorrente */}
             <div className="space-y-3">
               <div className="flex items-center gap-3">
                 <input
                   type="checkbox"
                   id="recurring"
                   checked={incomeForm.recurring}
-                  onChange={(e) => setIncomeForm({ ...incomeForm, recurring: e.target.checked, generateNextMonths: e.target.checked ? incomeForm.generateNextMonths : false })}
-                  className="w-5 h-5 rounded border-white/20 text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
+                  onChange={(e) =>
+                    setIncomeForm({
+                      ...incomeForm,
+                      recurring: e.target.checked,
+                      generateNextMonths: e.target.checked ? incomeForm.generateNextMonths : false
+                    })
+                  }
+                  className={checkboxClass}
                 />
                 <label htmlFor="recurring" className="text-sm font-medium text-[#9CA3AF]">
                   Entrada recorrente (repete todo mês)
                 </label>
               </div>
 
-              {/* Checkbox para gerar próximos 2 meses */}
               {incomeForm.recurring && (
-                <div className="flex items-center gap-3 ml-8">
+                <div className="ml-8 flex items-center gap-3">
                   <input
                     type="checkbox"
                     id="generateNextMonths"
                     checked={incomeForm.generateNextMonths}
                     onChange={(e) => setIncomeForm({ ...incomeForm, generateNextMonths: e.target.checked })}
-                    className="w-5 h-5 rounded border-white/20 text-[#FDE837] focus:ring-[#FDE837]"
+                    className={checkboxClass}
                   />
                   <label htmlFor="generateNextMonths" className="text-sm font-medium text-[#9CA3AF]">
                     Criar também para os próximos 2 meses (total de 3)
@@ -773,18 +758,17 @@ export function IncomesView() {
             </div>
           </div>
 
-          {/* Botões de ação */}
-          <div className="flex gap-3 mt-6">
+          <div className={modalActionRowClass}>
             <button
               onClick={() => setIsAddModalOpen(false)}
-              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-[#9CA3AF] rounded-xl transition-colors"
+              className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/10"
             >
               Cancelar
             </button>
             <button
               onClick={handleSaveIncome}
               disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date || saving}
-              className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-xl bg-[var(--app-accent)] px-4 py-3 font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? 'Salvando...' : 'Salvar Entrada'}
             </button>
@@ -792,52 +776,40 @@ export function IncomesView() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Edição de Entrada */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="bg-[#111214] border-white/20 text-white max-w-lg">
+        <DialogContent className={`${modalContentClass} max-w-lg`}>
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white">
-              Editar Entrada
-            </DialogTitle>
-            <DialogDescription className="text-[#9CA3AF]">
+            <DialogTitle className="text-xl font-bold text-white sm:text-2xl">Editar Entrada</DialogTitle>
+            <DialogDescription className="text-[var(--app-text-muted)]">
               Atualize as informações da entrada
             </DialogDescription>
           </DialogHeader>
 
-          <div className="space-y-4 mt-4">
-            {/* Descrição */}
+          <div className="mt-4 space-y-4">
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Descrição *
-              </label>
+              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Descrição *</label>
               <input
                 type="text"
                 placeholder="Ex: Salário, Freelance, Bônus"
                 value={incomeForm.description}
                 onChange={(e) => setIncomeForm({ ...incomeForm, description: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+                className={modalFieldClass}
               />
             </div>
 
-            {/* Categoria */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Categoria *
-              </label>
+              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Categoria *</label>
               <input
                 type="text"
                 placeholder="Ex: Salário, Trabalho Autônomo, Investimentos"
                 value={incomeForm.category}
                 onChange={(e) => setIncomeForm({ ...incomeForm, category: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+                className={modalFieldClass}
               />
             </div>
 
-            {/* Valor */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Valor *
-              </label>
+              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Valor *</label>
               <input
                 type="number"
                 step="0.01"
@@ -845,31 +817,27 @@ export function IncomesView() {
                 value={incomeForm.amount}
                 onChange={(e) => setIncomeForm({ ...incomeForm, amount: e.target.value })}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+                className={modalFieldClass}
               />
             </div>
 
-            {/* Data */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                Data de Recebimento *
-              </label>
+              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Data de Recebimento *</label>
               <input
                 type="date"
                 value={incomeForm.date}
                 onChange={(e) => setIncomeForm({ ...incomeForm, date: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
+                className={modalFieldClass}
               />
             </div>
 
-            {/* Recorrente */}
             <div className="flex items-center gap-3">
               <input
                 type="checkbox"
                 id="recurring-edit"
                 checked={incomeForm.recurring}
                 onChange={(e) => setIncomeForm({ ...incomeForm, recurring: e.target.checked })}
-                className="w-5 h-5 rounded border-white/20 text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
+                className={checkboxClass}
               />
               <label htmlFor="recurring-edit" className="text-sm font-medium text-[#9CA3AF]">
                 Entrada recorrente (repete todo mês)
@@ -877,18 +845,17 @@ export function IncomesView() {
             </div>
           </div>
 
-          {/* Botões de ação */}
-          <div className="flex gap-3 mt-6">
+          <div className={modalActionRowClass}>
             <button
               onClick={() => setIsEditModalOpen(false)}
-              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-[#9CA3AF] rounded-xl transition-colors"
+              className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/10"
             >
               Cancelar
             </button>
             <button
               onClick={handleSaveEdit}
               disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date || saving}
-              className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-xl bg-[var(--app-accent)] px-4 py-3 font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? 'Salvando...' : 'Salvar Alterações'}
             </button>
@@ -896,39 +863,37 @@ export function IncomesView() {
         </DialogContent>
       </Dialog>
 
-      {/* Modal de Confirmação de Delete */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-        <DialogContent className="bg-[#111214] border-white/20 text-white max-w-md">
+        <DialogContent className={`${modalContentClass} max-w-md`}>
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
-              <div className="w-12 h-12 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-center">
-                <Trash2 className="w-6 h-6 text-red-400" />
+            <DialogTitle className="flex items-center gap-3 text-xl font-bold text-white sm:text-2xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-500/30 bg-red-500/10">
+                <Trash2 className="h-6 w-6 text-red-400" />
               </div>
               Deletar Entrada
             </DialogTitle>
-            <DialogDescription className="text-[#9CA3AF] mt-4">
+            <DialogDescription className="mt-4 text-[var(--app-text-muted)]">
               Tem certeza que deseja deletar esta entrada? Esta ação não pode ser desfeita.
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-4 p-4 bg-white/5 border border-white/10 rounded-xl">
-            <p className="text-sm text-[#9CA3AF] mb-1">Entrada:</p>
-            <p className="text-white font-medium">{deletingDescription}</p>
+          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
+            <p className="mb-1 text-sm text-[#9CA3AF]">Entrada:</p>
+            <p className="font-medium text-white">{deletingDescription}</p>
           </div>
 
-          {/* Botões de ação */}
-          <div className="flex gap-3 mt-6">
+          <div className={modalActionRowClass}>
             <button
               onClick={() => setIsDeleteModalOpen(false)}
               disabled={saving}
-              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-[#9CA3AF] rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               onClick={handleDeleteIncome}
               disabled={saving}
-              className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 rounded-xl bg-red-500 px-4 py-3 font-semibold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? 'Deletando...' : 'Deletar Entrada'}
             </button>

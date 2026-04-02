@@ -245,7 +245,7 @@ export function GoalsView() {
 
         <button
           onClick={handleOpenAddDialog}
-          className="app-button-primary flex items-center gap-2 rounded-2xl px-6 py-3 font-medium text-white"
+          className="app-button-primary flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium text-white sm:w-auto sm:px-6"
         >
           <Plus className="w-5 h-5" />
           Nova Meta
@@ -298,22 +298,22 @@ export function GoalsView() {
             return (
               <div
                 key={goal.id}
-                className="app-panel rounded-[1.75rem] p-6 transition-all hover:border-white/20"
+                className="app-panel rounded-[1.75rem] p-5 transition-all hover:border-white/20 sm:p-6"
               >
-                <div className="flex items-start justify-between mb-4">
-                  <div className="flex-1">
+                <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                  <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <Target className="w-5 h-5" style={{ color: statusColor }} />
-                      <h3 className="text-xl font-semibold text-white">{goal.name}</h3>
+                      <h3 className="break-words text-xl font-semibold text-white">{goal.name}</h3>
                     </div>
-                    <p className="text-[#9CA3AF] text-sm mb-1">
+                    <p className="mb-1 break-words text-sm text-[#9CA3AF]">
                       {getGoalTypeLabel(goal.type)}
                       {goal.category && ` - ${goal.category}`}
                     </p>
-                    <p className="text-white font-medium">{formatGoalValue(goal)}</p>
+                    <p className="break-words font-medium text-white">{formatGoalValue(goal)}</p>
                   </div>
 
-                  <div className="flex items-center gap-2">
+                  <div className="flex items-center gap-2 self-start sm:self-auto">
                     <button
                       onClick={() => handleEditGoal(goal)}
                       className="p-2 hover:bg-white/10 rounded-lg transition-colors"
@@ -368,7 +368,7 @@ export function GoalsView() {
           setEditingGoal(null);
         }
       }}>
-        <DialogContent className="max-w-md rounded-[2rem] app-panel-strong">
+        <DialogContent className="app-panel-strong max-h-[calc(100vh-2rem)] w-[calc(100vw-1.5rem)] max-w-md overflow-y-auto rounded-[2rem]">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
               {editingGoal ? 'Editar Meta' : 'Nova Meta'}
@@ -449,7 +449,7 @@ export function GoalsView() {
               </div>
             )}
 
-            <div className="flex gap-3 pt-4">
+            <div className="flex flex-col-reverse gap-3 pt-4 sm:flex-row">
               <button
                 onClick={() => {
                   setIsAddDialogOpen(false);

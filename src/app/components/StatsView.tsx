@@ -415,22 +415,22 @@ export function StatsView() {
         </div>
 
         {/* Period Navigation */}
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             onClick={navigatePrevious}
-            className="app-pill rounded-2xl p-2 transition-colors"
+            className="app-pill rounded-2xl p-2 text-white/80 transition-colors hover:text-white"
             aria-label="Período anterior"
           >
-            <ChevronLeft className="w-5 h-5 text-[var(--app-accent)]" />
+            <ChevronLeft className="h-5 w-5 text-white" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
-              <button className="app-pill flex items-center gap-2 rounded-2xl px-4 py-2 transition-colors">
-                <span className="text-[var(--app-accent)] text-lg font-medium">
+              <button className="app-pill flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 transition-colors sm:px-4">
+                <span className="max-w-[10.5rem] truncate text-sm font-medium text-white sm:max-w-none sm:text-lg">
                   {formatPeriod(selectedDate)}
                 </span>
-                <CalendarIcon className="w-4 h-4 text-[var(--app-accent)]" />
+                <CalendarIcon className="h-4 w-4 text-white/80" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 bg-[#181818] border-white/20">
@@ -445,10 +445,10 @@ export function StatsView() {
 
           <button
             onClick={navigateNext}
-            className="app-pill rounded-2xl p-2 transition-colors"
+            className="app-pill rounded-2xl p-2 text-white/80 transition-colors hover:text-white"
             aria-label="Próximo período"
           >
-            <ChevronRight className="w-5 h-5 text-[var(--app-accent)]" />
+            <ChevronRight className="h-5 w-5 text-white" />
           </button>
         </div>
       </div>

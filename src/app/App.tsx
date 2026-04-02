@@ -170,7 +170,7 @@ export default function App() {
   return (
     <div className="app-shell">
       {/* User Profile Menu */}
-      <div className="app-content fixed right-6 top-6 z-50" ref={profileMenuRef}>
+      <div className="app-content fixed right-4 top-4 z-50 sm:right-6 sm:top-6" ref={profileMenuRef}>
         <button
           onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
           className="app-pill flex items-center gap-3 rounded-full px-3.5 py-2.5 text-[var(--app-text)] transition-all hover:bg-white/10"
