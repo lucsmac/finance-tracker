@@ -583,7 +583,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     const { dayExpenses } = getDayTotals(dateStr, dayTransactions);
 
     // Determinar status baseado no saldo
-      let status: DayStatus = 'neutral';
+    let status: DayStatus = 'neutral';
     if (dayBalance >= 2000) {
       status = 'comfortable';
     } else if (dayBalance < 2000 && dayBalance >= 1000) {
@@ -660,10 +660,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     <div className="space-y-6 pb-32">
       {/* Header */}
       <div className="space-y-3 pb-2 pt-4 text-center">
-        <p className="app-kicker">Daily liquidity view</p>
+        <p className="app-kicker">Visão financeira</p>
         <h1 className="app-page-title text-3xl font-semibold sm:text-5xl">AutoMoney</h1>
         <p className="mx-auto max-w-2xl text-sm text-[var(--app-text-muted)] sm:text-base">
-          Uma leitura limpa do mês, do saldo disponível e da sua margem até a próxima renda.
+          Uma leitura do mês, do saldo disponível e da sua margem até a próxima renda.
         </p>
 
         {/* Month/Year Navigation */}
@@ -673,16 +673,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             className="app-pill rounded-2xl p-2 transition-colors"
             aria-label="Mês anterior"
           >
-            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-[#8537FD]" />
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
               <button className="app-pill flex items-center gap-2 rounded-2xl px-3 py-2 transition-colors sm:px-4">
-                <span className="text-[#8537FD] text-base sm:text-lg font-medium">
+                <span className="text-base font-medium text-white sm:text-lg">
                   {formatMonthYear(selectedDate)}
                 </span>
-                <CalendarIcon className="w-4 h-4 text-[#8537FD]" />
+                <CalendarIcon className="w-4 h-4 text-white" />
               </button>
             </PopoverTrigger>
             <PopoverContent className="w-auto p-0 bg-[#181818] border-white/20">
@@ -700,7 +700,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             className="app-pill rounded-2xl p-2 transition-colors"
             aria-label="Próximo mês"
           >
-            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-[#8537FD]" />
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-white" />
           </button>
         </div>
       </div>

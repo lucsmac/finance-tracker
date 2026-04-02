@@ -7,6 +7,8 @@ import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { getTodayLocal, formatDateToLocaleString, createDateFromString } from '@/lib/utils/dateHelpers';
 
+type CommitmentType = 'expense_fixed' | 'expense_variable' | 'installment';
+
 export function CommitmentsView() {
   const { user } = useAuth();
   const { transactions, loading, error, createTransaction, createInstallments, updateTransaction, deleteTransaction, refresh } = useTransactions(user?.id);
@@ -28,7 +30,7 @@ export function CommitmentsView() {
   const [deletingId, setDeletingId] = useState<string>('');
   const [deletingDescription, setDeletingDescription] = useState<string>('');
   const [commitmentForm, setCommitmentForm] = useState({
-    type: 'expense_fixed' as 'expense_fixed' | 'installment',
+    type: 'expense_fixed' as CommitmentType,
     description: '',
     category: '',
     amount: '',
@@ -40,10 +42,10 @@ export function CommitmentsView() {
     installmentNumber: '1'
   });
 
-  // Filtrar compromissos do mês selecionado (fixos e parcelas)
+  // Filtrar compromissos do mês selecionado (fixos, variáveis planejados e parcelas)
   const commitments = transactions
     .filter(t =>
-      (t.type === 'expense_fixed' || t.type === 'installment') &&
+      (t.type === 'expense_fixed' || t.type === 'expense_variable' || t.type === 'installment') &&
       createDateFromString(t.date).getMonth() === selectedDate.getMonth() &&
       createDateFromString(t.date).getFullYear() === selectedDate.getFullYear()
     )
@@ -112,6 +114,20 @@ export function CommitmentsView() {
       .split('')
       .reduce((acc, char) => acc + char.charCodeAt(0), 0);
     return palette[hash % palette.length];
+  };
+
+  const getCommitmentTypeLabel = (type: CommitmentType) => {
+    if (type === 'expense_fixed') return 'Fixo';
+    if (type === 'expense_variable') return 'Variável';
+    return 'Parcela';
+  };
+
+  const getCommitmentTypeBadgeClass = (type: CommitmentType) => {
+    if (type === 'expense_variable') {
+      return 'bg-white/10 text-white';
+    }
+
+    return 'bg-[#747C8B]/20 text-[#747C8B]';
   };
 
   // Função para salvar compromisso
@@ -297,7 +313,7 @@ export function CommitmentsView() {
         description: commitmentForm.description,
         amount: parseFloat(commitmentForm.amount),
         date: commitmentForm.date,
-        recurring: commitmentForm.recurring,
+        recurring: commitmentForm.type === 'expense_fixed' ? commitmentForm.recurring : false,
         installmentNumber: commitmentForm.type === 'installment' ? parseInt(commitmentForm.installmentNumber) : undefined,
         totalInstallments: commitmentForm.type === 'installment' ? parseInt(commitmentForm.totalInstallments) : undefined
       });
@@ -696,12 +712,8 @@ export function CommitmentsView() {
                           </span>
                         </>
                       )}
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                        commitment.type === 'expense_fixed' ? 'bg-[#747C8B]/20 text-[#747C8B]' :
-                        'bg-[#747C8B]/20 text-[#747C8B]'
-                        }`}>
-                        {commitment.type === 'expense_fixed' ? 'Fixo' :
-                         'Parcela'}
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getCommitmentTypeBadgeClass(commitment.type as CommitmentType)}`}>
+                        {getCommitmentTypeLabel(commitment.type as CommitmentType)}
                       </span>
                       <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getCategoryBadgeClass(commitment.category)}`}>
                         {commitment.category}
@@ -815,12 +827,8 @@ export function CommitmentsView() {
                           </span>
                         </>
                       )}
-                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                        commitment.type === 'expense_fixed' ? 'bg-[#747C8B]/20 text-[#747C8B]' :
-                        'bg-[#747C8B]/20 text-[#747C8B]'
-                        }`}>
-                        {commitment.type === 'expense_fixed' ? 'Fixo' :
-                         'Parcela'}
+                      <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getCommitmentTypeBadgeClass(commitment.type as CommitmentType)}`}>
+                        {getCommitmentTypeLabel(commitment.type as CommitmentType)}
                       </span>
                       <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getCategoryBadgeClass(commitment.category)}`}>
                         {commitment.category}
@@ -989,10 +997,11 @@ export function CommitmentsView() {
               </label>
               <select
                 value={commitmentForm.type}
-                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'installment' })}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as CommitmentType })}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               >
                 <option value="expense_fixed" className="bg-[#111214]">Gasto Fixo</option>
+                <option value="expense_variable" className="bg-[#111214]">Gasto Variável</option>
                 <option value="installment" className="bg-[#111214]">Parcelamento</option>
               </select>
             </div>
@@ -1178,10 +1187,11 @@ export function CommitmentsView() {
               </label>
               <select
                 value={commitmentForm.type}
-                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'installment' })}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as CommitmentType })}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               >
                 <option value="expense_fixed" className="bg-[#111214]">Gasto Fixo</option>
+                <option value="expense_variable" className="bg-[#111214]">Gasto Variável</option>
                 <option value="installment" className="bg-[#111214]">Parcelamento</option>
               </select>
             </div>
@@ -1371,10 +1381,11 @@ export function CommitmentsView() {
               </label>
               <select
                 value={commitmentForm.type}
-                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'installment' })}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as CommitmentType })}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               >
                 <option value="expense_fixed" className="bg-[#111214]">Gasto Fixo</option>
+                <option value="expense_variable" className="bg-[#111214]">Gasto Variável</option>
                 <option value="installment" className="bg-[#111214]">Parcelamento</option>
               </select>
             </div>
