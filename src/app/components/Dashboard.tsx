@@ -68,7 +68,7 @@ const getDayStatusTheme = (status: DayStatus, isToday = false) => {
 export function Dashboard({ onNavigate }: DashboardProps) {
   const { user } = useAuth();
   const { estimates, loading: loadingEstimates } = useEstimates(user?.id);
-  const { transactions, loading: loadingTransactions, cancelFutureRecurring } = useTransactions(user?.id);
+  const { transactions, loading: loadingTransactions, cancelFutureRecurring, updateTransaction } = useTransactions(user?.id);
   const { config, loading: loadingConfig, createConfig } = useConfig(user?.id);
   const { loading: loadingPlans, upsertDailyPlan, getPlannedForDate, refresh: refreshDailyPlans } = useDailyPlans(user?.id);
   const {
@@ -832,9 +832,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
               {/* Header: Dia da semana + número */}
               <div className="mb-3 flex items-start justify-between gap-3 pt-1">
-                <div>
+                <div className="flex items-center gap-2">
                   <span className="text-xs uppercase tracking-[0.2em] text-[var(--app-text-faint)]">{getDayOfWeek(dayData.dateStr)}</span>
-                  <span className="ml-2 text-xl font-bold text-white">{dayData.day}</span>
+                  {dayData.isToday ? (
+                    <span className="inline-flex h-7 w-7 items-center justify-center rounded-full bg-white text-lg font-bold text-[#37053b]">{dayData.day}</span>
+                  ) : (
+                    <span className="ml-0 text-xl font-bold text-white">{dayData.day}</span>
+                  )}
                 </div>
               </div>
 
@@ -952,9 +956,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
                 {/* Header: Número do dia */}
                 <div className="mb-1 flex items-start justify-between gap-2 pt-1">
-                  <span className="text-lg font-bold text-white">
-                    {dayData.day}
-                  </span>
+                  {dayData.isToday ? (
+                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-white text-lg font-bold text-[#37053b]">
+                      {dayData.day}
+                    </span>
+                  ) : (
+                    <span className="text-lg font-bold text-white">
+                      {dayData.day}
+                    </span>
+                  )}
                 </div>
 
                 {/* Centro: Saldo */}
@@ -1305,20 +1315,29 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                                     </div>
                                     <div className="text-right flex flex-col items-end gap-1">
                                       <p className="text-lg font-bold text-[#AFFD37]">+{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                                      {t.recurring && (
-                                        <div className="flex items-center gap-2">
-                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#AFFD37]/20 text-[#AFFD37] rounded">
-                                            Recorrente
-                                          </span>
-                                          <button
-                                            onClick={() => handleCancelRecurring(t.id, t.description)}
-                                            className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors"
-                                            title="Cancelar recorrências futuras"
-                                          >
-                                            Cancelar
-                                          </button>
-                                        </div>
-                                      )}
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => updateTransaction(t.id, { paid: !t.paid })}
+                                          className={`text-xs px-2 py-0.5 rounded transition-colors ${t.paid ? 'bg-[#AFFD37]/20 text-[#AFFD37] hover:bg-red-500/20 hover:text-red-400' : 'bg-white/10 text-[#9CA3AF] hover:bg-[#AFFD37]/20 hover:text-[#AFFD37]'}`}
+                                          title={t.paid ? 'Desmarcar como recebido' : 'Marcar como recebido'}
+                                        >
+                                          {t.paid ? '✓ Recebido' : 'Marcar recebido'}
+                                        </button>
+                                        {t.recurring && (
+                                          <div className="flex items-center gap-2">
+                                            <span className="inline-block text-xs px-2 py-0.5 bg-[#AFFD37]/20 text-[#AFFD37] rounded">
+                                              Recorrente
+                                            </span>
+                                            <button
+                                              onClick={() => handleCancelRecurring(t.id, t.description)}
+                                              className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors"
+                                              title="Cancelar recorrências futuras"
+                                            >
+                                              Cancelar
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 ))}
@@ -1358,20 +1377,29 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                                     </div>
                                     <div className="text-right flex flex-col items-end gap-1">
                                       <p className="text-lg font-bold text-white">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                                      {t.recurring && (
-                                        <div className="flex items-center gap-2">
-                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#747C8B]/20 text-[#747C8B] rounded">
-                                            Recorrente
-                                          </span>
-                                          <button
-                                            onClick={() => handleCancelRecurring(t.id, t.description)}
-                                            className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors"
-                                            title="Cancelar recorrências futuras"
-                                          >
-                                            Cancelar
-                                          </button>
-                                        </div>
-                                      )}
+                                      <div className="flex items-center gap-2">
+                                        <button
+                                          onClick={() => updateTransaction(t.id, { paid: !t.paid })}
+                                          className={`text-xs px-2 py-0.5 rounded transition-colors ${t.paid ? 'bg-[#AFFD37]/20 text-[#AFFD37] hover:bg-red-500/20 hover:text-red-400' : 'bg-white/10 text-[#9CA3AF] hover:bg-[#AFFD37]/20 hover:text-[#AFFD37]'}`}
+                                          title={t.paid ? 'Desmarcar como pago' : 'Marcar como pago'}
+                                        >
+                                          {t.paid ? '✓ Pago' : 'Marcar pago'}
+                                        </button>
+                                        {t.recurring && (
+                                          <div className="flex items-center gap-2">
+                                            <span className="inline-block text-xs px-2 py-0.5 bg-[#747C8B]/20 text-[#747C8B] rounded">
+                                              Recorrente
+                                            </span>
+                                            <button
+                                              onClick={() => handleCancelRecurring(t.id, t.description)}
+                                              className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors"
+                                              title="Cancelar recorrências futuras"
+                                            >
+                                              Cancelar
+                                            </button>
+                                          </div>
+                                        )}
+                                      </div>
                                     </div>
                                   </div>
                                 ))}
