@@ -43,6 +43,16 @@ export default function App() {
   const { goals, deleteGoal: deleteGoalFn } = useGoals(user?.id);
   const { config, updateConfig } = useConfig(user?.id);
   const { dailyExpenses, deleteDailyExpense: deleteDailyExpenseFn } = useDailyExpenses(user?.id);
+  const userName = user?.email?.split('@')[0] || 'Usuário';
+  const currentViewLabel = {
+    dashboard: 'Visão geral',
+    commitments: 'Compromissos',
+    incomes: 'Entradas',
+    stats: 'Análise',
+    goals: 'Metas'
+  }[currentView];
+  const activeNavItemClass = 'bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]';
+  const inactiveNavItemClass = 'text-[var(--app-text-muted)] hover:bg-white/5 hover:text-[var(--app-text)]';
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -143,8 +153,11 @@ export default function App() {
   // Show loading state while checking auth
   if (loading) {
     return (
-      <div className="min-h-screen flex items-center justify-center bg-[#161618]">
-        <div className="text-white text-lg">Carregando...</div>
+      <div className="app-shell flex items-center justify-center px-4">
+        <div className="app-panel rounded-[2rem] px-8 py-6 text-center">
+          <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-[3px] border-[var(--app-accent)]/30 border-t-[var(--app-accent)]" />
+          <div className="text-lg text-[var(--app-text)]">Carregando...</div>
+        </div>
       </div>
     );
   }
@@ -155,42 +168,46 @@ export default function App() {
   }
 
   return (
-    <div className="min-h-screen bg-[#161618]">
+    <div className="app-shell">
       {/* User Profile Menu */}
-      <div className="fixed top-6 right-6 z-50" ref={profileMenuRef}>
+      <div className="app-content fixed right-6 top-6 z-50" ref={profileMenuRef}>
         <button
           onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-          className="flex items-center gap-3 px-4 py-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full text-white hover:bg-white/10 transition-all"
+          className="app-pill flex items-center gap-3 rounded-full px-3.5 py-2.5 text-[var(--app-text)] transition-all hover:bg-white/10"
         >
           {/* User Avatar */}
-          <div className="w-8 h-8 bg-gradient-to-br from-[#76C893] to-[#9B97CE] rounded-full flex items-center justify-center">
-            <User className="w-5 h-5 text-white" />
+          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(133,55,253,0.35)] bg-[var(--app-accent)] text-white shadow-[0_10px_25px_rgba(133,55,253,0.2)]">
+            <User className="h-5 w-5" />
           </div>
 
           {/* User Name */}
-          <span className="text-sm font-medium">{user?.email?.split('@')[0] || 'Usuário'}</span>
+          <div className="hidden text-left sm:block">
+            <p className="text-sm font-medium text-[var(--app-text)]">{userName}</p>
+            <p className="text-xs text-[var(--app-text-faint)]">Conta ativa</p>
+          </div>
 
           {/* Dropdown Icon */}
-          <ChevronDown className={`w-4 h-4 transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
+          <ChevronDown className={`w-4 h-4 text-[var(--app-text-muted)] transition-transform ${isProfileMenuOpen ? 'rotate-180' : ''}`} />
         </button>
 
         {/* Dropdown Menu */}
         {isProfileMenuOpen && (
-          <div className="absolute top-full right-0 mt-2 w-64 bg-[#1e1e20] backdrop-blur-xl border border-white/10 rounded-xl shadow-xl overflow-hidden">
+          <div className="app-panel-strong absolute top-full right-0 mt-3 w-72 overflow-hidden rounded-[1.5rem]">
             {/* User Info */}
-            <div className="px-4 py-3 border-b border-white/10">
-              <p className="text-sm font-medium text-white">{user?.email?.split('@')[0] || 'Usuário'}</p>
-              <p className="text-xs text-white/50 mt-0.5">{user?.email}</p>
+            <div className="border-b border-white/10 px-5 py-4">
+              <p className="app-kicker mb-2">Perfil</p>
+              <p className="text-sm font-medium text-[var(--app-text)]">{userName}</p>
+              <p className="mt-1 text-xs text-[var(--app-text-muted)]">{user?.email}</p>
             </div>
 
             {/* Menu Items */}
-            <div className="py-2">
+            <div className="px-2 py-2">
               <button
                 onClick={() => {
                   setIsProfileMenuOpen(false);
                   setIsSettingsModalOpen(true);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/5 hover:text-[var(--app-text)]"
               >
                 <Settings className="w-4 h-4" />
                 <span className="text-sm">Configurações</span>
@@ -201,28 +218,28 @@ export default function App() {
                   setIsProfileMenuOpen(false);
                   setIsResetModalOpen(true);
                 }}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-red-400 hover:text-red-300 hover:bg-red-500/10 transition-colors"
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[#e3b0aa] transition-colors hover:bg-red-500/10 hover:text-[#f2d7d3]"
               >
                 <Trash2 className="w-4 h-4" />
                 <span className="text-sm">Resetar Dados</span>
               </button>
 
-              <div className="my-2 border-t border-white/10"></div>
+              <div className="my-2 border-t border-white/10" />
 
               <button
                 onClick={signOut}
-                className="w-full flex items-center gap-3 px-4 py-2.5 text-white/70 hover:text-white hover:bg-white/5 transition-colors"
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/5 hover:text-[var(--app-text)]"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="text-sm">Sair</span>
               </button>
             </div>
           </div>
-        )}
+      )}
       </div>
 
       {/* Main Content */}
-      <div className="max-w-6xl mx-auto px-4 py-6">
+      <div className="app-content mx-auto max-w-7xl px-4 pb-40 pt-24 sm:px-6">
         {currentView === 'dashboard' && <Dashboard />}
         {currentView === 'commitments' && <CommitmentsView />}
         {currentView === 'incomes' && <IncomesView />}
@@ -231,150 +248,150 @@ export default function App() {
       </div>
 
       {/* Bottom Navigation */}
-      <nav className="fixed bottom-6 left-1/2 -translate-x-1/2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-full px-10 py-4 shadow-2xl">
-        <div className="flex items-center gap-8">
+      <nav className="app-panel app-content fixed bottom-5 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-4xl -translate-x-1/2 rounded-[2rem] px-3 py-3 sm:w-auto sm:px-4">
+        <div className="flex items-center justify-between gap-2 sm:gap-3">
           <button
             onClick={() => setCurrentView('dashboard')}
-            className={`flex flex-col items-center gap-1.5 transition-all ${currentView === 'dashboard'
-              ? 'text-[#76C893] scale-110'
-              : 'text-[#9CA3AF] hover:text-white/80'
+            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'dashboard'
+              ? activeNavItemClass
+              : inactiveNavItemClass
               }`}
           >
             <Calendar className="w-6 h-6" />
-            <span className="text-xs font-medium">Início</span>
+            <span className="hidden text-sm font-medium sm:inline">Início</span>
           </button>
 
           <button
             onClick={() => setCurrentView('commitments')}
-            className={`flex flex-col items-center gap-1.5 transition-all ${currentView === 'commitments'
-              ? 'text-[#76C893] scale-110'
-              : 'text-[#9CA3AF] hover:text-white/80'
+            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'commitments'
+              ? activeNavItemClass
+              : inactiveNavItemClass
               }`}
           >
             <ClipboardList className="w-6 h-6" />
-            <span className="text-xs font-medium">Compromissos</span>
+            <span className="hidden text-sm font-medium sm:inline">Compromissos</span>
           </button>
 
           <button
             onClick={() => setCurrentView('incomes')}
-            className={`flex flex-col items-center gap-1.5 transition-all ${currentView === 'incomes'
-              ? 'text-[#76C893] scale-110'
-              : 'text-[#9CA3AF] hover:text-white/80'
+            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'incomes'
+              ? activeNavItemClass
+              : inactiveNavItemClass
               }`}
           >
             <DollarSign className="w-6 h-6" />
-            <span className="text-xs font-medium">Entradas</span>
+            <span className="hidden text-sm font-medium sm:inline">Entradas</span>
           </button>
 
           <button
             onClick={() => setCurrentView('stats')}
-            className={`flex flex-col items-center gap-1.5 transition-all ${currentView === 'stats'
-              ? 'text-[#76C893] scale-110'
-              : 'text-[#9CA3AF] hover:text-white/80'
+            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'stats'
+              ? activeNavItemClass
+              : inactiveNavItemClass
               }`}
           >
             <TrendingUp className="w-6 h-6" />
-            <span className="text-xs font-medium">Análise</span>
+            <span className="hidden text-sm font-medium sm:inline">Análise</span>
           </button>
 
           <button
             onClick={() => setCurrentView('goals')}
-            className={`flex flex-col items-center gap-1.5 transition-all ${currentView === 'goals'
-              ? 'text-[#76C893] scale-110'
-              : 'text-[#9CA3AF] hover:text-white/80'
+            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'goals'
+              ? activeNavItemClass
+              : inactiveNavItemClass
               }`}
           >
             <Target className="w-6 h-6" />
-            <span className="text-xs font-medium">Metas</span>
+            <span className="hidden text-sm font-medium sm:inline">Metas</span>
           </button>
         </div>
       </nav>
 
       {/* Settings Modal */}
       <Dialog open={isSettingsModalOpen} onOpenChange={setIsSettingsModalOpen}>
-        <DialogContent className="bg-[#1e1e20] border-white/20 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-[2rem] app-panel-strong">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
-              <div className="w-12 h-12 bg-[#76C893]/10 border border-[#76C893]/30 rounded-xl flex items-center justify-center">
-                <Settings className="w-6 h-6 text-[#76C893]" />
+            <DialogTitle className="flex items-center gap-4 text-2xl font-semibold text-[var(--app-text)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--app-accent-soft)] text-[var(--app-accent)]">
+                <Settings className="w-5 h-5" />
               </div>
               Configurações
             </DialogTitle>
-            <DialogDescription className="text-white/60 mt-4">
+            <DialogDescription className="mt-4 text-[var(--app-text-muted)]">
               Gerencie suas preferências e dados do aplicativo
             </DialogDescription>
           </DialogHeader>
 
           <div className="mt-6 space-y-4">
             {/* User Info Section */}
-            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-              <h3 className="text-sm font-semibold text-white mb-3">Informações da conta</h3>
+            <div className="app-panel rounded-[1.5rem] p-4">
+              <h3 className="mb-3 text-sm font-semibold text-[var(--app-text)]">Informações da conta</h3>
               <div className="space-y-2">
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-white/60">Email:</span>
-                  <span className="text-sm text-white">{user?.email}</span>
+                  <span className="text-sm text-[var(--app-text-muted)]">Email:</span>
+                  <span className="text-sm text-[var(--app-text)]">{user?.email}</span>
                 </div>
                 <div className="flex justify-between items-center">
-                  <span className="text-sm text-white/60">Usuário:</span>
-                  <span className="text-sm text-white">{user?.email?.split('@')[0]}</span>
+                  <span className="text-sm text-[var(--app-text-muted)]">Usuário:</span>
+                  <span className="text-sm text-[var(--app-text)]">{userName}</span>
                 </div>
               </div>
             </div>
 
             {/* Financial Configuration Section */}
-            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-              <h3 className="text-sm font-semibold text-white mb-3">Configurações financeiras</h3>
+            <div className="app-panel rounded-[1.5rem] p-4">
+              <h3 className="mb-3 text-sm font-semibold text-[var(--app-text)]">Configurações financeiras</h3>
               <div className="space-y-4">
                 {/* Saldo Inicial */}
                 <div>
-                  <label className="block text-sm text-white/60 mb-2">Saldo inicial</label>
+                  <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Saldo inicial</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60">R$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-text-muted)]">R$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={configForm.initialBalance}
                       onChange={(e) => setConfigForm({ ...configForm, initialBalance: e.target.value })}
-                      className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                      className="w-full rounded-2xl py-3 pl-10 pr-4"
                       placeholder="0.00"
                     />
                   </div>
-                  <p className="text-xs text-white/40 mt-1">O saldo inicial da sua conta</p>
+                  <p className="mt-1 text-xs text-[var(--app-text-faint)]">O saldo inicial da sua conta</p>
                 </div>
 
                 {/* Valor Diário Padrão */}
                 <div>
-                  <label className="block text-sm text-white/60 mb-2">Valor diário padrão</label>
+                  <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Valor diário padrão</label>
                   <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60">R$</span>
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-text-muted)]">R$</span>
                     <input
                       type="number"
                       step="0.01"
                       value={configForm.dailyStandard}
                       onChange={(e) => setConfigForm({ ...configForm, dailyStandard: e.target.value })}
-                      className="w-full pl-10 pr-4 py-2 bg-white/5 border border-white/20 rounded-lg text-white placeholder-white/40 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                      className="w-full rounded-2xl py-3 pl-10 pr-4"
                       placeholder="0.00"
                     />
                   </div>
-                  <p className="text-xs text-white/40 mt-1">Quanto você planeja gastar por dia (gastos variáveis)</p>
+                  <p className="mt-1 text-xs text-[var(--app-text-faint)]">Quanto você planeja gastar por dia (gastos variáveis)</p>
                 </div>
 
                 {/* Data de Início do Saldo */}
                 <div>
-                  <label className="block text-sm text-white/60 mb-2">Data de início do saldo</label>
+                  <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Data de início do saldo</label>
                   <input
                     type="date"
                     value={configForm.balanceStartDate}
                     onChange={(e) => setConfigForm({ ...configForm, balanceStartDate: e.target.value })}
-                    className="w-full px-4 py-2 bg-white/5 border border-white/20 rounded-lg text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    className="w-full rounded-2xl px-4 py-3"
                   />
-                  <p className="text-xs text-white/40 mt-1">A partir desta data, o sistema começará a descontar os gastos diários do seu saldo</p>
+                  <p className="mt-1 text-xs text-[var(--app-text-faint)]">A partir desta data, o sistema começará a descontar os gastos diários do seu saldo</p>
                 </div>
 
                 {/* Info Box */}
-                <div className="p-3 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-lg">
-                  <p className="text-xs text-white/70">
-                    <strong className="text-[#9B97CE]">💡 Importante:</strong> Alterar a data de início do saldo
+                <div className="app-note-accent rounded-2xl p-3">
+                  <p className="text-xs">
+                    <strong className="text-[var(--app-accent)]">Importante:</strong> Alterar a data de início do saldo
                     recalculará todos os valores do calendário a partir dessa nova data.
                   </p>
                 </div>
@@ -383,7 +400,7 @@ export default function App() {
                 <button
                   onClick={handleSaveConfig}
                   disabled={savingConfig}
-                  className="w-full px-4 py-2 bg-[#76C893] hover:bg-[#68b583] text-white rounded-lg font-medium transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="app-button-primary w-full rounded-2xl px-4 py-3 font-medium disabled:cursor-not-allowed disabled:opacity-50"
                 >
                   {savingConfig ? 'Salvando...' : 'Salvar configurações'}
                 </button>
@@ -391,9 +408,9 @@ export default function App() {
             </div>
 
             {/* Data Management Section */}
-            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-              <h3 className="text-sm font-semibold text-white mb-2">Gerenciamento de dados</h3>
-              <div className="space-y-2 text-sm text-white/60">
+            <div className="app-panel rounded-[1.5rem] p-4">
+              <h3 className="mb-2 text-sm font-semibold text-[var(--app-text)]">Gerenciamento de dados</h3>
+              <div className="space-y-2 text-sm text-[var(--app-text-muted)]">
                 <p>• {transactions.length} transações registradas</p>
                 <p>• {estimates.length} categorias de estimativas</p>
                 <p>• {investments.length} investimentos</p>
@@ -403,9 +420,9 @@ export default function App() {
             </div>
 
             {/* Danger Zone */}
-            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-              <h3 className="text-sm font-semibold text-red-400 mb-2">Zona de perigo</h3>
-              <p className="text-xs text-red-300/80 mb-3">
+            <div className="app-note-danger rounded-[1.5rem] p-4">
+              <h3 className="mb-2 text-sm font-semibold text-[#f2d7d3]">Zona de perigo</h3>
+              <p className="mb-3 text-xs text-[#e9c4bf]">
                 Esta ação deletará permanentemente todos os seus dados.
               </p>
               <button
@@ -413,7 +430,7 @@ export default function App() {
                   setIsSettingsModalOpen(false);
                   setIsResetModalOpen(true);
                 }}
-                className="w-full flex items-center justify-center gap-2 px-4 py-2 bg-red-500 hover:bg-red-600 text-white rounded-lg text-sm font-medium transition-colors"
+                className="app-button-danger flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
               >
                 <Trash2 className="w-4 h-4" />
                 Resetar todos os dados
@@ -424,7 +441,7 @@ export default function App() {
           <div className="flex gap-3 mt-6">
             <button
               onClick={() => setIsSettingsModalOpen(false)}
-              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-white rounded-xl transition-colors"
+              className="app-button-secondary flex-1 rounded-2xl px-4 py-3"
             >
               Fechar
             </button>
@@ -434,25 +451,25 @@ export default function App() {
 
       {/* Reset Data Confirmation Modal */}
       <Dialog open={isResetModalOpen} onOpenChange={setIsResetModalOpen}>
-        <DialogContent className="bg-[#1e1e20] border-white/20 text-white max-w-md">
+        <DialogContent className="max-w-md rounded-[2rem] app-panel-strong">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
-              <div className="w-12 h-12 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-center">
-                <Trash2 className="w-6 h-6 text-red-400" />
+            <DialogTitle className="flex items-center gap-4 text-2xl font-semibold text-[var(--app-text)]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10 text-[#f2d7d3]">
+                <Trash2 className="w-5 h-5" />
               </div>
               Resetar Todos os Dados
             </DialogTitle>
-            <DialogDescription className="text-red-300/80 mt-4">
-              ⚠️ ATENÇÃO: Esta ação é irreversível!
+            <DialogDescription className="mt-4 text-[#e9c4bf]">
+              Atenção: esta ação é irreversível.
             </DialogDescription>
           </DialogHeader>
 
           <div className="mt-4 space-y-4">
-            <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-xl">
-              <p className="text-sm text-red-300 font-semibold mb-2">
+            <div className="app-note-danger rounded-[1.5rem] p-4">
+              <p className="mb-2 text-sm font-semibold text-[#f2d7d3]">
                 Os seguintes dados serão deletados permanentemente:
               </p>
-              <ul className="text-sm text-red-200/80 space-y-1">
+              <ul className="space-y-1 text-sm text-[#e9c4bf]">
                 <li>• {transactions.length} transações</li>
                 <li>• {estimates.length} estimativas</li>
                 <li>• {investments.length} investimentos</li>
@@ -461,8 +478,8 @@ export default function App() {
               </ul>
             </div>
 
-            <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-              <p className="text-sm text-white/80">
+            <div className="app-panel rounded-[1.5rem] p-4">
+              <p className="text-sm text-[var(--app-text-muted)]">
                 Esta ação não pode ser desfeita. Todos os seus dados financeiros serão perdidos.
                 Tem certeza absoluta de que deseja continuar?
               </p>
@@ -473,14 +490,14 @@ export default function App() {
             <button
               onClick={() => setIsResetModalOpen(false)}
               disabled={resetting}
-              className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-white rounded-xl transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="app-button-secondary flex-1 rounded-2xl px-4 py-3 disabled:cursor-not-allowed disabled:opacity-50"
             >
               Cancelar
             </button>
             <button
               onClick={handleResetAllData}
               disabled={resetting}
-              className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="app-button-danger flex-1 rounded-2xl px-4 py-3 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
             >
               {resetting ? 'Resetando...' : 'Sim, Deletar Tudo'}
             </button>

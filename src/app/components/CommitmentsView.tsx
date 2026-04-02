@@ -1,5 +1,5 @@
 import { useState } from 'react';
-import { Calendar as CalendarIcon, Check, X, AlertCircle, Plus, ChevronLeft, ChevronRight, Edit, Trash2, Copy } from 'lucide-react';
+import { Calendar as CalendarIcon, Check, X, Plus, ChevronLeft, ChevronRight, Edit, Trash2, Copy } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTransactions } from '@/lib/hooks/useTransactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
@@ -66,14 +66,12 @@ export function CommitmentsView() {
   const paid = commitments.filter(c => c.paid);
   const pending = commitments.filter(c => !c.paid);
   const overdue = pending.filter(c => c.date < todayStr);
-  const upcomingPending = pending.filter(c => c.date >= todayStr);
 
   const filteredCommitments = commitments.filter(c => {
     if (statusFilter === 'paid') return !!c.paid;
     if (statusFilter === 'pending') return !c.paid;
     return true;
   });
-  const upcomingPendingTotal = upcomingPending.reduce((sum, c) => sum + c.amount, 0);
 
   const totalCommitted = commitments.reduce((sum, c) => sum + c.amount, 0);
   const totalPaid = paid.reduce((sum, c) => sum + c.amount, 0);
@@ -453,7 +451,7 @@ export function CommitmentsView() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#76C893] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-4 border-[var(--app-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white">Carregando compromissos...</p>
         </div>
       </div>
@@ -472,7 +470,7 @@ export function CommitmentsView() {
           <p className="text-gray-400 mb-4">{error.message}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-[#76C893] text-[#161618] rounded-lg hover:bg-[#9B97CE] transition-colors"
+            className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90"
           >
             Recarregar página
           </button>
@@ -490,7 +488,7 @@ export function CommitmentsView() {
 
           <button
             onClick={handleOpenModal}
-            className="flex items-center gap-2 px-4 py-2 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-lg font-semibold transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-[var(--app-accent)] px-4 py-2 font-semibold text-white transition-opacity hover:opacity-90"
           >
             <Plus className="w-5 h-5" />
             Adicionar Compromisso
@@ -504,19 +502,19 @@ export function CommitmentsView() {
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Mês anterior"
           >
-            <ChevronLeft className="w-5 h-5 text-[#9B97CE]" />
+            <ChevronLeft className="w-5 h-5 text-[var(--app-accent)]" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">
-                <span className="text-[#9B97CE] text-lg font-medium">
+                <span className="text-[var(--app-accent)] text-lg font-medium">
                   {formatMonthYear(selectedDate)}
                 </span>
-                <CalendarIcon className="w-4 h-4 text-[#9B97CE]" />
+                <CalendarIcon className="w-4 h-4 text-[var(--app-accent)]" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-[#161618] border-white/20">
+            <PopoverContent className="w-auto p-0 bg-[#111214] border-white/20">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -531,7 +529,7 @@ export function CommitmentsView() {
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Próximo mês"
           >
-            <ChevronRight className="w-5 h-5 text-[#9B97CE]" />
+            <ChevronRight className="w-5 h-5 text-[var(--app-accent)]" />
           </button>
         </div>
       </div>
@@ -544,24 +542,24 @@ export function CommitmentsView() {
           <p className="text-xs text-[#9CA3AF] mt-1">{commitments.length} compromissos</p>
         </div>
 
-        <div className="bg-[#76C893]/10 rounded-xl border border-[#76C893]/30 p-6">
-          <p className="text-sm text-[#76C893] mb-2">Pagos</p>
-          <p className="text-3xl font-bold text-[#76C893]">{totalPaid.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-          <p className="text-xs text-[#76C893] mt-1">{paid.length} itens</p>
+        <div className="rounded-xl border border-[#AFFD37]/30 bg-[#AFFD37]/10 p-6">
+          <p className="mb-2 text-sm text-[#AFFD37]">Pagos</p>
+          <p className="text-3xl font-bold text-[#AFFD37]">{totalPaid.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+          <p className="mt-1 text-xs text-[#AFFD37]">{paid.length} itens</p>
         </div>
 
-        <div className="bg-[#8B7AB8]/10 rounded-xl border border-[#8B7AB8]/30 p-6">
-          <p className="text-sm text-[#8B7AB8] mb-2">Pendentes</p>
-          <p className="text-3xl font-bold text-[#8B7AB8]">{totalPending.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-          <p className="text-xs text-[#8B7AB8] mt-1">{pending.length} itens</p>
+        <div className="bg-[#747C8B]/10 rounded-xl border border-[#747C8B]/30 p-6">
+          <p className="text-sm text-[#747C8B] mb-2">Pendentes</p>
+          <p className="text-3xl font-bold text-[#747C8B]">{totalPending.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+          <p className="text-xs text-[#747C8B] mt-1">{pending.length} itens</p>
         </div>
 
-        <div className="bg-[#D97B7B]/100/10 rounded-xl border border-[#D97B7B]/50 p-6">
-          <p className="text-sm text-[#D97B7B] mb-2">Atrasados</p>
-          <p className="text-3xl font-bold text-[#D97B7B]">
+        <div className="bg-[#C27C75]/100/10 rounded-xl border border-[#C27C75]/50 p-6">
+          <p className="text-sm text-[#C27C75] mb-2">Atrasados</p>
+          <p className="text-3xl font-bold text-[#C27C75]">
             {overdue.length > 0 ? overdue.length : '0'}
           </p>
-          <p className="text-xs text-[#D97B7B] mt-1">
+          <p className="text-xs text-[#C27C75] mt-1">
             {overdue.length > 0 ? 'Necessita atenção' : 'Tudo em dia'}
           </p>
         </div>
@@ -576,7 +574,7 @@ export function CommitmentsView() {
               onClick={() => setSortBy('date')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 sortBy === 'date'
-                  ? 'bg-[#76C893] text-[#161618]'
+                  ? 'bg-[var(--app-accent)] text-white'
                   : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
               }`}
             >
@@ -586,7 +584,7 @@ export function CommitmentsView() {
               onClick={() => setSortBy('amount')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 sortBy === 'amount'
-                  ? 'bg-[#76C893] text-[#161618]'
+                  ? 'bg-[var(--app-accent)] text-white'
                   : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
               }`}
             >
@@ -596,7 +594,7 @@ export function CommitmentsView() {
               onClick={() => setSortBy('description')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 sortBy === 'description'
-                  ? 'bg-[#76C893] text-[#161618]'
+                  ? 'bg-[var(--app-accent)] text-white'
                   : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
               }`}
             >
@@ -606,7 +604,7 @@ export function CommitmentsView() {
               onClick={() => setSortBy('type')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 sortBy === 'type'
-                  ? 'bg-[#76C893] text-[#161618]'
+                  ? 'bg-[var(--app-accent)] text-white'
                   : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
               }`}
             >
@@ -626,7 +624,7 @@ export function CommitmentsView() {
               onClick={() => setStatusFilter('all')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'all'
-                  ? 'bg-[#76C893] text-[#161618]'
+                  ? 'bg-[var(--app-accent)] text-white'
                   : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
               }`}
             >
@@ -636,7 +634,7 @@ export function CommitmentsView() {
               onClick={() => setStatusFilter('paid')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'paid'
-                  ? 'bg-[#76C893] text-[#161618]'
+                  ? 'bg-[var(--app-accent)] text-white'
                   : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
               }`}
             >
@@ -646,7 +644,7 @@ export function CommitmentsView() {
               onClick={() => setStatusFilter('pending')}
               className={`px-3 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                 statusFilter === 'pending'
-                  ? 'bg-[#76C893] text-[#161618]'
+                  ? 'bg-[var(--app-accent)] text-white'
                   : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
               }`}
             >
@@ -656,77 +654,33 @@ export function CommitmentsView() {
         </div>
       </div>
 
-      {/* Compromissos Atrasados */}
-      {(statusFilter === 'all' || statusFilter === 'pending') && overdue.length > 0 && (
-        <div className="bg-[#D97B7B]/10 border border-[#D97B7B]/50 rounded-xl p-6">
-          <div className="flex items-start gap-3 mb-4">
-            <AlertCircle className="w-5 h-5 text-[#D97B7B] mt-0.5" />
-            <div>
-              <h3 className="text-lg font-semibold text-[#D97B7B]">Compromissos Atrasados</h3>
-              <p className="text-sm text-[#D97B7B] mt-1">
-                Você tem {overdue.length} compromisso(s) pendente(s) com vencimento anterior a hoje.
-              </p>
-            </div>
-          </div>
-
-          <div className="space-y-2">
-            {overdue.map(commitment => (
-              <div key={commitment.id} className="bg-white rounded-lg p-4 flex items-center justify-between">
-                <div className="flex-1">
-                  <p className="font-medium text-white">{commitment.description}</p>
-                  <div className="flex items-center gap-2 mt-1">
-                    <p className="text-sm text-[#D97B7B]">
-                      Venceu em {formatDateToLocaleString(commitment.date)}
-                    </p>
-                    <span className={`inline-block px-2 py-0.5 rounded text-xs font-medium ${getCategoryBadgeClass(commitment.category)}`}>
-                      {commitment.category}
-                    </span>
-                  </div>
-                </div>
-                <div className="flex items-center gap-3">
-                  <div className="text-right">
-                    <p className="text-lg font-bold text-white">{commitment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                    <button
-                      onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
-                      className="mt-2 px-3 py-1 bg-[#D97B7B] hover:bg-[#C97A7A] text-white text-sm rounded transition-colors"
-                    >
-                      Pagar Agora
-                    </button>
-                  </div>
-                  <button
-                    onClick={() => handleOpenDeleteModal(commitment.id, commitment.description)}
-                    className="p-2 hover:bg-white/10 rounded-lg transition-colors"
-                    title="Deletar compromisso"
-                  >
-                    <Trash2 className="w-5 h-5 text-red-400 hover:text-red-300" />
-                  </button>
-                </div>
-              </div>
-            ))}
-          </div>
-        </div>
-      )}
-
       {/* Pendentes */}
       {(statusFilter === 'all' || statusFilter === 'pending') && (
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
         <div className="px-6 py-4 bg-white/10 border-b border-white/10">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-lg font-semibold text-white">Pendentes</h3>
-            <span className="text-lg font-semibold text-[#8B7AB8]">
-              {upcomingPendingTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            <span className="text-lg font-semibold text-[#747C8B]">
+              {totalPending.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
-          <p className="text-sm text-[#9CA3AF] mt-1">{upcomingPending.length} compromissos a vencer</p>
+          <p className="text-sm text-[#9CA3AF] mt-1">{pending.length} compromissos pendentes</p>
         </div>
 
         <div className="divide-y divide-white/10">
-          {upcomingPending.map(commitment => (
+          {pending.map(commitment => {
+            const isOverdue = commitment.date < todayStr;
+
+            return (
             <div key={commitment.id} className="px-6 py-4 hover:bg-white/10 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg flex items-center justify-center">
-                    <CalendarIcon className="w-6 h-6 text-[#8B7AB8]" />
+                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center border ${
+                    isOverdue
+                      ? 'bg-[#C27C75]/10 border-[#C27C75]/30'
+                      : 'bg-[#747C8B]/10 border-[#747C8B]/30'
+                  }`}>
+                    <CalendarIcon className={`w-6 h-6 ${isOverdue ? 'text-[#C27C75]' : 'text-[#747C8B]'}`} />
                   </div>
 
                   <div className="flex-1">
@@ -743,8 +697,8 @@ export function CommitmentsView() {
                         </>
                       )}
                       <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                        commitment.type === 'expense_fixed' ? 'bg-[#8B7AB8]/20 text-[#8B7AB8]' :
-                        'bg-[#8B7AB8]/20 text-[#8B7AB8]'
+                        commitment.type === 'expense_fixed' ? 'bg-[#747C8B]/20 text-[#747C8B]' :
+                        'bg-[#747C8B]/20 text-[#747C8B]'
                         }`}>
                         {commitment.type === 'expense_fixed' ? 'Fixo' :
                          'Parcela'}
@@ -753,14 +707,21 @@ export function CommitmentsView() {
                         {commitment.category}
                       </span>
                       {commitment.recurring && (
-                        <span className="inline-block px-2 py-1 bg-[#9B97CE]/20 text-[#9B97CE] rounded text-xs font-medium">
+                        <span className="inline-block rounded bg-[#8537FD]/20 px-2 py-1 text-xs font-medium text-[#8537FD]">
                           Recorrente
+                        </span>
+                      )}
+                      {isOverdue && (
+                        <span className="inline-block rounded bg-[#C27C75]/20 px-2 py-1 text-xs font-medium text-[#C27C75]">
+                          Atrasado
                         </span>
                       )}
                     </div>
 
                     <div className="flex items-center gap-4 mt-1 text-sm text-[#9CA3AF]">
-                      <span>Vence em {formatDateToLocaleString(commitment.date)}</span>
+                      <span>
+                        {isOverdue ? 'Venceu em' : 'Vence em'} {formatDateToLocaleString(commitment.date)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -777,7 +738,7 @@ export function CommitmentsView() {
                     className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                     title="Duplicar"
                   >
-                    <Copy className="w-5 h-5 text-[#80bc96]" />
+                    <Copy className="w-5 h-5 text-[#FDE837]" />
                   </button>
 
                   <button
@@ -798,16 +759,19 @@ export function CommitmentsView() {
 
                   <button
                     onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
-                    className="px-4 py-2 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-lg text-sm font-medium transition-colors"
+                    className={`rounded-lg px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 ${
+                      isOverdue ? 'bg-[#C27C75] hover:bg-[#C97A7A]' : 'bg-[var(--app-accent)]'
+                    }`}
                   >
-                    Marcar como Pago
+                    {isOverdue ? 'Pagar Agora' : 'Marcar como Pago'}
                   </button>
                 </div>
               </div>
             </div>
-          ))}
+            );
+          })}
 
-          {upcomingPending.length === 0 && (
+          {pending.length === 0 && (
             <div className="px-6 py-8 text-center">
               <p className="text-[#9CA3AF]">Nenhum compromisso pendente</p>
             </div>
@@ -822,7 +786,7 @@ export function CommitmentsView() {
         <div className="px-6 py-4 bg-white/10 border-b border-white/10">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-lg font-semibold text-white">Pagos</h3>
-            <span className="text-lg font-semibold text-[#76C893]">
+            <span className="text-lg font-semibold text-[#AFFD37]">
               {totalPaid.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
@@ -831,11 +795,11 @@ export function CommitmentsView() {
 
         <div className="divide-y divide-white/10">
           {paid.map(commitment => (
-            <div key={commitment.id} className="px-6 py-4 bg-[#76C893]/10/30">
+            <div key={commitment.id} className="px-6 py-4 bg-[#AFFD37]/5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 bg-[#76C893]/10 border border-[#76C893]/30 rounded-lg flex items-center justify-center">
-                    <Check className="w-6 h-6 text-[#76C893]" />
+                  <div className="w-12 h-12 bg-[#AFFD37]/10 border border-[#AFFD37]/30 rounded-lg flex items-center justify-center">
+                    <Check className="w-6 h-6 text-[#AFFD37]" />
                   </div>
 
                   <div className="flex-1">
@@ -852,8 +816,8 @@ export function CommitmentsView() {
                         </>
                       )}
                       <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
-                        commitment.type === 'expense_fixed' ? 'bg-[#8B7AB8]/20 text-[#8B7AB8]' :
-                        'bg-[#8B7AB8]/20 text-[#8B7AB8]'
+                        commitment.type === 'expense_fixed' ? 'bg-[#747C8B]/20 text-[#747C8B]' :
+                        'bg-[#747C8B]/20 text-[#747C8B]'
                         }`}>
                         {commitment.type === 'expense_fixed' ? 'Fixo' :
                          'Parcela'}
@@ -874,7 +838,7 @@ export function CommitmentsView() {
                     <p className="text-xl font-bold text-white">
                       {commitment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
-                    <span className="inline-block mt-1 px-2 py-1 bg-[#76C893]/20 text-[#76C893] rounded text-xs font-medium">
+                    <span className="inline-block mt-1 rounded bg-[#AFFD37]/20 px-2 py-1 text-xs font-medium text-[#AFFD37]">
                       Pago
                     </span>
                   </div>
@@ -884,7 +848,7 @@ export function CommitmentsView() {
                     className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                     title="Duplicar"
                   >
-                    <Copy className="w-5 h-5 text-[#80bc96]" />
+                    <Copy className="w-5 h-5 text-[#FDE837]" />
                   </button>
 
                   <button
@@ -937,11 +901,11 @@ export function CommitmentsView() {
               <div key={commitment.id} className="flex items-start gap-4">
                 <div className="flex flex-col items-center">
                   <div className={`w-3 h-3 rounded-full ${commitment.paid
-                      ? 'bg-[#76C893]/100'
+                      ? 'bg-[#AFFD37]'
                       : isPast
-                        ? 'bg-[#D97B7B]/100'
+                        ? 'bg-[#C27C75]/100'
                         : isToday
-                          ? 'bg-[#9B97CE]'
+                          ? 'bg-[#8537FD]'
                           : 'bg-gray-300'
                     }`}></div>
                   {index < filteredCommitments.length - 1 && (
@@ -965,7 +929,7 @@ export function CommitmentsView() {
                         {commitment.category}
                       </span>
                       {commitment.paid && (
-                        <span className="inline-block mt-1 text-xs text-[#76C893]">✓ Pago</span>
+                        <span className="inline-block mt-1 text-xs text-[#AFFD37]">✓ Pago</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -986,7 +950,7 @@ export function CommitmentsView() {
                       <button
                         onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
                         className={`p-1.5 hover:bg-white/10 rounded-lg transition-colors ${
-                          commitment.paid ? 'text-[#76C893]' : 'text-[#9CA3AF]'
+                          commitment.paid ? 'text-[#AFFD37]' : 'text-[#9CA3AF]'
                         }`}
                         title={commitment.paid ? 'Marcar como não pago' : 'Marcar como pago'}
                       >
@@ -1007,7 +971,7 @@ export function CommitmentsView() {
 
       {/* Modal de Cadastro de Compromisso */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-lg">
+        <DialogContent className="bg-[#111214] border-white/20 text-white max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">
               Adicionar Compromisso
@@ -1026,10 +990,10 @@ export function CommitmentsView() {
               <select
                 value={commitmentForm.type}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'installment' })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               >
-                <option value="expense_fixed" className="bg-[#161618]">Gasto Fixo</option>
-                <option value="installment" className="bg-[#161618]">Parcelamento</option>
+                <option value="expense_fixed" className="bg-[#111214]">Gasto Fixo</option>
+                <option value="installment" className="bg-[#111214]">Parcelamento</option>
               </select>
             </div>
 
@@ -1043,7 +1007,7 @@ export function CommitmentsView() {
                 placeholder="Ex: Aluguel, Internet, Notebook"
                 value={commitmentForm.description}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, description: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1057,7 +1021,7 @@ export function CommitmentsView() {
                 placeholder="Ex: Moradia, Contas, Eletrônicos"
                 value={commitmentForm.category}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, category: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1073,7 +1037,7 @@ export function CommitmentsView() {
                 value={commitmentForm.amount}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, amount: e.target.value })}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1086,7 +1050,7 @@ export function CommitmentsView() {
                 type="date"
                 value={commitmentForm.date}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, date: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1099,7 +1063,7 @@ export function CommitmentsView() {
                     id="recurring"
                     checked={commitmentForm.recurring}
                     onChange={(e) => setCommitmentForm({ ...commitmentForm, recurring: e.target.checked, generateNextMonths: e.target.checked ? commitmentForm.generateNextMonths : false })}
-                    className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
+                    className="w-5 h-5 rounded border-white/20 text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
                   />
                   <label htmlFor="recurring" className="text-sm font-medium text-[#9CA3AF]">
                     Compromisso recorrente (repete todo mês)
@@ -1114,7 +1078,7 @@ export function CommitmentsView() {
                       id="generateNextMonths"
                       checked={commitmentForm.generateNextMonths}
                       onChange={(e) => setCommitmentForm({ ...commitmentForm, generateNextMonths: e.target.checked })}
-                      className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
+                      className="w-5 h-5 rounded border-white/20 text-[#FDE837] focus:ring-[#FDE837]"
                     />
                     <label htmlFor="generateNextMonths" className="text-sm font-medium text-[#9CA3AF]">
                       Criar também para os próximos 2 meses (total de 3)
@@ -1139,7 +1103,7 @@ export function CommitmentsView() {
                       value={commitmentForm.installmentNumber}
                       onChange={(e) => setCommitmentForm({ ...commitmentForm, installmentNumber: e.target.value })}
                       onWheel={(e) => e.currentTarget.blur()}
-                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -1153,7 +1117,7 @@ export function CommitmentsView() {
                       value={commitmentForm.totalInstallments}
                       onChange={(e) => setCommitmentForm({ ...commitmentForm, totalInstallments: e.target.value })}
                       onWheel={(e) => e.currentTarget.blur()}
-                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -1165,7 +1129,7 @@ export function CommitmentsView() {
                     id="generateAllInstallments"
                     checked={commitmentForm.generateAllInstallments}
                     onChange={(e) => setCommitmentForm({ ...commitmentForm, generateAllInstallments: e.target.checked })}
-                    className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
+                    className="w-5 h-5 rounded border-white/20 text-[#FDE837] focus:ring-[#FDE837]"
                   />
                   <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[#9CA3AF]">
                     Criar todas as parcelas restantes automaticamente
@@ -1186,7 +1150,7 @@ export function CommitmentsView() {
             <button
               onClick={handleSaveCommitment}
               disabled={!commitmentForm.description || !commitmentForm.category || !commitmentForm.amount || !commitmentForm.date}
-              className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Compromisso
             </button>
@@ -1196,7 +1160,7 @@ export function CommitmentsView() {
 
       {/* Modal de Edição de Compromisso */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-lg">
+        <DialogContent className="bg-[#111214] border-white/20 text-white max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">
               Editar Compromisso
@@ -1215,10 +1179,10 @@ export function CommitmentsView() {
               <select
                 value={commitmentForm.type}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'installment' })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               >
-                <option value="expense_fixed" className="bg-[#161618]">Gasto Fixo</option>
-                <option value="installment" className="bg-[#161618]">Parcelamento</option>
+                <option value="expense_fixed" className="bg-[#111214]">Gasto Fixo</option>
+                <option value="installment" className="bg-[#111214]">Parcelamento</option>
               </select>
             </div>
 
@@ -1232,7 +1196,7 @@ export function CommitmentsView() {
                 placeholder="Ex: Aluguel, Internet, Notebook"
                 value={commitmentForm.description}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, description: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1246,7 +1210,7 @@ export function CommitmentsView() {
                 placeholder="Ex: Moradia, Contas, Eletrônicos"
                 value={commitmentForm.category}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, category: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1262,7 +1226,7 @@ export function CommitmentsView() {
                 value={commitmentForm.amount}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, amount: e.target.value })}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1275,7 +1239,7 @@ export function CommitmentsView() {
                 type="date"
                 value={commitmentForm.date}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, date: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1288,7 +1252,7 @@ export function CommitmentsView() {
                     id="recurring-edit"
                     checked={commitmentForm.recurring}
                     onChange={(e) => setCommitmentForm({ ...commitmentForm, recurring: e.target.checked, generateNextMonths: e.target.checked ? commitmentForm.generateNextMonths : false })}
-                    className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
+                    className="w-5 h-5 rounded border-white/20 text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
                   />
                   <label htmlFor="recurring-edit" className="text-sm font-medium text-[#9CA3AF]">
                     Compromisso recorrente (repete todo mês)
@@ -1303,7 +1267,7 @@ export function CommitmentsView() {
                       id="generateNextMonths-edit"
                       checked={commitmentForm.generateNextMonths}
                       onChange={(e) => setCommitmentForm({ ...commitmentForm, generateNextMonths: e.target.checked })}
-                      className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
+                      className="w-5 h-5 rounded border-white/20 text-[#FDE837] focus:ring-[#FDE837]"
                     />
                     <label htmlFor="generateNextMonths-edit" className="text-sm font-medium text-[#9CA3AF]">
                       Criar também para os próximos 2 meses (total de 3)
@@ -1328,7 +1292,7 @@ export function CommitmentsView() {
                       value={commitmentForm.installmentNumber}
                       onChange={(e) => setCommitmentForm({ ...commitmentForm, installmentNumber: e.target.value })}
                       onWheel={(e) => e.currentTarget.blur()}
-                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -1342,7 +1306,7 @@ export function CommitmentsView() {
                       value={commitmentForm.totalInstallments}
                       onChange={(e) => setCommitmentForm({ ...commitmentForm, totalInstallments: e.target.value })}
                       onWheel={(e) => e.currentTarget.blur()}
-                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -1354,7 +1318,7 @@ export function CommitmentsView() {
                     id="generateAllInstallments"
                     checked={commitmentForm.generateAllInstallments}
                     onChange={(e) => setCommitmentForm({ ...commitmentForm, generateAllInstallments: e.target.checked })}
-                    className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
+                    className="w-5 h-5 rounded border-white/20 text-[#FDE837] focus:ring-[#FDE837]"
                   />
                   <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[#9CA3AF]">
                     Criar todas as parcelas restantes automaticamente
@@ -1375,7 +1339,7 @@ export function CommitmentsView() {
             <button
               onClick={handleSaveEdit}
               disabled={!commitmentForm.description || !commitmentForm.category || !commitmentForm.amount || !commitmentForm.date}
-              className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Alterações
             </button>
@@ -1385,11 +1349,11 @@ export function CommitmentsView() {
 
       {/* Modal de Duplicação */}
       <Dialog open={isDuplicateModalOpen} onOpenChange={setIsDuplicateModalOpen}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-lg max-h-[85vh] overflow-y-auto">
+        <DialogContent className="bg-[#111214] border-white/20 text-white max-w-lg max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
-              <div className="w-12 h-12 bg-[#80bc96]/10 border border-[#80bc96]/30 rounded-xl flex items-center justify-center">
-                <Copy className="w-6 h-6 text-[#80bc96]" />
+              <div className="w-12 h-12 bg-[#FDE837]/10 border border-[#FDE837]/30 rounded-xl flex items-center justify-center">
+                <Copy className="w-6 h-6 text-[#FDE837]" />
               </div>
               Duplicar Transação
             </DialogTitle>
@@ -1408,10 +1372,10 @@ export function CommitmentsView() {
               <select
                 value={commitmentForm.type}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'installment' })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               >
-                <option value="expense_fixed" className="bg-[#161618]">Gasto Fixo</option>
-                <option value="installment" className="bg-[#161618]">Parcelamento</option>
+                <option value="expense_fixed" className="bg-[#111214]">Gasto Fixo</option>
+                <option value="installment" className="bg-[#111214]">Parcelamento</option>
               </select>
             </div>
 
@@ -1425,7 +1389,7 @@ export function CommitmentsView() {
                 placeholder="Ex: Aluguel, Internet, Notebook"
                 value={commitmentForm.description}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, description: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1439,7 +1403,7 @@ export function CommitmentsView() {
                 placeholder="Ex: Moradia, Lazer, Educação"
                 value={commitmentForm.category}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, category: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1455,7 +1419,7 @@ export function CommitmentsView() {
                 value={commitmentForm.amount}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, amount: e.target.value })}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1468,7 +1432,7 @@ export function CommitmentsView() {
                 type="date"
                 value={commitmentForm.date}
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, date: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -1480,7 +1444,7 @@ export function CommitmentsView() {
                   id="recurring-duplicate"
                   checked={commitmentForm.recurring}
                   onChange={(e) => setCommitmentForm({ ...commitmentForm, recurring: e.target.checked })}
-                  className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
+                  className="w-5 h-5 rounded border-white/20 text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
                 />
                 <label htmlFor="recurring-duplicate" className="text-sm font-medium text-[#9CA3AF]">
                   Compromisso recorrente (repete todo mês)
@@ -1503,7 +1467,7 @@ export function CommitmentsView() {
                       value={commitmentForm.installmentNumber}
                       onChange={(e) => setCommitmentForm({ ...commitmentForm, installmentNumber: e.target.value })}
                       onWheel={(e) => e.currentTarget.blur()}
-                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                     />
                   </div>
                   <div>
@@ -1517,7 +1481,7 @@ export function CommitmentsView() {
                       value={commitmentForm.totalInstallments}
                       onChange={(e) => setCommitmentForm({ ...commitmentForm, totalInstallments: e.target.value })}
                       onWheel={(e) => e.currentTarget.blur()}
-                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                      className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                     />
                   </div>
                 </div>
@@ -1529,7 +1493,7 @@ export function CommitmentsView() {
                     id="generateAllInstallments"
                     checked={commitmentForm.generateAllInstallments}
                     onChange={(e) => setCommitmentForm({ ...commitmentForm, generateAllInstallments: e.target.checked })}
-                    className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
+                    className="w-5 h-5 rounded border-white/20 text-[#FDE837] focus:ring-[#FDE837]"
                   />
                   <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[#9CA3AF]">
                     Criar todas as parcelas restantes automaticamente
@@ -1550,7 +1514,7 @@ export function CommitmentsView() {
             <button
               onClick={handleSaveDuplicate}
               disabled={saving || !commitmentForm.description || !commitmentForm.category || !commitmentForm.amount || !commitmentForm.date}
-              className="flex-1 px-4 py-3 bg-[#80bc96] hover:bg-[#76C893] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[#FDE837] hover:opacity-90 text-[#0C0C0C] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Duplicando...' : 'Duplicar'}
             </button>
@@ -1560,7 +1524,7 @@ export function CommitmentsView() {
 
       {/* Modal de Confirmação de Delete */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-md">
+        <DialogContent className="bg-[#111214] border-white/20 text-white max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
               <div className="w-12 h-12 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-center">

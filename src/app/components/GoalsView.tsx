@@ -72,9 +72,9 @@ export function GoalsView() {
 
   const getStatusColor = (status: 'success' | 'warning' | 'danger'): string => {
     switch (status) {
-      case 'success': return '#76C893';
-      case 'warning': return '#E6C563';
-      case 'danger': return '#D97B7B';
+      case 'success': return '#AFFD37';
+      case 'warning': return '#FDE837';
+      case 'danger': return '#E837FD';
     }
   };
 
@@ -181,7 +181,7 @@ export function GoalsView() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#76C893] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-4 border-[var(--app-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white">Carregando metas...</p>
         </div>
       </div>
@@ -200,7 +200,7 @@ export function GoalsView() {
           <p className="text-gray-400 mb-4">{error.message}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-[#76C893] text-[#161618] rounded-lg hover:bg-[#9B97CE] transition-colors"
+            className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90"
           >
             Recarregar página
           </button>
@@ -212,30 +212,31 @@ export function GoalsView() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="text-center pt-4 pb-2">
-        <h1 className="text-4xl font-bold text-white mb-2">Metas Financeiras</h1>
-        <p className="text-[#9B97CE]">Acompanhe seu progresso</p>
+      <div className="space-y-3 pb-2 pt-4 text-center">
+        <p className="app-kicker">Goals & discipline</p>
+        <h1 className="app-page-title text-4xl font-semibold">Metas Financeiras</h1>
+        <p className="text-[var(--app-text-muted)]">Acompanhe seu progresso com menos ruído visual e mais foco no avanço.</p>
       </div>
 
       {/* Period Toggle */}
-      <div className="flex items-center justify-center gap-4">
-        <div className="flex items-center gap-2 bg-white/5 backdrop-blur-xl border border-white/10 rounded-lg p-1">
+      <div className="flex flex-col items-center justify-center gap-4 sm:flex-row">
+        <div className="app-pill flex items-center gap-2 rounded-2xl p-1">
           <button
             onClick={() => setViewMode('month')}
-            className={`px-6 py-2 rounded-lg transition-all font-medium ${
+            className={`rounded-xl px-6 py-2 transition-all font-medium ${
               viewMode === 'month'
-                ? 'bg-[#76C893] text-white'
-                : 'text-[#9CA3AF] hover:text-white'
+                ? 'bg-[var(--app-accent)] text-white'
+                : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
             }`}
           >
             Mês
           </button>
           <button
             onClick={() => setViewMode('year')}
-            className={`px-6 py-2 rounded-lg transition-all font-medium ${
+            className={`rounded-xl px-6 py-2 transition-all font-medium ${
               viewMode === 'year'
-                ? 'bg-[#76C893] text-white'
-                : 'text-[#9CA3AF] hover:text-white'
+                ? 'bg-[var(--app-accent)] text-white'
+                : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
             }`}
           >
             Ano
@@ -244,7 +245,7 @@ export function GoalsView() {
 
         <button
           onClick={handleOpenAddDialog}
-          className="flex items-center gap-2 px-6 py-3 bg-[#76C893] hover:bg-[#76C893]/80 text-white rounded-lg transition-all font-medium"
+          className="app-button-primary flex items-center gap-2 rounded-2xl px-6 py-3 font-medium text-white"
         >
           <Plus className="w-5 h-5" />
           Nova Meta
@@ -252,36 +253,36 @@ export function GoalsView() {
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-6">
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+      <div className="grid grid-cols-1 gap-6 md:grid-cols-3">
+        <div className="app-panel rounded-[1.75rem] p-6">
           <div className="flex items-center gap-3 mb-2">
-            <Target className="w-6 h-6 text-[#9B97CE]" />
+            <Target className="w-6 h-6 text-[var(--app-accent)]" />
             <span className="text-[#9CA3AF] text-sm">Total de Metas</span>
           </div>
           <p className="text-3xl font-bold text-white">{totalGoals}</p>
         </div>
 
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+        <div className="app-panel rounded-[1.75rem] p-6">
           <div className="flex items-center gap-3 mb-2">
-            <TrendingUp className="w-6 h-6 text-[#76C893]" />
+            <TrendingUp className="w-6 h-6 text-[var(--app-success)]" />
             <span className="text-[#9CA3AF] text-sm">Metas Alcançadas</span>
           </div>
-          <p className="text-3xl font-bold text-[#76C893]">{achievedGoals}</p>
+          <p className="text-3xl font-bold text-[var(--app-success)]">{achievedGoals}</p>
         </div>
 
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6">
+        <div className="app-panel rounded-[1.75rem] p-6">
           <div className="flex items-center gap-3 mb-2">
-            <TrendingDown className="w-6 h-6 text-[#E6C563]" />
+            <TrendingDown className="w-6 h-6 text-[var(--app-warning)]" />
             <span className="text-[#9CA3AF] text-sm">Em Progresso</span>
           </div>
-          <p className="text-3xl font-bold text-[#E6C563]">{inProgressGoals}</p>
+          <p className="text-3xl font-bold text-[var(--app-warning)]">{inProgressGoals}</p>
         </div>
       </div>
 
       {/* Goals List */}
       <div className="space-y-4">
         {filteredGoals.length === 0 ? (
-          <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-12 text-center">
+          <div className="app-panel rounded-[1.75rem] p-12 text-center">
             <Target className="w-16 h-16 text-[#9CA3AF] mx-auto mb-4" />
             <p className="text-[#9CA3AF] text-lg mb-2">Nenhuma meta cadastrada</p>
             <p className="text-[#9CA3AF] text-sm">
@@ -297,7 +298,7 @@ export function GoalsView() {
             return (
               <div
                 key={goal.id}
-                className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl p-6 hover:border-white/20 transition-all"
+                className="app-panel rounded-[1.75rem] p-6 transition-all hover:border-white/20"
               >
                 <div className="flex items-start justify-between mb-4">
                   <div className="flex-1">
@@ -314,16 +315,16 @@ export function GoalsView() {
 
                   <div className="flex items-center gap-2">
                     <button
-                      onClick={() => setEditingGoal(goal)}
+                      onClick={() => handleEditGoal(goal)}
                       className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                     >
-                      <Pencil className="w-4 h-4 text-[#9B97CE]" />
+                      <Pencil className="w-4 h-4 text-[var(--app-accent)]" />
                     </button>
                     <button
                       onClick={() => handleDeleteGoal(goal.id)}
                       className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                     >
-                      <Trash2 className="w-4 h-4 text-[#D97B7B]" />
+                      <Trash2 className="w-4 h-4 text-[var(--app-danger)]" />
                     </button>
                   </div>
                 </div>
@@ -346,10 +347,10 @@ export function GoalsView() {
                     />
                   </div>
                   {percentage >= 100 && goal.type !== 'max_spending' && (
-                    <p className="text-[#76C893] text-sm font-medium">Meta alcançada!</p>
+                    <p className="text-[var(--app-success)] text-sm font-medium">Meta alcançada!</p>
                   )}
                   {percentage > 100 && goal.type === 'max_spending' && (
-                    <p className="text-[#D97B7B] text-sm font-medium">
+                    <p className="text-[var(--app-danger)] text-sm font-medium">
                       Orçamento ultrapassado em R$ {(goal.currentAmount - goal.targetAmount).toFixed(2)}
                     </p>
                   )}
@@ -367,7 +368,7 @@ export function GoalsView() {
           setEditingGoal(null);
         }
       }}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-md">
+        <DialogContent className="max-w-md rounded-[2rem] app-panel-strong">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold">
               {editingGoal ? 'Editar Meta' : 'Nova Meta'}
@@ -381,7 +382,7 @@ export function GoalsView() {
                 value={goalForm.name}
                 onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })}
                 placeholder="Ex: Economizar R$ 2.000"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[var(--app-accent)]"
               />
             </div>
 
@@ -390,7 +391,7 @@ export function GoalsView() {
               <select
                 value={goalForm.type}
                 onChange={(e) => setGoalForm({ ...goalForm, type: e.target.value as GoalType })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#76C893]"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--app-accent)]"
               >
                 <option value="savings">Economizar valor</option>
                 <option value="max_spending">Gastar no máximo</option>
@@ -404,7 +405,7 @@ export function GoalsView() {
               <select
                 value={goalForm.period}
                 onChange={(e) => setGoalForm({ ...goalForm, period: e.target.value as GoalPeriod })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[#76C893]"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--app-accent)]"
               >
                 <option value="month">Mensal</option>
                 <option value="year">Anual</option>
@@ -419,7 +420,7 @@ export function GoalsView() {
                 onChange={(e) => setGoalForm({ ...goalForm, targetAmount: e.target.value })}
                 placeholder="Ex: 2000"
                 onWheel={(e) => e.currentTarget.blur()}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[var(--app-accent)]"
               />
             </div>
 
@@ -431,7 +432,7 @@ export function GoalsView() {
                 onChange={(e) => setGoalForm({ ...goalForm, currentAmount: e.target.value })}
                 placeholder="Ex: 500"
                 onWheel={(e) => e.currentTarget.blur()}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
+                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[var(--app-accent)]"
               />
             </div>
 
@@ -443,7 +444,7 @@ export function GoalsView() {
                   value={goalForm.category}
                   onChange={(e) => setGoalForm({ ...goalForm, category: e.target.value })}
                   placeholder="Ex: Alimentação"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[#76C893]"
+                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[var(--app-accent)]"
                 />
               </div>
             )}
@@ -454,14 +455,14 @@ export function GoalsView() {
                   setIsAddDialogOpen(false);
                   setEditingGoal(null);
                 }}
-                className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/10 rounded-lg transition-colors"
+                className="app-button-secondary flex-1 rounded-2xl px-4 py-3"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleSaveGoal}
                 disabled={saving || !goalForm.name || !goalForm.targetAmount}
-                className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#76C893]/80 rounded-lg transition-colors font-medium disabled:opacity-50 disabled:cursor-not-allowed"
+                className="app-button-primary flex-1 rounded-2xl px-4 py-3 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? 'Salvando...' : editingGoal ? 'Salvar' : 'Criar Meta'}
               </button>

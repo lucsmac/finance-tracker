@@ -49,7 +49,7 @@ export function SettingsView() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#76C893] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-4 border-[var(--app-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white">Carregando configurações...</p>
         </div>
       </div>
@@ -80,7 +80,7 @@ export function SettingsView() {
               value={form.initialBalance}
               onChange={(e) => setForm({ ...form, initialBalance: e.target.value })}
               onWheel={(e) => e.currentTarget.blur()}
-              className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+              className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               placeholder="0,00"
             />
           </div>
@@ -99,7 +99,7 @@ export function SettingsView() {
             type="date"
             value={form.balanceStartDate}
             onChange={(e) => setForm({ ...form, balanceStartDate: e.target.value })}
-            className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+            className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
           />
           <p className="text-xs text-white/50 mt-1">
             A partir desta data, o sistema começará a descontar os gastos diários do seu saldo
@@ -119,7 +119,7 @@ export function SettingsView() {
             value={form.mainIncomeDay}
             onChange={(e) => setForm({ ...form, mainIncomeDay: e.target.value })}
             onWheel={(e) => e.currentTarget.blur()}
-            className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+            className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
             placeholder="5"
           />
           <p className="text-xs text-white/50 mt-1">
@@ -141,7 +141,7 @@ export function SettingsView() {
               value={form.mainIncomeAmount}
               onChange={(e) => setForm({ ...form, mainIncomeAmount: e.target.value })}
               onWheel={(e) => e.currentTarget.blur()}
-              className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+              className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               placeholder="0,00"
             />
           </div>
@@ -151,9 +151,9 @@ export function SettingsView() {
         </div>
 
         {/* Info Box */}
-        <div className="p-4 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-xl">
+        <div className="rounded-xl border border-[rgba(133,55,253,0.2)] bg-[rgba(133,55,253,0.1)] p-4">
           <p className="text-sm text-white/70">
-            <strong className="text-[#9B97CE]">💡 Importante:</strong> Alterar a data de início do saldo
+            <strong className="text-[var(--app-accent)]">💡 Importante:</strong> Alterar a data de início do saldo
             recalculará todos os valores do calendário a partir dessa nova data. Certifique-se de que
             a data escolhida corresponde ao momento em que você começou a usar o AutoMoney.
           </p>
@@ -163,7 +163,7 @@ export function SettingsView() {
         <button
           onClick={handleSave}
           disabled={saving}
-          className="w-full px-6 py-4 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+          className="flex w-full items-center justify-center gap-2 rounded-xl bg-[var(--app-accent)] px-6 py-4 font-semibold text-white transition-opacity disabled:cursor-not-allowed disabled:opacity-50 hover:opacity-90"
         >
           <Save className="w-5 h-5" />
           {saving ? 'Salvando...' : 'Salvar Configurações'}

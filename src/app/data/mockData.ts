@@ -176,10 +176,10 @@ export const mockConfig = {
 };
 
 export const mockEstimates: Estimate[] = [
-  { id: '1', category: 'Mercado', monthlyAmount: 800, active: true, icon: '🛒', color: '#76C893' },
-  { id: '2', category: 'Transporte', monthlyAmount: 300, active: true, icon: '🚗', color: '#9B97CE' },
-  { id: '3', category: 'Farmácia', monthlyAmount: 150, active: true, icon: '💊', color: '#8B7AB8' },
-  { id: '4', category: 'Alimentação/Saídas', monthlyAmount: 450, active: true, icon: '🍔', color: '#E6C563' }
+  { id: '1', category: 'Mercado', monthlyAmount: 800, active: true, icon: '🛒', color: '#AFFD37' },
+  { id: '2', category: 'Transporte', monthlyAmount: 300, active: true, icon: '🚗', color: '#8537FD' },
+  { id: '3', category: 'Farmácia', monthlyAmount: 150, active: true, icon: '💊', color: '#E837FD' },
+  { id: '4', category: 'Alimentação/Saídas', monthlyAmount: 450, active: true, icon: '🍔', color: '#FDE837' }
 ];
 
 export const mockTransactions: Transaction[] = [
@@ -201,4 +201,3 @@ export const mockTransactions: Transaction[] = [
   // Future income
   { id: 't8', date: '2026-02-05', type: 'income', category: 'Salário', description: 'Salário Fevereiro', amount: 5000, recurring: true, paid: false }
 ];
-

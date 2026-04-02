@@ -30,6 +30,41 @@ interface DashboardProps {
   onNavigate?: (view: string) => void;
 }
 
+type DayStatus = 'neutral' | 'comfortable' | 'good' | 'warning' | 'critical';
+
+const DAY_STATUS_THEME: Record<DayStatus, {
+  topBar: string;
+}> = {
+  neutral: {
+    topBar: 'rgba(255,255,255,0.18)'
+  },
+  comfortable: {
+    topBar: '#AFFD37'
+  },
+  good: {
+    topBar: '#8537FD'
+  },
+  warning: {
+    topBar: '#FDE837'
+  },
+  critical: {
+    topBar: '#E837FD'
+  }
+};
+
+const getDayStatusTheme = (status: DayStatus, isToday = false) => {
+  const theme = DAY_STATUS_THEME[status] ?? DAY_STATUS_THEME.neutral;
+
+  return {
+    ...theme,
+    cardStyle: {
+      backgroundColor: 'rgba(255,255,255,0.02)',
+      borderColor: isToday ? 'rgba(255,255,255,0.22)' : 'rgba(255,255,255,0.08)',
+      boxShadow: 'none'
+    }
+  };
+};
+
 export function Dashboard({ onNavigate }: DashboardProps) {
   const { user } = useAuth();
   const { estimates, loading: loadingEstimates } = useEstimates(user?.id);
@@ -487,7 +522,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#76C893] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-4 border-[var(--app-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-white">Carregando dashboard...</p>
         </div>
       </div>
@@ -548,7 +583,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     const { dayExpenses } = getDayTotals(dateStr, dayTransactions);
 
     // Determinar status baseado no saldo
-    let status = 'neutral';
+      let status: DayStatus = 'neutral';
     if (dayBalance >= 2000) {
       status = 'comfortable';
     } else if (dayBalance < 2000 && dayBalance >= 1000) {
@@ -624,29 +659,33 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   return (
     <div className="space-y-6 pb-32">
       {/* Header */}
-      <div className="text-center pt-4 pb-2">
-        <h1 className="text-2xl sm:text-4xl font-bold text-white mb-2">AutoMoney</h1>
+      <div className="space-y-3 pb-2 pt-4 text-center">
+        <p className="app-kicker">Daily liquidity view</p>
+        <h1 className="app-page-title text-3xl font-semibold sm:text-5xl">AutoMoney</h1>
+        <p className="mx-auto max-w-2xl text-sm text-[var(--app-text-muted)] sm:text-base">
+          Uma leitura limpa do mês, do saldo disponível e da sua margem até a próxima renda.
+        </p>
 
         {/* Month/Year Navigation */}
         <div className="flex items-center justify-center gap-2 sm:gap-4 mt-2">
           <button
             onClick={navigateToPreviousMonth}
-            className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="app-pill rounded-2xl p-2 transition-colors"
             aria-label="Mês anterior"
           >
-            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-[#9B97CE]" />
+            <ChevronLeft className="w-4 h-4 sm:w-5 sm:h-5 text-[#8537FD]" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 px-3 sm:px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">
-                <span className="text-[#9B97CE] text-base sm:text-lg font-medium">
+              <button className="app-pill flex items-center gap-2 rounded-2xl px-3 py-2 transition-colors sm:px-4">
+                <span className="text-[#8537FD] text-base sm:text-lg font-medium">
                   {formatMonthYear(selectedDate)}
                 </span>
-                <CalendarIcon className="w-4 h-4 text-[#9B97CE]" />
+                <CalendarIcon className="w-4 h-4 text-[#8537FD]" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-[#161618] border-white/20">
+            <PopoverContent className="w-auto p-0 bg-[#181818] border-white/20">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -658,51 +697,51 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
           <button
             onClick={navigateToNextMonth}
-            className="p-1.5 sm:p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="app-pill rounded-2xl p-2 transition-colors"
             aria-label="Próximo mês"
           >
-            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-[#9B97CE]" />
+            <ChevronRight className="w-4 h-4 sm:w-5 sm:h-5 text-[#8537FD]" />
           </button>
         </div>
       </div>
 
       {/* Main Stats Card */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
+      <div className="app-panel rounded-[2rem] p-4 sm:p-6">
         <div className="grid grid-cols-1 sm:grid-cols-4 gap-4 sm:gap-6">
           {/* Card 1 - Saldo Disponível */}
-          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
-            <p className="text-[#9CA3AF] text-sm mb-1">Saldo disponível</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{availableBalance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-            <p className="text-xs text-[#9CA3AF]">Saldo disponível hoje</p>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0">
+            <p className="mb-1 text-sm text-[var(--app-text-muted)]">Saldo disponível</p>
+            <p className="mb-1 text-2xl font-bold text-white sm:text-3xl">{availableBalance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+            <p className="text-xs text-[var(--app-text-faint)]">Saldo disponível hoje</p>
           </div>
 
           {/* Card 2 - Valor Diário Padrão */}
-          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-x sm:border-white/10">
-            <p className="text-[#9CA3AF] text-sm mb-1">Valor diário padrão</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{dailyStandard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-            <p className="text-xs text-[#9CA3AF]">Base fixa calculada das estimativas</p>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center sm:rounded-none sm:border-0 sm:border-x sm:border-white/10 sm:bg-transparent sm:p-0">
+            <p className="mb-1 text-sm text-[var(--app-text-muted)]">Valor diário padrão</p>
+            <p className="mb-1 text-2xl font-bold text-white sm:text-3xl">{dailyStandard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+            <p className="text-xs text-[var(--app-text-faint)]">Base fixa calculada das estimativas</p>
           </div>
 
           {/* Card 3 - Gasto de Hoje */}
-          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-r sm:border-white/10">
-            <p className="text-[#9CA3AF] text-sm mb-1">Gasto de hoje</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{todayExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center sm:rounded-none sm:border-0 sm:border-r sm:border-white/10 sm:bg-transparent sm:p-0">
+            <p className="mb-1 text-sm text-[var(--app-text-muted)]">Gasto de hoje</p>
+            <p className="mb-1 text-2xl font-bold text-white sm:text-3xl">{todayExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
             {todayVariation === 0 ? (
-              <p className="text-xs text-white">Dentro do planejado</p>
+              <p className="text-xs text-[var(--app-text-muted)]">Dentro do planejado</p>
             ) : (
-              <p className="text-xs text-white">
+              <p className="text-xs text-[var(--app-text-muted)]">
                 {Math.abs(todayVariation).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} {todayVariation > 0 ? 'acima' : 'abaixo'} do planejado
               </p>
             )}
           </div>
 
           {/* Card 4 - Gastos do Mês */}
-          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
-            <p className="text-[#9CA3AF] text-sm mb-1">Gastos do mês</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0">
+            <p className="mb-1 text-sm text-[var(--app-text-muted)]">Gastos do mês</p>
+            <p className="mb-1 text-2xl font-bold text-white sm:text-3xl">
               {monthExpensesTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </p>
-            <p className="text-xs text-white">
+            <p className="text-xs text-[var(--app-text-muted)]">
               {monthRemainingTotal >= 0 ? 'Sobrará ' : 'Faltará '}
               {Math.abs(monthRemainingTotal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </p>
@@ -711,44 +750,56 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Balance Projection Section */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-2xl sm:rounded-3xl p-4 sm:p-6 shadow-2xl">
-        <h2 className="text-lg sm:text-xl font-semibold text-white mb-3 sm:mb-4">Projeção de saldo</h2>
+      <div className="app-panel rounded-[2rem] p-4 sm:p-6">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-semibold text-white sm:text-xl">Projeção de saldo</h2>
+            <p className="mt-1 text-xs text-[var(--app-text-faint)]">Simule cenários sem sair do contexto do mês.</p>
+          </div>
+          <button
+            onClick={handleOpenProjection}
+            className="app-button-secondary inline-flex shrink-0 items-center gap-2 rounded-full px-3 py-2 text-sm"
+          >
+            <DollarSign className="h-4 w-4 text-[var(--app-accent)]" />
+            <span className="font-medium text-[var(--app-text)]">Simular</span>
+          </button>
+        </div>
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-6">
           {/* Sub-card 1 - Dias até próxima renda */}
-          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
-            <p className="text-[#9CA3AF] text-sm mb-1">Dias até próxima renda</p>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0">
+            <p className="mb-1 text-sm text-[var(--app-text-muted)]">Dias até próxima renda</p>
             {nextIncomeInfo.date ? (
               <>
-                <p className="text-2xl sm:text-3xl font-bold text-white mb-1">
+                <p className="mb-1 text-2xl font-bold text-white sm:text-3xl">
                   {nextIncomeInfo.days === 0 ? 'Hoje' : `${nextIncomeInfo.days} ${nextIncomeInfo.days === 1 ? 'dia' : 'dias'}`}
                 </p>
-                <p className="text-xs text-[#9CA3AF]">Próxima renda em {formatNextIncomeDate(nextIncomeInfo.date)}</p>
+                <p className="text-xs text-[var(--app-text-faint)]">Próxima renda em {formatNextIncomeDate(nextIncomeInfo.date)}</p>
               </>
             ) : (
               <>
                 <p className="text-2xl sm:text-3xl font-bold text-white/50 mb-1">-</p>
-                <p className="text-xs text-[#9CA3AF]">Configure o dia do salário</p>
+                <p className="text-xs text-[var(--app-text-faint)]">Configure o dia do salário</p>
               </>
             )}
           </div>
 
           {/* Sub-card 2 - Status da projeção */}
-          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-x sm:border-white/10">
-            <p className="text-[#9CA3AF] text-sm mb-1">Status da projeção</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center sm:rounded-none sm:border-0 sm:border-x sm:border-white/10 sm:bg-transparent sm:p-0">
+            <p className="mb-1 text-sm text-[var(--app-text-muted)]">Status da projeção</p>
+            <p className="mb-1 text-2xl font-bold text-white sm:text-3xl">
               {projectionStatus === 'positive' ? 'Positivo' : 'Negativo'}
             </p>
-            <p className="text-xs text-white">
+            <p className="text-xs text-[var(--app-text-faint)]">
               {projectionStatus === 'positive' ? 'Saldo suficiente' : 'Saldo insuficiente'}
             </p>
           </div>
 
           {/* Sub-card 3 - Comprometido */}
-          <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
-            <p className="text-[#9CA3AF] text-sm mb-1">Comprometido</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{committedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-            <p className="text-xs text-[#9CA3AF]">Falta pagar até a próxima renda</p>
+          <div className="rounded-2xl border border-white/10 bg-white/[0.03] p-4 text-center sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0">
+            <p className="mb-1 text-sm text-[var(--app-text-muted)]">Comprometido</p>
+            <p className="mb-1 text-2xl font-bold text-white sm:text-3xl">{committedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+            <p className="text-xs text-[var(--app-text-faint)]">Falta pagar até a próxima renda</p>
           </div>
         </div>
       </div>
@@ -763,38 +814,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           // Pular dias de outros meses na versão mobile (só mostrar no desktop)
           if (dayData.isOtherMonth) return null;
 
-          let bgColor = 'bg-white/5';
-          let borderColor = 'border-white/10';
-          let dayNumberColor = 'text-white';
-          let balanceColor = 'text-white';
-
-          // Cores baseadas no saldo
-          if (dayData.status === 'comfortable') {
-            bgColor = 'bg-[#76C893]/10';
-            borderColor = 'border-[#76C893]/50';
-            dayNumberColor = 'text-[#76C893]';
-            balanceColor = 'text-[#76C893]';
-          } else if (dayData.status === 'good') {
-            bgColor = 'bg-[#9B97CE]/10';
-            borderColor = 'border-[#9B97CE]/50';
-            dayNumberColor = 'text-[#9B97CE]';
-            balanceColor = 'text-[#9B97CE]';
-          } else if (dayData.status === 'warning') {
-            bgColor = 'bg-[#E6C563]/10';
-            borderColor = 'border-[#E6C563]/50';
-            dayNumberColor = 'text-[#E6C563]';
-            balanceColor = 'text-[#E6C563]';
-          } else if (dayData.status === 'critical') {
-            bgColor = 'bg-[#D97B7B]/10';
-            borderColor = 'border-[#D97B7B]/50';
-            dayNumberColor = 'text-[#D97B7B]';
-            balanceColor = 'text-[#D97B7B]';
-          }
-
-          // Destaque especial para hoje
-          if (dayData.isToday) {
-            borderColor = 'border-[#76C893] border-4';
-          }
+          const statusTheme = getDayStatusTheme(dayData.status as DayStatus, dayData.isToday);
 
           // Calcular entradas e saídas do dia
           const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
@@ -805,20 +825,23 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             <div
               key={`${dayData.dateStr}-${index}`}
               onClick={() => handleDayClick(dayData.dateStr)}
-              className={`${bgColor} ${borderColor} border-2 rounded-xl p-4 cursor-pointer hover:scale-[1.02] active:scale-[0.98] transition-transform`}
+              className="relative overflow-hidden rounded-[1.35rem] border-2 p-4 transition-transform duration-200 hover:scale-[1.02] active:scale-[0.98] cursor-pointer"
+              style={statusTheme.cardStyle}
             >
+              <div className="absolute inset-x-0 top-0 h-1.5" style={{ background: statusTheme.topBar }} />
+
               {/* Header: Dia da semana + número */}
-              <div className="flex items-center justify-between mb-3">
+              <div className="mb-3 flex items-start justify-between gap-3 pt-1">
                 <div>
-                  <span className="text-xs text-[#9CA3AF] uppercase">{getDayOfWeek(dayData.dateStr)}</span>
-                  <span className={`ml-2 text-xl font-bold ${dayNumberColor}`}>{dayData.day}</span>
+                  <span className="text-xs uppercase tracking-[0.2em] text-[var(--app-text-faint)]">{getDayOfWeek(dayData.dateStr)}</span>
+                  <span className="ml-2 text-xl font-bold text-white">{dayData.day}</span>
                 </div>
               </div>
 
               {/* Saldo */}
               <div className="mb-3">
-                <p className="text-xs text-[#9CA3AF] mb-1">Saldo</p>
-                <p className={`text-2xl font-bold ${balanceColor}`}>
+                <p className="mb-1 text-xs text-[var(--app-text-faint)]">Saldo</p>
+                <p className="text-2xl font-bold text-white">
                   {dayData.balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                 </p>
               </div>
@@ -826,11 +849,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               {/* Total do Dia */}
               <div className="flex items-center justify-center pt-3 border-t border-white/10">
                 <div className="text-center">
-                  <p className="text-xs text-[#9CA3AF] mb-1">Total do dia</p>
+                  <p className="mb-1 text-xs text-[var(--app-text-faint)]">Total do dia</p>
                   {(() => {
                     const dayTotal = dayIncomes - dayExpenses;
                     return (
-                      <p className={`text-sm font-medium ${dayTotal >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+                      <p
+                        className="text-sm font-semibold text-white"
+                      >
                         {dayTotal >= 0 ? '+' : ''}{dayTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
                     );
@@ -843,11 +868,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       </div>
 
       {/* Desktop Calendar - Grid 7x7 */}
-      <div className="hidden sm:block bg-white/10 backdrop-blur-xl border border-white/20 rounded-3xl p-8 shadow-2xl">
+      <div className="app-panel hidden rounded-[2.25rem] p-8 sm:block">
         {/* Weekday Headers */}
         <div className="grid grid-cols-7 gap-3 mb-4">
           {['Dom', 'Seg', 'Ter', 'Qua', 'Qui', 'Sex', 'Sáb'].map((day) => (
-            <div key={day} className="text-center text-sm text-[#9CA3AF] font-medium py-2">
+            <div key={day} className="py-2 text-center text-sm font-medium text-[var(--app-text-faint)]">
               {day}
             </div>
           ))}
@@ -862,6 +887,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
             // Estilos especiais para dias de outros meses
             if (dayData.isOtherMonth) {
+              const mutedTheme = getDayStatusTheme('neutral');
+
               // Calcular entradas e saídas do dia
               const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
               const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
@@ -870,8 +897,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               return (
                 <div
                   key={`${dayData.dateStr}-${index}`}
-                  className="aspect-square bg-white/5 border border-white/5 rounded-2xl p-2 opacity-40 cursor-not-allowed relative flex flex-col"
+                  className="relative flex aspect-square cursor-not-allowed flex-col overflow-hidden rounded-2xl border p-2 opacity-45"
+                  style={mutedTheme.cardStyle}
                 >
+                  <div className="absolute inset-x-0 top-0 h-1" style={{ background: mutedTheme.topBar, opacity: 0.45 }} />
+
                   {/* Header: Número do dia */}
                   <div className="flex items-start justify-between mb-1">
                     <span className="text-lg font-bold text-white/70">
@@ -894,7 +924,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     {(() => {
                       const dayTotal = dayIncomes - dayExpenses;
                       return (
-                        <span className={`text-white/50 ${dayTotal >= 0 ? 'text-[#76C893]/70' : 'text-[#D97B7B]/70'}`}>
+                        <span className="text-white/65">
                           {dayTotal >= 0 ? '+' : ''}{dayTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                         </span>
                       );
@@ -904,33 +934,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               );
             }
 
-            let bgColor = 'bg-white/5';
-            let borderColor = 'border-white/10';
-            let dayNumberColor = 'text-white';
-
-            // Cores baseadas no saldo
-            if (dayData.status === 'comfortable') {
-              bgColor = 'bg-[#76C893]/10';
-              borderColor = 'border-[#76C893]/50';
-              dayNumberColor = 'text-[#76C893]';
-            } else if (dayData.status === 'good') {
-              bgColor = 'bg-[#9B97CE]/10';
-              borderColor = 'border-[#9B97CE]/50';
-              dayNumberColor = 'text-[#9B97CE]';
-            } else if (dayData.status === 'warning') {
-              bgColor = 'bg-[#E6C563]/10';
-              borderColor = 'border-[#E6C563]/50';
-              dayNumberColor = 'text-[#E6C563]';
-            } else if (dayData.status === 'critical') {
-              bgColor = 'bg-[#D97B7B]/10';
-              borderColor = 'border-[#D97B7B]/50';
-              dayNumberColor = 'text-[#D97B7B]';
-            }
-
-            // Destaque especial para hoje
-            if (dayData.isToday) {
-              borderColor = 'border-[#76C893] border-4';
-            }
+            const statusTheme = getDayStatusTheme(dayData.status as DayStatus, dayData.isToday);
 
             // Calcular entradas e saídas do dia (incluindo transações hipotéticas)
             const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
@@ -941,11 +945,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <div
                 key={`${dayData.dateStr}-${index}`}
                 onClick={() => handleDayClick(dayData.dateStr)}
-                className={`aspect-square ${bgColor} ${borderColor} border-2 rounded-2xl p-2 hover:scale-105 cursor-pointer transition-all relative flex flex-col`}
+                className="relative flex aspect-square cursor-pointer flex-col overflow-hidden rounded-2xl border p-2 transition-all duration-200 hover:scale-[1.01]"
+                style={statusTheme.cardStyle}
               >
+                <div className="absolute inset-x-0 top-0 h-1.5" style={{ background: statusTheme.topBar }} />
+
                 {/* Header: Número do dia */}
-                <div className="flex items-start justify-between mb-1">
-                  <span className={`text-lg font-bold ${dayNumberColor}`}>
+                <div className="mb-1 flex items-start justify-between gap-2 pt-1">
+                  <span className="text-lg font-bold text-white">
                     {dayData.day}
                   </span>
                 </div>
@@ -953,8 +960,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 {/* Centro: Saldo */}
                 <div className="flex-1 flex items-center justify-center">
                   <div className="text-center">
-                    <p className="text-xs text-white/50 mb-0.5">Saldo</p>
-                    <p className={`text-base font-bold ${dayNumberColor}`}>
+                    <p className="mb-0.5 text-[11px] text-[var(--app-text-faint)]">Saldo</p>
+                    <p className="text-base font-bold text-white">
                       {dayData.balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                     </p>
                   </div>
@@ -965,7 +972,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   {(() => {
                     const dayTotal = dayIncomes - dayExpenses;
                     return (
-                      <span className={`${dayTotal >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+                      <span
+                        className="font-semibold text-white/80"
+                      >
                         {dayTotal >= 0 ? '+' : ''}{dayTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL', minimumFractionDigits: 0, maximumFractionDigits: 0 })}
                       </span>
                     );
@@ -975,42 +984,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             );
           })}
         </div>
-
-        {/* Legend */}
-        <div className="flex items-center justify-center gap-6 mt-6 pt-6 border-t border-white/10">
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-[#76C893]/30 border-2 border-[#76C893]/50"></div>
-            <span className="text-sm text-white/70">Confortável ≥ R$ 2000 ✓</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-[#9B97CE]/20 border-2 border-[#9B97CE]/50"></div>
-            <span className="text-sm text-white/70">Bom ≥ R$ 1000 ✓</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-[#E6C563]/20 border-2 border-[#E6C563]/50"></div>
-            <span className="text-sm text-white/70">Atenção &lt; R$ 1000 ⚠</span>
-          </div>
-          <div className="flex items-center gap-2">
-            <div className="w-4 h-4 rounded-full bg-[#D97B7B]/20 border-2 border-[#D97B7B]/50"></div>
-            <span className="text-sm text-white/70">Crítico (negativo) ✕</span>
-          </div>
-        </div>
-      </div>
-
-      {/* Quick Actions */}
-      <div className="grid grid-cols-1 gap-3 sm:gap-4">
-        <button
-          onClick={handleOpenProjection}
-          className="bg-white/10 backdrop-blur-xl border-2 border-[#a6c88c]/30 hover:border-[#a6c88c] text-white rounded-2xl p-4 sm:p-6 flex items-center justify-center gap-3 transition-all hover:scale-105"
-        >
-          <DollarSign className="w-5 h-5 sm:w-6 sm:h-6" />
-          <span className="font-semibold text-sm sm:text-base">E se?</span>
-        </button>
       </div>
 
       {/* Modal Unificado com Abas */}
       <Dialog open={isDayModalOpen} onOpenChange={setIsDayModalOpen}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-2xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-[2rem] app-panel-strong">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">
               {selectedDay && formatDateToLocaleString(selectedDay, 'pt-BR', {
@@ -1048,9 +1026,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
                 return (
                   <div className="space-y-4">
-                    <div className="p-4 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-xl">
+                    <div className="p-4 bg-[#8537FD]/10 border border-[#8537FD]/30 rounded-xl">
                       <p className="text-sm text-white/70">
-                        <strong className="text-[#9B97CE]">ℹ️ Como funciona:</strong> cada gasto diário agora é um lançamento com
+                        <strong className="text-[#8537FD]">ℹ️ Como funciona:</strong> cada gasto diário agora é um lançamento com
                         título, categoria e valor. O total do dia é a soma desses lançamentos. Se não houver lançamento real,
                         o sistema usa o valor planejado deste dia na projeção.
                       </p>
@@ -1065,7 +1043,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                       </div>
                       <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
                         <p className="text-xs text-[#9CA3AF] mb-1">Planejado do dia</p>
-                        <p className="text-2xl font-bold text-[#9B97CE]">
+                        <p className="text-2xl font-bold text-[#8537FD]">
                           {plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
                       </div>
@@ -1090,7 +1068,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                             placeholder="Ex: Almoço, Uber, Farmácia"
                             value={dailyExpenseForm.title}
                             onChange={(e) => setDailyExpenseForm({ ...dailyExpenseForm, title: e.target.value })}
-                            className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                            className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                           />
                         </div>
 
@@ -1103,7 +1081,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                             placeholder="Ex: Alimentação, Transporte"
                             value={dailyExpenseForm.category}
                             onChange={(e) => setDailyExpenseForm({ ...dailyExpenseForm, category: e.target.value })}
-                            className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                            className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                           />
                         </div>
                       </div>
@@ -1121,7 +1099,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                             value={dailyExpenseForm.amount}
                             onChange={(e) => setDailyExpenseForm({ ...dailyExpenseForm, amount: e.target.value })}
                             onWheel={(e) => e.currentTarget.blur()}
-                            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                           />
                         </div>
                       </div>
@@ -1129,7 +1107,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                       <button
                         onClick={handleAddDailyExpense}
                         disabled={savingDailyExpense}
-                        className="w-full px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className="w-full px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                       >
                         {savingDailyExpense ? 'Salvando lançamento...' : 'Adicionar lançamento'}
                       </button>
@@ -1173,7 +1151,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     </div>
 
                     {legacyVariableEntries.length > 0 && (
-                      <div className="bg-[#9B97CE]/10 border border-[#9B97CE]/20 rounded-xl p-4 space-y-3">
+                      <div className="bg-[#8537FD]/10 border border-[#8537FD]/20 rounded-xl p-4 space-y-3">
                         <h4 className="text-sm font-semibold text-white">Lançamentos legados</h4>
                         <p className="text-xs text-white/50">
                           Estes gastos vieram do modelo antigo de transações variáveis e continuam contando no total do dia.
@@ -1213,7 +1191,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                             value={plannedForm.plannedAmount}
                             onChange={(e) => setPlannedForm({ ...plannedForm, plannedAmount: e.target.value })}
                             onWheel={(e) => e.currentTarget.blur()}
-                            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                           />
                         </div>
                       </div>
@@ -1228,7 +1206,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                         <button
                           onClick={handleSavePlanned}
                           disabled={savingPlanned}
-                          className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                         >
                           {savingPlanned ? 'Salvando...' : 'Salvar planejamento'}
                         </button>
@@ -1265,15 +1243,15 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                       <div className="grid grid-cols-3 gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
                         <div className="text-center">
                           <p className="text-xs text-[#9CA3AF] mb-1">Entradas</p>
-                          <p className="text-lg font-bold text-[#76C893]">{totalIncomes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                          <p className="text-lg font-bold text-[#AFFD37]">{totalIncomes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                         </div>
                         <div className="text-center border-x border-white/10">
                           <p className="text-xs text-[#9CA3AF] mb-1">Saídas</p>
-                          <p className="text-lg font-bold text-[#D97B7B]">{totalExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                          <p className="text-lg font-bold text-[#E837FD]">{totalExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                         </div>
                         <div className="text-center">
                           <p className="text-xs text-[#9CA3AF] mb-1">Saldo do dia</p>
-                          <p className={`text-lg font-bold ${balance >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+                          <p className={`text-lg font-bold ${balance >= 0 ? 'text-[#AFFD37]' : 'text-[#E837FD]'}`}>
                             {balance >= 0 ? '+' : ''}{balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </p>
                         </div>
@@ -1284,7 +1262,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                         <div className="grid grid-cols-3 gap-4">
                           <div>
                             <p className="text-xs text-[#9CA3AF] mb-1">Planejado</p>
-                            <p className="text-xl font-bold text-[#9B97CE]">{plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                            <p className="text-xl font-bold text-[#8537FD]">{plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                           </div>
                           <div className="text-center border-x border-white/10">
                             <p className="text-xs text-[#9CA3AF] mb-1">Realizado</p>
@@ -1297,13 +1275,13 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                           </div>
                           <div className="text-right">
                             <p className="text-xs text-[#9CA3AF] mb-1">Diferença</p>
-                            <p className={`text-xl font-bold ${difference >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+                            <p className={`text-xl font-bold ${difference >= 0 ? 'text-[#AFFD37]' : 'text-[#E837FD]'}`}>
                               {difference >= 0 ? '+' : ''}{difference.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </p>
                             {difference >= 0 ? (
-                              <p className="text-xs text-[#76C893] mt-1">Economizou!</p>
+                              <p className="text-xs text-[#AFFD37] mt-1">Economizou!</p>
                             ) : (
-                              <p className="text-xs text-[#D97B7B] mt-1">Excedeu</p>
+                              <p className="text-xs text-[#E837FD] mt-1">Excedeu</p>
                             )}
                           </div>
                         </div>
@@ -1318,18 +1296,18 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                           <>
                             {dayIncomes.length > 0 && (
                               <div>
-                                <h4 className="text-sm font-semibold text-[#76C893] mb-2">Entradas</h4>
+                                <h4 className="text-sm font-semibold text-[#AFFD37] mb-2">Entradas</h4>
                                 {dayIncomes.map(t => (
-                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#76C893]/10 border border-[#76C893]/30 rounded-lg mb-2">
+                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#AFFD37]/10 border border-[#AFFD37]/30 rounded-lg mb-2">
                                     <div>
                                       <p className="font-medium text-white">{t.description}</p>
                                       <p className="text-sm text-[#9CA3AF]">{t.category}</p>
                                     </div>
                                     <div className="text-right flex flex-col items-end gap-1">
-                                      <p className="text-lg font-bold text-[#76C893]">+{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                      <p className="text-lg font-bold text-[#AFFD37]">+{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                       {t.recurring && (
                                         <div className="flex items-center gap-2">
-                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#76C893]/20 text-[#76C893] rounded">
+                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#AFFD37]/20 text-[#AFFD37] rounded">
                                             Recorrente
                                           </span>
                                           <button
@@ -1349,14 +1327,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
                             {variableExpenseEntries.length > 0 && (
                               <div>
-                                <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Gastos Diários</h4>
+                                <h4 className="text-sm font-semibold text-[#8537FD] mb-2">Gastos Diários</h4>
                                 {variableExpenseEntries.map(entry => (
                                   <div key={entry.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg mb-2">
                                     <div>
                                       <div className="flex items-center gap-2">
                                         <p className="font-medium text-white">{entry.title}</p>
                                         {entry.source === 'legacy_transaction' && (
-                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#9B97CE]/20 text-[#9B97CE] rounded">
+                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#8537FD]/20 text-[#8537FD] rounded">
                                             Legado
                                           </span>
                                         )}
@@ -1371,9 +1349,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
                             {fixedExpenses.length > 0 && (
                               <div>
-                                <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Gastos Fixos</h4>
+                                <h4 className="text-sm font-semibold text-[#747C8B] mb-2">Gastos Fixos</h4>
                                 {fixedExpenses.map(t => (
-                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
+                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#747C8B]/10 border border-[#747C8B]/30 rounded-lg mb-2">
                                     <div>
                                       <p className="font-medium text-white">{t.description}</p>
                                       <p className="text-sm text-[#9CA3AF]">{t.category}</p>
@@ -1382,7 +1360,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                                       <p className="text-lg font-bold text-white">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                       {t.recurring && (
                                         <div className="flex items-center gap-2">
-                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#8B7AB8]/20 text-[#8B7AB8] rounded">
+                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#747C8B]/20 text-[#747C8B] rounded">
                                             Recorrente
                                           </span>
                                           <button
@@ -1402,9 +1380,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
                             {installments.length > 0 && (
                               <div>
-                                <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Parcelas</h4>
+                                <h4 className="text-sm font-semibold text-[#747C8B] mb-2">Parcelas</h4>
                                 {installments.map(t => (
-                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
+                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#747C8B]/10 border border-[#747C8B]/30 rounded-lg mb-2">
                                     <div>
                                       <p className="font-medium text-white">{t.description}</p>
                                       <p className="text-sm text-[#9CA3AF]">
@@ -1419,14 +1397,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
                             {investments.length > 0 && (
                               <div>
-                                <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Investimentos</h4>
+                                <h4 className="text-sm font-semibold text-[#8537FD] mb-2">Investimentos</h4>
                                 {investments.map(t => (
-                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-lg mb-2">
+                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#8537FD]/10 border border-[#8537FD]/30 rounded-lg mb-2">
                                     <div>
                                       <p className="font-medium text-white">{t.description}</p>
                                       <p className="text-sm text-[#9CA3AF]">{t.category}</p>
                                     </div>
-                                    <p className="text-lg font-bold text-[#9B97CE]">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                    <p className="text-lg font-bold text-[#8537FD]">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                   </div>
                                 ))}
                               </div>
@@ -1445,7 +1423,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
       {/* Modal de Projeção "E se?" */}
       <Dialog open={isProjectionModalOpen} onOpenChange={setIsProjectionModalOpen}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-4xl max-h-[90vh] overflow-y-auto">
+        <DialogContent className="max-h-[90vh] max-w-4xl overflow-y-auto rounded-[2rem] app-panel-strong">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">
               E se?
@@ -1458,11 +1436,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <div className="space-y-6 mt-4">
             {/* Alertas sobre transações hipotéticas ativas */}
             {hypotheticalTransactions.length > 0 && (
-              <div className="bg-[#76C893]/10 border border-[#76C893]/30 rounded-xl p-4">
+              <div className="bg-[#AFFD37]/10 border border-[#AFFD37]/30 rounded-xl p-4">
                 <div className="flex items-start gap-3">
-                  <DollarSign className="w-5 h-5 text-[#76C893] mt-0.5" />
+                  <DollarSign className="w-5 h-5 text-[#AFFD37] mt-0.5" />
                   <div className="flex-1">
-                    <h4 className="text-sm font-semibold text-[#76C893] mb-1">
+                    <h4 className="text-sm font-semibold text-[#AFFD37] mb-1">
                       Projeção Ativa
                     </h4>
                     <p className="text-sm text-white/70">
@@ -1487,11 +1465,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   <select
                     value={projectionForm.type}
                     onChange={(e) => setProjectionForm({ ...projectionForm, type: e.target.value as any })}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                   >
-                    <option value="income" className="bg-[#161618]">Entrada</option>
-                    <option value="expense_variable" className="bg-[#161618]">Gasto Variável</option>
-                    <option value="expense_fixed" className="bg-[#161618]">Gasto Fixo</option>
+                    <option value="income" className="bg-[#111214]">Entrada</option>
+                    <option value="expense_variable" className="bg-[#111214]">Gasto Variável</option>
+                    <option value="expense_fixed" className="bg-[#111214]">Gasto Fixo</option>
                   </select>
                 </div>
 
@@ -1505,7 +1483,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     placeholder="Ex: Salário extra, Compra supermercado"
                     value={projectionForm.description}
                     onChange={(e) => setProjectionForm({ ...projectionForm, description: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                   />
                 </div>
 
@@ -1521,7 +1499,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     value={projectionForm.amount}
                     onChange={(e) => setProjectionForm({ ...projectionForm, amount: e.target.value })}
                     onWheel={(e) => e.currentTarget.blur()}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                   />
                 </div>
 
@@ -1534,7 +1512,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                     type="date"
                     value={projectionForm.date}
                     onChange={(e) => setProjectionForm({ ...projectionForm, date: e.target.value })}
-                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                    className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
                   />
                 </div>
               </div>
@@ -1542,7 +1520,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <button
                 onClick={handleAddHypothetical}
                 disabled={!projectionForm.amount || !projectionForm.date || !projectionForm.description}
-                className="mt-4 w-full px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                className="mt-4 w-full px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
               >
                 Adicionar à Simulação
               </button>
@@ -1555,7 +1533,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   <h3 className="text-lg font-semibold text-white">Transações na Simulação</h3>
                   <button
                     onClick={handleClearProjection}
-                    className="px-3 py-1.5 bg-[#D97B7B]/20 hover:bg-[#D97B7B]/30 text-[#D97B7B] rounded-lg text-sm font-medium transition-colors"
+                    className="px-3 py-1.5 bg-[#C27C75]/20 hover:bg-[#C27C75]/30 text-[#E837FD] rounded-lg text-sm font-medium transition-colors"
                   >
                     Limpar Tudo
                   </button>
@@ -1564,9 +1542,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                 <div className="space-y-2">
                   {hypotheticalTransactions.map((transaction: any) => {
                     const isIncome = transaction.type === 'income';
-                    const bgColor = isIncome ? 'bg-[#76C893]/10' : 'bg-[#D97B7B]/10';
-                    const borderColor = isIncome ? 'border-[#76C893]/30' : 'border-[#D97B7B]/30';
-                    const textColor = isIncome ? 'text-[#76C893]' : 'text-[#D97B7B]';
+                    const bgColor = isIncome ? 'bg-[#AFFD37]/10' : 'bg-[#E837FD]/10';
+                    const borderColor = isIncome ? 'border-[#AFFD37]/30' : 'border-[#E837FD]/30';
+                    const textColor = isIncome ? 'text-[#AFFD37]' : 'text-[#E837FD]';
 
                     return (
                       <div
@@ -1599,7 +1577,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                           className="p-2 hover:bg-white/10 rounded-lg transition-colors"
                           title="Remover"
                         >
-                          <X className="w-5 h-5 text-[#D97B7B]" />
+                          <X className="w-5 h-5 text-[#E837FD]" />
                         </button>
                       </div>
                     );
@@ -1609,9 +1587,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             )}
 
             {/* Dica de uso */}
-            <div className="bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-xl p-4">
+            <div className="bg-[#8537FD]/10 border border-[#8537FD]/30 rounded-xl p-4">
               <p className="text-sm text-white/70">
-                <strong className="text-[#9B97CE]">💡 Dica:</strong> Adicione transações hipotéticas e
+                <strong className="text-[#8537FD]">💡 Dica:</strong> Adicione transações hipotéticas e
                 veja em tempo real como elas afetam os saldos futuros no calendário.
                 Os dias com transações simuladas mostrarão os valores ajustados.
               </p>
@@ -1632,7 +1610,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                   handleClearProjection();
                   setIsProjectionModalOpen(false);
                 }}
-                className="flex-1 px-4 py-3 bg-[#D97B7B]/20 hover:bg-[#D97B7B]/30 text-[#D97B7B] rounded-xl font-semibold transition-colors"
+                className="flex-1 px-4 py-3 bg-[#C27C75]/20 hover:bg-[#C27C75]/30 text-[#E837FD] rounded-xl font-semibold transition-colors"
               >
                 Limpar e Fechar
               </button>

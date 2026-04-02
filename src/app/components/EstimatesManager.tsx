@@ -91,7 +91,7 @@ export function EstimatesManager() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#B4B0EE] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-4 border-[var(--app-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Carregando estimativas...</p>
         </div>
       </div>
@@ -110,7 +110,7 @@ export function EstimatesManager() {
           <p className="text-gray-600 mb-4">{error.message}</p>
           <button
             onClick={() => window.location.reload()}
-            className="px-4 py-2 bg-[#B4B0EE] text-white rounded-lg hover:bg-[#9D8FCC] transition-colors"
+            className="rounded-lg border border-[rgba(227,174,116,0.28)] bg-[var(--app-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90"
           >
             Recarregar página
           </button>
@@ -131,10 +131,10 @@ export function EstimatesManager() {
 
       {/* Resumo */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-[#B4B0EE] to-[#B4B0EE] rounded-xl p-6 text-white">
-          <p className="text-sm opacity-90 mb-2">Valor Diário Padrão</p>
+        <div className="rounded-xl border border-[rgba(133,55,253,0.18)] bg-[rgba(24,24,24,0.92)] p-6 text-white shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
+          <p className="mb-2 text-sm text-white/78">Valor Diário Padrão</p>
           <p className="text-4xl font-bold">R$ {dailyStandard.toFixed(2)}</p>
-          <p className="text-xs opacity-75 mt-2">Calculado automaticamente</p>
+          <p className="mt-2 text-xs text-white/60">Calculado automaticamente</p>
         </div>
         
         <div className="bg-white rounded-xl border border-gray-200 p-6">
@@ -155,8 +155,8 @@ export function EstimatesManager() {
       </div>
 
       {/* Alerta de recálculo */}
-      <div className="bg-blue-50 border border-blue-200 rounded-lg p-4">
-        <p className="text-sm text-blue-900">
+      <div className="rounded-lg border border-[rgba(133,55,253,0.18)] bg-[rgba(133,55,253,0.08)] p-4">
+        <p className="text-sm text-slate-800">
           💡 <strong>Importante:</strong> Ao alterar qualquer estimativa, o Valor Diário Padrão será recalculado automaticamente e aplicado a partir de hoje.
         </p>
       </div>
@@ -205,7 +205,7 @@ export function EstimatesManager() {
                           value={editValue}
                           onChange={(e) => setEditValue(e.target.value)}
                           onWheel={(e) => e.currentTarget.blur()}
-                          className="w-32 px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500"
+                          className="w-32 rounded-lg border border-gray-300 px-3 py-2 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]"
                           autoFocus
                         />
                         <button
@@ -259,7 +259,7 @@ export function EstimatesManager() {
                     className="ml-4"
                   >
                     {estimate.active ? (
-                      <ToggleRight className="w-10 h-10 text-[#B4B0EE]" />
+                      <ToggleRight className="h-10 w-10 text-[var(--app-accent)]" />
                     ) : (
                       <ToggleLeft className="w-10 h-10 text-gray-400" />
                     )}
@@ -297,7 +297,7 @@ export function EstimatesManager() {
           <div className="pt-3 border-t border-gray-200">
             <div className="flex items-center justify-between">
               <span className="text-gray-900 font-medium">Valor Diário Padrão:</span>
-              <span className="text-2xl font-bold text-[#B4B0EE]">
+              <span className="text-2xl font-bold text-[var(--app-accent)]">
                 R$ {dailyStandard.toFixed(2)}
               </span>
             </div>

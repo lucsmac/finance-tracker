@@ -69,7 +69,7 @@ export function StatsView() {
     return (
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
-          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[#76C893] mx-auto mb-4"></div>
+          <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--app-accent)] mx-auto mb-4"></div>
           <p className="text-white/70">Carregando análises...</p>
         </div>
       </div>
@@ -326,7 +326,7 @@ export function StatsView() {
     .sort((a, b) => b.value - a.value);
 
   // Dados para gráfico de pizza
-  const pieColors = ['#76C893', '#9B97CE', '#8B7AB8', '#E6C563', '#D97B7B', '#C9B574', '#7FB77E', '#A69FBD'];
+  const pieColors = ['#8537FD', '#E837FD', '#AFFD37', '#FDE837', '#FFFFFF', '#8537FD', '#E837FD', '#AFFD37'];
 
   // Dados da curva diária de saldo (apenas para visualização mensal)
   const dailyBalanceData = [];
@@ -380,27 +380,33 @@ export function StatsView() {
     <div className="space-y-6 pb-32">
       {/* Header */}
       <div className="space-y-4">
-        <div className="flex items-center justify-between">
-          <h2 className="text-2xl font-semibold text-white">Análise Financeira</h2>
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-end lg:justify-between">
+          <div>
+            <p className="app-kicker mb-2">Financial intelligence</p>
+            <h2 className="app-page-title text-3xl font-semibold">Análise Financeira</h2>
+            <p className="mt-2 text-sm text-[var(--app-text-muted)]">
+              Tendências, distribuição de gastos e sinais de eficiência do período selecionado.
+            </p>
+          </div>
 
           {/* Toggle Mês/Ano */}
-          <div className="flex items-center gap-2 bg-white/5 rounded-lg p-1 border border-white/10">
+          <div className="app-pill flex items-center gap-2 rounded-2xl p-1">
             <button
               onClick={() => setViewMode('month')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
                 viewMode === 'month'
-                  ? 'bg-[#76C893] text-[#161618]'
-                  : 'text-white/70 hover:text-white'
+                  ? 'bg-[var(--app-accent)] text-white'
+                  : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
               }`}
             >
               Mês
             </button>
             <button
               onClick={() => setViewMode('year')}
-              className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
+              className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
                 viewMode === 'year'
-                  ? 'bg-[#76C893] text-[#161618]'
-                  : 'text-white/70 hover:text-white'
+                  ? 'bg-[var(--app-accent)] text-white'
+                  : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
               }`}
             >
               Ano
@@ -412,22 +418,22 @@ export function StatsView() {
         <div className="flex items-center gap-3">
           <button
             onClick={navigatePrevious}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="app-pill rounded-2xl p-2 transition-colors"
             aria-label="Período anterior"
           >
-            <ChevronLeft className="w-5 h-5 text-[#9B97CE]" />
+            <ChevronLeft className="w-5 h-5 text-[var(--app-accent)]" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
-              <button className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">
-                <span className="text-[#9B97CE] text-lg font-medium">
+              <button className="app-pill flex items-center gap-2 rounded-2xl px-4 py-2 transition-colors">
+                <span className="text-[var(--app-accent)] text-lg font-medium">
                   {formatPeriod(selectedDate)}
                 </span>
-                <CalendarIcon className="w-4 h-4 text-[#9B97CE]" />
+                <CalendarIcon className="w-4 h-4 text-[var(--app-accent)]" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-[#161618] border-white/20">
+            <PopoverContent className="w-auto p-0 bg-[#181818] border-white/20">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -439,34 +445,34 @@ export function StatsView() {
 
           <button
             onClick={navigateNext}
-            className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+            className="app-pill rounded-2xl p-2 transition-colors"
             aria-label="Próximo período"
           >
-            <ChevronRight className="w-5 h-5 text-[#9B97CE]" />
+            <ChevronRight className="w-5 h-5 text-[var(--app-accent)]" />
           </button>
         </div>
       </div>
 
       {/* Visão Geral */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
+      <div className="app-panel rounded-[2rem] p-6">
         <h3 className="text-xl font-semibold text-white mb-6">Visão Geral</h3>
 
-        <div className="grid grid-cols-4 gap-6">
+        <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-6">
           <div className="text-center">
             <p className="text-[#9CA3AF] text-sm mb-1">Total de Entradas</p>
-            <p className="text-3xl font-bold text-[#76C893] mb-1">R$ {formatCurrency(totalIncome)}</p>
+            <p className="text-3xl font-bold text-[var(--app-success)] mb-1">R$ {formatCurrency(totalIncome)}</p>
             <p className="text-xs text-[#9CA3AF]">Receitas do período</p>
           </div>
 
           <div className="text-center border-x border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Total de Gastos</p>
-            <p className="text-3xl font-bold text-[#D97B7B] mb-1">R$ {formatCurrency(totalExpenses)}</p>
+            <p className="text-3xl font-bold text-[var(--app-danger)] mb-1">R$ {formatCurrency(totalExpenses)}</p>
             <p className="text-xs text-[#9CA3AF]">Todas as despesas</p>
           </div>
 
           <div className="text-center border-r border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Variação do Saldo</p>
-            <p className={`text-3xl font-bold mb-1 ${periodBalanceChange >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+            <p className={`text-3xl font-bold mb-1 ${periodBalanceChange >= 0 ? 'text-[var(--app-success)]' : 'text-[var(--app-danger)]'}`}>
               {periodBalanceChange >= 0 ? '+' : ''}R$ {formatCurrency(Math.abs(periodBalanceChange))}
             </p>
             <p className="text-xs text-[#9CA3AF]">Saldo final - Saldo inicial</p>
@@ -474,7 +480,7 @@ export function StatsView() {
 
           <div className="text-center">
             <p className="text-[#9CA3AF] text-sm mb-1">Taxa de Poupança</p>
-            <p className={`text-3xl font-bold mb-1 ${savingsRate >= 20 ? 'text-[#76C893]' : savingsRate >= 10 ? 'text-[#E6C563]' : 'text-[#D97B7B]'}`}>
+            <p className={`text-3xl font-bold mb-1 ${savingsRate >= 20 ? 'text-[var(--app-success)]' : savingsRate >= 10 ? 'text-[var(--app-warning)]' : 'text-[var(--app-danger)]'}`}>
               {savingsRate.toFixed(0)}%
             </p>
             <p className="text-xs text-[#9CA3AF]">da renda total</p>
@@ -484,7 +490,7 @@ export function StatsView() {
 
       {/* Gráfico de Saldo Diário (apenas modo mês) */}
       {viewMode === 'month' && dailyBalanceData.length > 0 && (
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
+        <div className="app-panel rounded-[2rem] p-6">
           <h3 className="text-xl font-semibold text-white mb-2">Curva de Saldo Diário</h3>
           <p className="text-sm text-white/50 mb-6">
             Evolução do saldo ao longo do mês, usando gastos reais quando existirem e o planejado como fallback.
@@ -505,19 +511,19 @@ export function StatsView() {
                 tickFormatter={(value) => `R$ ${value}`}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: '#161618',
-                  border: '1px solid #ffffff20',
-                  borderRadius: '8px'
-                }}
+              contentStyle={{
+                backgroundColor: '#181818',
+                border: '1px solid #ffffff20',
+                borderRadius: '8px'
+              }}
                 formatter={(value: any) => `R$ ${formatCurrency(value)}`}
               />
               <Legend />
               <Area
                 type="monotone"
                 dataKey="saldo"
-                stroke="#76C893"
-                fill="#76C893"
+                stroke="#8537FD"
+                fill="#8537FD"
                 fillOpacity={0.3}
                 name="Saldo diário"
               />
@@ -527,7 +533,7 @@ export function StatsView() {
       )}
 
       {/* Gráfico: Entradas vs Saídas */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
+      <div className="app-panel rounded-[2rem] p-6">
         <h3 className="text-xl font-semibold text-white mb-6">Entradas vs Saídas</h3>
 
         <ResponsiveContainer width="100%" height={300}>
@@ -545,23 +551,23 @@ export function StatsView() {
             />
             <Tooltip
               contentStyle={{
-                backgroundColor: '#161618',
+                backgroundColor: '#181818',
                 border: '1px solid #ffffff20',
                 borderRadius: '8px'
               }}
               formatter={(value: any) => `R$ ${formatCurrency(value)}`}
             />
             <Legend />
-            <Bar dataKey="entradas" fill="#76C893" name="Entradas" radius={[8, 8, 0, 0]} />
-            <Bar dataKey="saidas" fill="#D97B7B" name="Saídas" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="entradas" fill="#AFFD37" name="Entradas" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="saidas" fill="#E837FD" name="Saídas" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
 
       {/* Gráficos lado a lado */}
-      <div className="grid grid-cols-2 gap-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Gráfico: Gastos por Categoria (Barras) */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
+        <div className="app-panel rounded-[2rem] p-6">
           <h3 className="text-xl font-semibold text-white mb-6">Gastos por Categoria</h3>
 
           <ResponsiveContainer width="100%" height={300}>
@@ -581,11 +587,11 @@ export function StatsView() {
                 width={100}
               />
               <Tooltip
-                contentStyle={{
-                  backgroundColor: '#161618',
-                  border: '1px solid #ffffff20',
-                  borderRadius: '8px'
-                }}
+              contentStyle={{
+                backgroundColor: '#181818',
+                border: '1px solid #ffffff20',
+                borderRadius: '8px'
+              }}
                 formatter={(value: any, name: any, props: any) => [
                   `R$ ${formatCurrency(value)} (${props.payload.percentage}%)`,
                   'Valor'
@@ -601,7 +607,7 @@ export function StatsView() {
         </div>
 
         {/* Gráfico: Distribuição de Gastos (Pizza) */}
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
+        <div className="app-panel rounded-[2rem] p-6">
           <h3 className="text-xl font-semibold text-white mb-6">Distribuição de Gastos</h3>
 
           <ResponsiveContainer width="100%" height={300}>
@@ -621,11 +627,11 @@ export function StatsView() {
                 ))}
               </Pie>
               <Tooltip
-                contentStyle={{
-                  backgroundColor: '#161618',
-                  border: '1px solid #ffffff20',
-                  borderRadius: '8px'
-                }}
+              contentStyle={{
+                backgroundColor: '#181818',
+                border: '1px solid #ffffff20',
+                borderRadius: '8px'
+              }}
                 formatter={(value: any) => `R$ ${formatCurrency(value)}`}
               />
             </PieChart>
@@ -634,20 +640,20 @@ export function StatsView() {
       </div>
 
       {/* Resumo de Tipos de Gasto */}
-      <div className="grid grid-cols-2 gap-6">
-        <div className="bg-[#76C893]/10 border border-[#76C893]/30 rounded-3xl p-6">
+      <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
+        <div className="rounded-[2rem] border border-[#8537FD]/20 bg-[#8537FD]/10 p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-[#76C893]/20 rounded-xl flex items-center justify-center">
-              <BarChart3 className="w-6 h-6 text-[#76C893]" />
+            <div className="w-12 h-12 bg-[#8537FD]/20 rounded-xl flex items-center justify-center">
+              <BarChart3 className="w-6 h-6 text-[#8537FD]" />
             </div>
             <div>
-              <p className="text-sm text-[#76C893]">Gastos Variáveis</p>
+              <p className="text-sm text-[#8537FD]">Gastos Variáveis</p>
               <p className="text-2xl font-bold text-white">R$ {formatCurrency(variableExpenses)}</p>
             </div>
           </div>
           <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
             <div
-              className="h-full bg-[#76C893]"
+              className="h-full bg-[#8537FD]"
               style={{ width: `${variableExpenseShare}%` }}
             />
           </div>
@@ -656,19 +662,19 @@ export function StatsView() {
           </p>
         </div>
 
-        <div className="bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-3xl p-6">
+        <div className="rounded-[2rem] border border-[#FDE837]/20 bg-[#FDE837]/10 p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-[#8B7AB8]/20 rounded-xl flex items-center justify-center">
-              <CalendarIcon className="w-6 h-6 text-[#8B7AB8]" />
+            <div className="w-12 h-12 bg-[#FDE837]/20 rounded-xl flex items-center justify-center">
+              <CalendarIcon className="w-6 h-6 text-[#FDE837]" />
             </div>
             <div>
-              <p className="text-sm text-[#8B7AB8]">Gastos Fixos</p>
+              <p className="text-sm text-[#FDE837]">Gastos Fixos</p>
               <p className="text-2xl font-bold text-white">R$ {formatCurrency(fixedExpenses)}</p>
             </div>
           </div>
           <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
             <div
-              className="h-full bg-[#8B7AB8]"
+              className="h-full bg-[#FDE837]"
               style={{ width: `${fixedExpenseShare}%` }}
             />
           </div>
@@ -679,15 +685,15 @@ export function StatsView() {
       </div>
 
       {/* Insights Automáticos */}
-      <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
+      <div className="app-panel rounded-[2rem] p-6">
         <h3 className="text-xl font-semibold text-white mb-6">Insights Automáticos</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {insights.map((insight, index) => {
             const Icon = insight.icon;
-            const bgColor = insight.type === 'positive' ? 'bg-[#76C893]/10' : insight.type === 'warning' ? 'bg-[#E6C563]/10' : 'bg-[#9B97CE]/10';
-            const borderColor = insight.type === 'positive' ? 'border-[#76C893]/30' : insight.type === 'warning' ? 'border-[#E6C563]/30' : 'border-[#9B97CE]/30';
-            const iconColor = insight.type === 'positive' ? 'text-[#76C893]' : insight.type === 'warning' ? 'text-[#E6C563]' : 'text-[#9B97CE]';
+            const bgColor = insight.type === 'positive' ? 'bg-[#AFFD37]/10' : insight.type === 'warning' ? 'bg-[#FDE837]/10' : 'bg-[#8537FD]/10';
+            const borderColor = insight.type === 'positive' ? 'border-[#AFFD37]/30' : insight.type === 'warning' ? 'border-[#FDE837]/30' : 'border-[#8537FD]/30';
+            const iconColor = insight.type === 'positive' ? 'text-[#AFFD37]' : insight.type === 'warning' ? 'text-[#FDE837]' : 'text-[#8537FD]';
 
             return (
               <div

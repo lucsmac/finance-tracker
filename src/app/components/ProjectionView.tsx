@@ -89,23 +89,23 @@ export function ProjectionView() {
 
       {/* Alerta Principal */}
       {firstInsufficientDay && (
-        <div className="bg-red-50 border border-red-200 rounded-xl p-6">
+        <div className="rounded-xl border border-[#E837FD]/30 bg-[#E837FD]/10 p-6">
           <div className="flex items-start gap-4">
-            <div className="p-3 bg-red-100 rounded-lg">
-              <AlertTriangle className="w-6 h-6 text-red-600" />
+            <div className="rounded-lg bg-[#E837FD]/12 p-3">
+              <AlertTriangle className="w-6 h-6 text-[#E837FD]" />
             </div>
             <div className="flex-1">
-              <h3 className="text-lg font-semibold text-red-900 mb-1">
+              <h3 className="mb-1 text-lg font-semibold text-[#E837FD]">
                 ⚠️ Saldo insuficiente detectado
               </h3>
-              <p className="text-sm text-red-700 mb-3">
+              <p className="mb-3 text-sm text-[#E837FD]">
                 A partir do dia {firstInsufficientDay.date.getDate()} de{' '}
                 {firstInsufficientDay.date.toLocaleDateString('pt-BR', { month: 'long' })}, 
                 você não terá saldo suficiente para cobrir os gastos projetados.
               </p>
               <div className="bg-white rounded-lg p-4 inline-block">
                 <p className="text-xs text-gray-600 mb-1">Déficit total projetado:</p>
-                <p className="text-2xl font-bold text-red-600">R$ {deficit.toFixed(2)}</p>
+                <p className="text-2xl font-bold text-[#E837FD]">R$ {deficit.toFixed(2)}</p>
               </div>
             </div>
           </div>
@@ -125,31 +125,31 @@ export function ProjectionView() {
           </p>
         </div>
         
-        <div className="bg-[#CEF05D]/10 rounded-xl border border-[#CEF05D]/30 p-6">
+        <div className="rounded-xl border border-[#AFFD37]/30 bg-[#AFFD37]/10 p-6">
           <div className="flex items-center gap-3 mb-2">
-            <TrendingDown className="w-5 h-5 text-[#CEF05D]" />
-            <p className="text-sm text-[#CEF05D]">Dias confortáveis</p>
+            <TrendingDown className="w-5 h-5 text-[#AFFD37]" />
+            <p className="text-sm text-[#AFFD37]">Dias confortáveis</p>
           </div>
-          <p className="text-3xl font-bold text-[#CEF05D]">{comfortableDays}</p>
-          <p className="text-xs text-[#CEF05D] mt-1">Saldo acima do padrão</p>
+          <p className="text-3xl font-bold text-[#AFFD37]">{comfortableDays}</p>
+          <p className="mt-1 text-xs text-[#AFFD37]">Saldo acima do padrão</p>
         </div>
         
-        <div className="bg-[#B4B0EE]/10 rounded-xl border border-[#B4B0EE]/30 p-6">
+        <div className="rounded-xl border border-[#FDE837]/30 bg-[#FDE837]/10 p-6">
           <div className="flex items-center gap-3 mb-2">
-            <AlertTriangle className="w-5 h-5 text-[#B4B0EE]" />
-            <p className="text-sm text-[#B4B0EE]">Dias apertados</p>
+            <AlertTriangle className="w-5 h-5 text-[#FDE837]" />
+            <p className="text-sm text-[#FDE837]">Dias apertados</p>
           </div>
-          <p className="text-3xl font-bold text-[#B4B0EE]">{tightDays}</p>
-          <p className="text-xs text-[#B4B0EE] mt-1">Saldo justo</p>
+          <p className="text-3xl font-bold text-[#FDE837]">{tightDays}</p>
+          <p className="mt-1 text-xs text-[#FDE837]">Saldo justo</p>
         </div>
         
-        <div className="bg-red-50 rounded-xl border border-red-200 p-6">
+        <div className="rounded-xl border border-[#E837FD]/30 bg-[#E837FD]/10 p-6">
           <div className="flex items-center gap-3 mb-2">
-            <TrendingUp className="w-5 h-5 text-red-600" />
-            <p className="text-sm text-red-700">Dias sem saldo</p>
+            <TrendingUp className="w-5 h-5 text-[#E837FD]" />
+            <p className="text-sm text-[#E837FD]">Dias sem saldo</p>
           </div>
-          <p className="text-3xl font-bold text-red-600">{insufficientDays}</p>
-          <p className="text-xs text-red-600 mt-1">Saldo negativo</p>
+          <p className="text-3xl font-bold text-[#E837FD]">{insufficientDays}</p>
+          <p className="mt-1 text-xs text-[#E837FD]">Saldo negativo</p>
         </div>
       </div>
 
@@ -166,7 +166,7 @@ export function ProjectionView() {
               value={simulatedExpense}
               onChange={(e) => setSimulatedExpense(e.target.value)}
               placeholder="Ex: 300.00"
-              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#B4B0EE]/100"
+              className="w-full px-4 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-[#8537FD]"
             />
           </div>
           <button
@@ -177,7 +177,7 @@ export function ProjectionView() {
           </button>
         </div>
         {simulatedExpense && (
-          <p className="text-sm text-[#B4B0EE] mt-3">
+          <p className="mt-3 text-sm text-[#8537FD]">
             💡 Projeção atualizada com gasto de R$ {parseFloat(simulatedExpense).toFixed(2)}
           </p>
         )}
@@ -195,9 +195,9 @@ export function ProjectionView() {
         <div className="divide-y divide-gray-200 max-h-[600px] overflow-y-auto">
           {projectionDays.map((day, index) => {
             const statusConfig = {
-              comfortable: { bg: 'bg-[#CEF05D]/10', border: 'border-[#CEF05D]/30', text: 'text-[#CEF05D]', indicator: 'bg-[#CEF05D]/100' },
-              tight: { bg: 'bg-[#B4B0EE]/10', border: 'border-[#B4B0EE]/30', text: 'text-[#B4B0EE]', indicator: 'bg-[#B4B0EE]/100' },
-              insufficient: { bg: 'bg-red-50', border: 'border-red-200', text: 'text-red-700', indicator: 'bg-red-500' },
+              comfortable: { bg: 'bg-[#AFFD37]/10', border: 'border-[#AFFD37]/30', text: 'text-[#AFFD37]', indicator: 'bg-[#AFFD37]' },
+              tight: { bg: 'bg-[#FDE837]/10', border: 'border-[#FDE837]/30', text: 'text-[#FDE837]', indicator: 'bg-[#FDE837]' },
+              insufficient: { bg: 'bg-[#E837FD]/10', border: 'border-[#E837FD]/30', text: 'text-[#E837FD]', indicator: 'bg-[#E837FD]' },
             };
             
             const config = statusConfig[day.status];
@@ -235,7 +235,7 @@ export function ProjectionView() {
                         {day.commitmentsTotal > 0 && (
                           <div>
                             <span className="text-gray-600">Compromissos:</span>
-                            <span className="ml-2 font-medium text-[#9D4EDD]">
+                            <span className="ml-2 font-medium text-[#8537FD]">
                               R$ {day.commitmentsTotal.toFixed(2)}
                             </span>
                           </div>
@@ -271,10 +271,10 @@ export function ProjectionView() {
         </div>
         
         {/* Próxima Renda */}
-        <div className="px-6 py-4 bg-[#B4B0EE]/10 border-t-4 border-[#B4B0EE]/100">
+        <div className="border-t-4 border-[#8537FD] bg-[#8537FD]/10 px-6 py-4">
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-4">
-              <DollarSign className="w-8 h-8 text-[#B4B0EE]" />
+              <DollarSign className="w-8 h-8 text-[#8537FD]" />
               <div>
                 <p className="text-sm font-medium text-gray-900">
                   Entrada de Renda - {nextIncomeDate.toLocaleDateString('pt-BR')}
@@ -282,7 +282,7 @@ export function ProjectionView() {
                 <p className="text-xs text-gray-600">Salário mensal</p>
               </div>
             </div>
-            <p className="text-2xl font-bold text-[#B4B0EE]">
+            <p className="text-2xl font-bold text-[#8537FD]">
               +R$ {nextIncomeAmount.toFixed(2)}
             </p>
           </div>
@@ -290,9 +290,9 @@ export function ProjectionView() {
       </div>
 
       {/* Dicas */}
-      <div className="bg-[#B4B0EE]/10 rounded-lg border border-[#B4B0EE]/30 p-4">
-        <h4 className="text-sm font-semibold text-[#B4B0EE] mb-2">💡 Dicas para melhorar sua projeção</h4>
-        <ul className="text-sm text-[#B4B0EE] space-y-1">
+      <div className="rounded-lg border border-[#8537FD]/30 bg-[#8537FD]/10 p-4">
+        <h4 className="mb-2 text-sm font-semibold text-[#8537FD]">💡 Dicas para melhorar sua projeção</h4>
+        <ul className="space-y-1 text-sm text-[#8537FD]">
           <li>• Reduza gastos variáveis nos dias marcados como "apertados"</li>
           <li>• Antecipe compromissos se possível para evitar acúmulo</li>
           <li>• Considere usar parte da reserva de emergência se necessário</li>

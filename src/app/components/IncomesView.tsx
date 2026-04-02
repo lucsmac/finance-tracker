@@ -70,7 +70,7 @@ export function IncomesView() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#76C893] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-4 border-[var(--app-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-[#9CA3AF]">Carregando entradas...</p>
         </div>
       </div>
@@ -267,7 +267,7 @@ export function IncomesView() {
 
           <button
             onClick={handleOpenModal}
-            className="flex items-center gap-2 px-4 py-2 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-lg font-semibold transition-colors"
+            className="flex items-center gap-2 rounded-lg bg-[var(--app-accent)] px-4 py-2 font-semibold text-white transition-opacity hover:opacity-90"
           >
             <Plus className="w-5 h-5" />
             Adicionar Entrada
@@ -281,19 +281,19 @@ export function IncomesView() {
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Mês anterior"
           >
-            <ChevronLeft className="w-5 h-5 text-[#9B97CE]" />
+            <ChevronLeft className="w-5 h-5 text-[var(--app-accent)]" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
               <button className="flex items-center gap-2 px-4 py-2 hover:bg-white/10 rounded-lg transition-colors">
-                <span className="text-[#9B97CE] text-lg font-medium">
+                <span className="text-[var(--app-accent)] text-lg font-medium">
                   {formatMonthYear(selectedDate)}
                 </span>
-                <CalendarIcon className="w-4 h-4 text-[#9B97CE]" />
+                <CalendarIcon className="w-4 h-4 text-[var(--app-accent)]" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-[#161618] border-white/20">
+            <PopoverContent className="w-auto p-0 bg-[#111214] border-white/20">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -308,7 +308,7 @@ export function IncomesView() {
             className="p-2 hover:bg-white/10 rounded-lg transition-colors"
             aria-label="Próximo mês"
           >
-            <ChevronRight className="w-5 h-5 text-[#9B97CE]" />
+            <ChevronRight className="w-5 h-5 text-[var(--app-accent)]" />
           </button>
         </div>
       </div>
@@ -321,24 +321,24 @@ export function IncomesView() {
           <p className="text-xs text-[#9CA3AF] mt-1">{incomes.length} entradas</p>
         </div>
 
-        <div className="bg-[#76C893]/10 rounded-xl border border-[#76C893]/30 p-6">
-          <p className="text-sm text-[#76C893] mb-2">Recebidos</p>
-          <p className="text-3xl font-bold text-[#76C893]">{totalReceived.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-          <p className="text-xs text-[#76C893] mt-1">{received.length} itens</p>
+        <div className="rounded-xl border border-[#AFFD37]/30 bg-[#AFFD37]/10 p-6">
+          <p className="mb-2 text-sm text-[#AFFD37]">Recebidos</p>
+          <p className="text-3xl font-bold text-[#AFFD37]">{totalReceived.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+          <p className="mt-1 text-xs text-[#AFFD37]">{received.length} itens</p>
         </div>
 
-        <div className="bg-[#9B97CE]/10 rounded-xl border border-[#9B97CE]/30 p-6">
-          <p className="text-sm text-[#9B97CE] mb-2">A Receber</p>
-          <p className="text-3xl font-bold text-[#9B97CE]">{totalPending.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-          <p className="text-xs text-[#9B97CE] mt-1">{pending.length} itens</p>
+        <div className="rounded-xl border border-[#8537FD]/30 bg-[#8537FD]/10 p-6">
+          <p className="mb-2 text-sm text-[#8537FD]">A Receber</p>
+          <p className="text-3xl font-bold text-[#8537FD]">{totalPending.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+          <p className="mt-1 text-xs text-[#8537FD]">{pending.length} itens</p>
         </div>
 
-        <div className="bg-[#D97B7B]/10 rounded-xl border border-[#D97B7B]/50 p-6">
-          <p className="text-sm text-[#D97B7B] mb-2">Atrasados</p>
-          <p className="text-3xl font-bold text-[#D97B7B]">
+        <div className="rounded-xl border border-[#E837FD]/40 bg-[#E837FD]/10 p-6">
+          <p className="mb-2 text-sm text-[#E837FD]">Atrasados</p>
+          <p className="text-3xl font-bold text-[#E837FD]">
             {overdue.length > 0 ? overdue.length : '0'}
           </p>
-          <p className="text-xs text-[#D97B7B] mt-1">
+          <p className="mt-1 text-xs text-[#E837FD]">
             {overdue.length > 0 ? 'Necessita atenção' : 'Tudo em dia'}
           </p>
         </div>
@@ -353,7 +353,7 @@ export function IncomesView() {
             onClick={() => setSortBy('date')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               sortBy === 'date'
-                ? 'bg-[#76C893] text-[#161618]'
+                ? 'bg-[var(--app-accent)] text-white'
                 : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
             }`}
           >
@@ -364,7 +364,7 @@ export function IncomesView() {
             onClick={() => setSortBy('amount')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               sortBy === 'amount'
-                ? 'bg-[#76C893] text-[#161618]'
+                ? 'bg-[var(--app-accent)] text-white'
                 : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
             }`}
           >
@@ -375,7 +375,7 @@ export function IncomesView() {
             onClick={() => setSortBy('description')}
             className={`px-4 py-2 rounded-lg text-sm font-medium transition-colors ${
               sortBy === 'description'
-                ? 'bg-[#76C893] text-[#161618]'
+                ? 'bg-[var(--app-accent)] text-white'
                 : 'bg-white/5 text-[#9CA3AF] hover:bg-white/10'
             }`}
           >
@@ -395,12 +395,12 @@ export function IncomesView() {
 
       {/* Entradas Atrasadas */}
       {overdue.length > 0 && (
-        <div className="bg-[#D97B7B]/10 border border-[#D97B7B]/50 rounded-xl p-6">
+        <div className="bg-[#C27C75]/10 border border-[#C27C75]/50 rounded-xl p-6">
           <div className="flex items-start gap-3 mb-4">
             <AlertCircle className="w-5 h-5 text-red-600 mt-0.5" />
             <div>
-              <h3 className="text-lg font-semibold text-[#D97B7B]">Entradas Atrasadas</h3>
-              <p className="text-sm text-[#D97B7B] mt-1">
+              <h3 className="text-lg font-semibold text-[#C27C75]">Entradas Atrasadas</h3>
+              <p className="text-sm text-[#C27C75] mt-1">
                 Você tem {overdue.length} entrada(s) pendente(s) com data anterior a hoje.
               </p>
             </div>
@@ -411,7 +411,7 @@ export function IncomesView() {
               <div key={income.id} className="bg-white/5 rounded-lg p-4 flex items-center justify-between">
                 <div className="flex-1">
                   <p className="font-medium text-white">{income.description}</p>
-                  <p className="text-sm text-[#D97B7B] mt-1">
+                  <p className="text-sm text-[#C27C75] mt-1">
                     Previsto para {formatDateToLocaleString(income.date)}
                   </p>
                 </div>
@@ -420,7 +420,7 @@ export function IncomesView() {
                     <p className="text-lg font-bold text-white">{income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                     <button
                       onClick={() => handleTogglePaid(income.id, income.paid)}
-                      className="mt-2 px-3 py-1 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] text-sm rounded font-medium transition-colors"
+                      className="mt-2 rounded bg-[var(--app-accent)] px-3 py-1 text-sm font-medium text-white transition-opacity hover:opacity-90"
                     >
                       Marcar como Recebido
                     </button>
@@ -444,7 +444,7 @@ export function IncomesView() {
         <div className="px-6 py-4 bg-white/10 border-b border-white/10">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-lg font-semibold text-white">A Receber</h3>
-            <span className="text-lg font-semibold text-[#9B97CE]">
+            <span className="text-lg font-semibold text-[#8537FD]">
               {upcomingPendingTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
@@ -456,8 +456,8 @@ export function IncomesView() {
             <div key={income.id} className="px-6 py-4 hover:bg-white/10 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-lg flex items-center justify-center">
-                    <DollarSign className="w-6 h-6 text-[#9B97CE]" />
+                  <div className="w-12 h-12 bg-[#8537FD]/10 border border-[#8537FD]/30 rounded-lg flex items-center justify-center">
+                    <DollarSign className="w-6 h-6 text-[#8537FD]" />
                   </div>
 
                   <div className="flex-1">
@@ -466,7 +466,7 @@ export function IncomesView() {
                         {income.description}
                       </h4>
                       {income.recurring && (
-                        <span className="inline-block px-2 py-1 bg-[#76C893]/20 text-[#76C893] rounded text-xs font-medium">
+                        <span className="inline-block rounded bg-[#AFFD37]/20 px-2 py-1 text-xs font-medium text-[#AFFD37]">
                           Recorrente
                         </span>
                       )}
@@ -505,7 +505,7 @@ export function IncomesView() {
 
                   <button
                     onClick={() => handleTogglePaid(income.id, income.paid)}
-                    className="px-4 py-2 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-lg text-sm font-medium transition-colors"
+                    className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90"
                   >
                     Marcar como Recebido
                   </button>
@@ -527,7 +527,7 @@ export function IncomesView() {
         <div className="px-6 py-4 bg-white/10 border-b border-white/10">
           <div className="flex items-center justify-between gap-3">
             <h3 className="text-lg font-semibold text-white">Recebidos</h3>
-            <span className="text-lg font-semibold text-[#76C893]">
+            <span className="text-lg font-semibold text-[#AFFD37]">
               {totalReceived.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
@@ -536,11 +536,11 @@ export function IncomesView() {
 
         <div className="divide-y divide-white/10">
           {received.map(income => (
-            <div key={income.id} className="px-6 py-4 bg-[#76C893]/5">
+            <div key={income.id} className="px-6 py-4 bg-[#AFFD37]/5">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 bg-[#76C893]/10 border border-[#76C893]/30 rounded-lg flex items-center justify-center">
-                    <Check className="w-6 h-6 text-[#76C893]" />
+                  <div className="w-12 h-12 bg-[#AFFD37]/10 border border-[#AFFD37]/30 rounded-lg flex items-center justify-center">
+                    <Check className="w-6 h-6 text-[#AFFD37]" />
                   </div>
 
                   <div className="flex-1">
@@ -549,7 +549,7 @@ export function IncomesView() {
                         {income.description}
                       </h4>
                       {income.recurring && (
-                        <span className="inline-block px-2 py-1 bg-[#76C893]/20 text-[#76C893] rounded text-xs font-medium">
+                        <span className="inline-block rounded bg-[#AFFD37]/20 px-2 py-1 text-xs font-medium text-[#AFFD37]">
                           Recorrente
                         </span>
                       )}
@@ -568,7 +568,7 @@ export function IncomesView() {
                     <p className="text-xl font-bold text-white">
                       {income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
-                    <span className="inline-block mt-1 px-2 py-1 bg-[#76C893]/20 text-[#76C893] rounded text-xs font-medium">
+                    <span className="inline-block mt-1 rounded bg-[#AFFD37]/20 px-2 py-1 text-xs font-medium text-[#AFFD37]">
                       Recebido
                     </span>
                   </div>
@@ -609,11 +609,11 @@ export function IncomesView() {
               <div key={income.id} className="flex items-start gap-4">
                 <div className="flex flex-col items-center">
                   <div className={`w-3 h-3 rounded-full ${income.paid
-                      ? 'bg-[#76C893]'
+                      ? 'bg-[#AFFD37]'
                       : isPast
-                        ? 'bg-[#D97B7B]'
+                        ? 'bg-[#C27C75]'
                         : isToday
-                          ? 'bg-[#9B97CE]'
+                          ? 'bg-[#8537FD]'
                           : 'bg-gray-300'
                     }`}></div>
                   {index < incomes.length - 1 && (
@@ -634,7 +634,7 @@ export function IncomesView() {
                         {income.description} - {income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
                       {income.paid && (
-                        <span className="inline-block mt-1 text-xs text-[#76C893]">✓ Recebido</span>
+                        <span className="inline-block mt-1 text-xs text-[#AFFD37]">✓ Recebido</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
@@ -655,7 +655,7 @@ export function IncomesView() {
                       <button
                         onClick={() => handleTogglePaid(income.id, income.paid || false)}
                         className={`p-1.5 hover:bg-white/10 rounded-lg transition-colors ${
-                          income.paid ? 'text-[#76C893]' : 'text-[#9CA3AF]'
+                          income.paid ? 'text-[#AFFD37]' : 'text-[#9CA3AF]'
                         }`}
                         title={income.paid ? 'Marcar como não recebido' : 'Marcar como recebido'}
                       >
@@ -672,7 +672,7 @@ export function IncomesView() {
 
       {/* Modal de Cadastro de Entrada */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-lg">
+        <DialogContent className="bg-[#111214] border-white/20 text-white max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">
               Adicionar Entrada
@@ -693,7 +693,7 @@ export function IncomesView() {
                 placeholder="Ex: Salário, Freelance, Bônus"
                 value={incomeForm.description}
                 onChange={(e) => setIncomeForm({ ...incomeForm, description: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -707,7 +707,7 @@ export function IncomesView() {
                 placeholder="Ex: Salário, Trabalho Autônomo, Investimentos"
                 value={incomeForm.category}
                 onChange={(e) => setIncomeForm({ ...incomeForm, category: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -723,7 +723,7 @@ export function IncomesView() {
                 value={incomeForm.amount}
                 onChange={(e) => setIncomeForm({ ...incomeForm, amount: e.target.value })}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -736,7 +736,7 @@ export function IncomesView() {
                 type="date"
                 value={incomeForm.date}
                 onChange={(e) => setIncomeForm({ ...incomeForm, date: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -748,7 +748,7 @@ export function IncomesView() {
                   id="recurring"
                   checked={incomeForm.recurring}
                   onChange={(e) => setIncomeForm({ ...incomeForm, recurring: e.target.checked, generateNextMonths: e.target.checked ? incomeForm.generateNextMonths : false })}
-                  className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
+                  className="w-5 h-5 rounded border-white/20 text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
                 />
                 <label htmlFor="recurring" className="text-sm font-medium text-[#9CA3AF]">
                   Entrada recorrente (repete todo mês)
@@ -763,7 +763,7 @@ export function IncomesView() {
                     id="generateNextMonths"
                     checked={incomeForm.generateNextMonths}
                     onChange={(e) => setIncomeForm({ ...incomeForm, generateNextMonths: e.target.checked })}
-                    className="w-5 h-5 rounded border-white/20 text-[#80bc96] focus:ring-[#80bc96]"
+                    className="w-5 h-5 rounded border-white/20 text-[#FDE837] focus:ring-[#FDE837]"
                   />
                   <label htmlFor="generateNextMonths" className="text-sm font-medium text-[#9CA3AF]">
                     Criar também para os próximos 2 meses (total de 3)
@@ -784,7 +784,7 @@ export function IncomesView() {
             <button
               onClick={handleSaveIncome}
               disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date || saving}
-              className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Salvando...' : 'Salvar Entrada'}
             </button>
@@ -794,7 +794,7 @@ export function IncomesView() {
 
       {/* Modal de Edição de Entrada */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-lg">
+        <DialogContent className="bg-[#111214] border-white/20 text-white max-w-lg">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white">
               Editar Entrada
@@ -815,7 +815,7 @@ export function IncomesView() {
                 placeholder="Ex: Salário, Freelance, Bônus"
                 value={incomeForm.description}
                 onChange={(e) => setIncomeForm({ ...incomeForm, description: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -829,7 +829,7 @@ export function IncomesView() {
                 placeholder="Ex: Salário, Trabalho Autônomo, Investimentos"
                 value={incomeForm.category}
                 onChange={(e) => setIncomeForm({ ...incomeForm, category: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -845,7 +845,7 @@ export function IncomesView() {
                 value={incomeForm.amount}
                 onChange={(e) => setIncomeForm({ ...incomeForm, amount: e.target.value })}
                 onWheel={(e) => e.currentTarget.blur()}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-gray-400 focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -858,7 +858,7 @@ export function IncomesView() {
                 type="date"
                 value={incomeForm.date}
                 onChange={(e) => setIncomeForm({ ...incomeForm, date: e.target.value })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent"
               />
             </div>
 
@@ -869,7 +869,7 @@ export function IncomesView() {
                 id="recurring-edit"
                 checked={incomeForm.recurring}
                 onChange={(e) => setIncomeForm({ ...incomeForm, recurring: e.target.checked })}
-                className="w-5 h-5 rounded border-white/20 text-[#76C893] focus:ring-[#76C893]"
+                className="w-5 h-5 rounded border-white/20 text-[var(--app-accent)] focus:ring-[var(--app-accent)]"
               />
               <label htmlFor="recurring-edit" className="text-sm font-medium text-[#9CA3AF]">
                 Entrada recorrente (repete todo mês)
@@ -888,7 +888,7 @@ export function IncomesView() {
             <button
               onClick={handleSaveEdit}
               disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date || saving}
-              className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Salvando...' : 'Salvar Alterações'}
             </button>
@@ -898,7 +898,7 @@ export function IncomesView() {
 
       {/* Modal de Confirmação de Delete */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
-        <DialogContent className="bg-[#161618] border-white/20 text-white max-w-md">
+        <DialogContent className="bg-[#111214] border-white/20 text-white max-w-md">
           <DialogHeader>
             <DialogTitle className="text-2xl font-bold text-white flex items-center gap-3">
               <div className="w-12 h-12 bg-red-500/10 border border-red-500/30 rounded-xl flex items-center justify-center">

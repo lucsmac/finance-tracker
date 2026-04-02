@@ -87,7 +87,7 @@ export function InvestmentsView() {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
-          <div className="w-12 h-12 border-4 border-[#B4B0EE] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
+          <div className="w-12 h-12 border-4 border-[var(--app-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
           <p className="text-gray-600">Carregando investimentos...</p>
         </div>
       </div>
@@ -104,7 +104,7 @@ export function InvestmentsView() {
         </div>
         
         <div className="flex gap-2">
-          <button className="flex items-center gap-2 px-4 py-2 bg-[#B4B0EE] hover:bg-[#B4B0EE] text-white rounded-lg transition-colors">
+          <button className="flex items-center gap-2 rounded-lg border border-[rgba(133,55,253,0.28)] bg-[var(--app-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90">
             <Plus className="w-5 h-5" />
             Aplicar
           </button>
@@ -117,18 +117,18 @@ export function InvestmentsView() {
 
       {/* Stats */}
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-        <div className="bg-gradient-to-br from-[#B4B0EE] to-[#B4B0EE] rounded-xl p-6 text-white">
+        <div className="rounded-xl border border-[rgba(133,55,253,0.18)] bg-[rgba(24,24,24,0.92)] p-6 text-white shadow-[0_18px_40px_rgba(0,0,0,0.24)]">
           <div className="flex items-center gap-3 mb-2">
-            <DollarSign className="w-5 h-5 opacity-90" />
-            <span className="text-sm opacity-90">Patrimônio Total</span>
+            <DollarSign className="h-5 w-5 text-[var(--app-accent)]" />
+            <span className="text-sm text-white/78">Patrimônio Total</span>
           </div>
           <p className="text-4xl font-bold">R$ {totalInvested.toFixed(2)}</p>
-          <p className="text-sm opacity-75 mt-2">Valor atualizado</p>
+          <p className="mt-2 text-sm text-white/60">Valor atualizado</p>
         </div>
         
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center gap-3 mb-2">
-            <ArrowUpRight className="w-5 h-5 text-[#CEF05D]" />
+            <ArrowUpRight className="w-5 h-5 text-[var(--app-success)]" />
             <span className="text-sm text-gray-600">Total Aplicado</span>
           </div>
           <p className="text-4xl font-bold text-gray-900">R$ {totalApplied.toFixed(2)}</p>
@@ -137,10 +137,10 @@ export function InvestmentsView() {
         
         <div className="bg-white rounded-xl border border-gray-200 p-6">
           <div className="flex items-center gap-3 mb-2">
-            <TrendingUp className="w-5 h-5 text-[#B4B0EE]" />
+            <TrendingUp className="w-5 h-5 text-[var(--app-info)]" />
             <span className="text-sm text-gray-600">Rentabilidade</span>
           </div>
-          <p className="text-4xl font-bold text-[#CEF05D]">+4.2%</p>
+          <p className="text-4xl font-bold text-[var(--app-success)]">+4.2%</p>
           <p className="text-sm text-gray-500 mt-2">Últimos 12 meses</p>
         </div>
       </div>
@@ -190,7 +190,7 @@ export function InvestmentsView() {
                 {/* Barra de progresso */}
                 <div className="w-full bg-gray-200 rounded-full h-2">
                   <div
-                    className="bg-[#B4B0EE] h-2 rounded-full transition-all"
+                    className="h-2 rounded-full bg-[var(--app-accent)] transition-all"
                     style={{ width: `${percentage}%` }}
                   ></div>
                 </div>
@@ -211,8 +211,8 @@ export function InvestmentsView() {
             <div key={transaction.id} className="px-6 py-4 hover:bg-gray-50 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
-                  <div className="w-12 h-12 bg-[#B4B0EE]/10 border border-[#B4B0EE]/30 rounded-lg flex items-center justify-center">
-                    <ArrowUpRight className="w-6 h-6 text-[#B4B0EE]" />
+                  <div className="flex h-12 w-12 items-center justify-center rounded-lg border border-[rgba(133,55,253,0.28)] bg-[rgba(133,55,253,0.12)]">
+                    <ArrowUpRight className="h-6 w-6 text-[var(--app-accent)]" />
                   </div>
 
                   <div className="flex-1">
@@ -231,10 +231,10 @@ export function InvestmentsView() {
 
                 <div className="flex items-center gap-3">
                   <div className="text-right">
-                    <p className="text-xl font-bold text-[#B4B0EE]">
+                    <p className="text-xl font-bold text-[var(--app-accent)]">
                       R$ {transaction.amount.toFixed(2)}
                     </p>
-                    <span className="inline-block mt-1 px-2 py-1 bg-[#B4B0EE]/20 text-[#B4B0EE] rounded text-xs font-medium">
+                    <span className="mt-1 inline-block rounded border border-[rgba(133,55,253,0.2)] bg-[rgba(133,55,253,0.12)] px-2 py-1 text-xs font-medium text-[var(--app-accent)]">
                       Aplicação
                     </span>
                   </div>
@@ -259,9 +259,9 @@ export function InvestmentsView() {
       </div>
 
       {/* Dicas */}
-      <div className="bg-[#B4B0EE]/10 rounded-lg border border-[#B4B0EE]/30 p-4">
-        <h4 className="text-sm font-semibold text-blue-900 mb-2">💡 Sobre Investimentos</h4>
-        <ul className="text-sm text-blue-800 space-y-1">
+      <div className="rounded-lg border border-[rgba(133,55,253,0.18)] bg-[rgba(133,55,253,0.08)] p-4">
+        <h4 className="mb-2 text-sm font-semibold text-slate-900">💡 Sobre Investimentos</h4>
+        <ul className="space-y-1 text-sm text-slate-700">
           <li>• <strong>Aplicar:</strong> Sai do saldo disponível e entra no patrimônio investido</li>
           <li>• <strong>Resgatar:</strong> Volta para o saldo disponível</li>
           <li>• Investimentos não afetam o Valor Diário Padrão</li>
