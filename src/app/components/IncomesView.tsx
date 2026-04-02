@@ -58,10 +58,12 @@ export function IncomesView() {
   const pending = incomes.filter(c => !c.paid);
   const todayStr = getTodayLocal();
   const overdue = pending.filter(c => c.date < todayStr);
+  const upcomingPending = pending.filter(c => c.date >= todayStr);
 
   const totalExpected = incomes.reduce((sum, c) => sum + c.amount, 0);
   const totalReceived = received.reduce((sum, c) => sum + c.amount, 0);
   const totalPending = pending.reduce((sum, c) => sum + c.amount, 0);
+  const upcomingPendingTotal = upcomingPending.reduce((sum, c) => sum + c.amount, 0);
 
   // Loading state
   if (loading) {
@@ -440,12 +442,17 @@ export function IncomesView() {
       {/* A Receber */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
         <div className="px-6 py-4 bg-white/10 border-b border-white/10">
-          <h3 className="text-lg font-semibold text-white">A Receber</h3>
-          <p className="text-sm text-[#9CA3AF] mt-1">{pending.length - overdue.length} entradas previstas</p>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-white">A Receber</h3>
+            <span className="text-lg font-semibold text-[#9B97CE]">
+              {upcomingPendingTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </span>
+          </div>
+          <p className="text-sm text-[#9CA3AF] mt-1">{upcomingPending.length} entradas previstas</p>
         </div>
 
         <div className="divide-y divide-white/10">
-          {pending.filter(c => c.date >= todayStr).map(income => (
+          {upcomingPending.map(income => (
             <div key={income.id} className="px-6 py-4 hover:bg-white/10 transition-colors">
               <div className="flex items-center justify-between">
                 <div className="flex items-center gap-4 flex-1">
@@ -507,7 +514,7 @@ export function IncomesView() {
             </div>
           ))}
 
-          {pending.filter(c => c.date >= todayStr).length === 0 && (
+          {upcomingPending.length === 0 && (
             <div className="px-6 py-8 text-center">
               <p className="text-[#9CA3AF]">Nenhuma entrada pendente</p>
             </div>
@@ -518,7 +525,12 @@ export function IncomesView() {
       {/* Recebidos */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-xl overflow-hidden">
         <div className="px-6 py-4 bg-white/10 border-b border-white/10">
-          <h3 className="text-lg font-semibold text-white">Recebidos</h3>
+          <div className="flex items-center justify-between gap-3">
+            <h3 className="text-lg font-semibold text-white">Recebidos</h3>
+            <span className="text-lg font-semibold text-[#76C893]">
+              {totalReceived.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </span>
+          </div>
           <p className="text-sm text-[#9CA3AF] mt-1">{received.length} entradas recebidas</p>
         </div>
 

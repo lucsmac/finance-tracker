@@ -4,7 +4,6 @@ import {
   TrendingDown,
   Calendar as CalendarIcon,
   AlertCircle,
-  CheckCircle,
   ChevronLeft,
   ChevronRight,
   PieChart as PieChartIcon,
@@ -27,16 +26,17 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import {
-  calculateDailyStandard,
-  calculateCurrentBalance,
-  getVariableExpensesForDate,
-  type Transaction
-} from '../data/mockData';
+import { type Transaction } from '../data/mockData';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useEstimates } from '../../lib/hooks/useEstimates';
 import { useTransactions } from '../../lib/hooks/useTransactions';
 import { useConfig } from '../../lib/hooks/useConfig';
+import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
+import { useDailyPlans } from '@/lib/hooks/useDailyPlans';
+import {
+  getRecordedVariableExpensesTotalForDate
+} from '@/lib/utils/dailyExpenses';
+import { formatDateLocal } from '@/lib/utils/dateHelpers';
 
 type ViewMode = 'month' | 'year';
 
@@ -59,9 +59,11 @@ export function StatsView() {
   const { estimates, loading: estimatesLoading, error: estimatesError } = useEstimates(user?.id);
   const { transactions, loading: transactionsLoading, error: transactionsError } = useTransactions(user?.id);
   const { config, loading: configLoading, error: configError } = useConfig(user?.id);
+  const { dailyExpenses, loading: dailyExpensesLoading, error: dailyExpensesError } = useDailyExpenses(user?.id);
+  const { getPlannedForDate, loading: dailyPlansLoading, error: dailyPlansError } = useDailyPlans(user?.id);
 
-  const loading = estimatesLoading || transactionsLoading || configLoading;
-  const error = estimatesError || transactionsError || configError;
+  const loading = estimatesLoading || transactionsLoading || configLoading || dailyExpensesLoading || dailyPlansLoading;
+  const error = estimatesError || transactionsError || configError || dailyExpensesError || dailyPlansError;
 
   if (loading) {
     return (
@@ -88,8 +90,53 @@ export function StatsView() {
   const today = new Date().toISOString().split('T')[0];
 
   // Cálculos básicos
-  const dailyStandard = calculateDailyStandard(estimates);
-  const currentBalance = calculateCurrentBalance(config?.initialBalance || 0, transactions, config?.balanceStartDate, today);
+  const dailyStandard = config?.dailyStandard || 0;
+  const initialBalance = config?.initialBalance || 0;
+  const balanceStartDate = config?.balanceStartDate || today;
+
+  const getPlannedAmountForDate = (dateStr: string) => {
+    const customPlanned = getPlannedForDate(dateStr);
+    return customPlanned !== null ? customPlanned : dailyStandard;
+  };
+
+  const calculateBalanceUntilDate = (targetDateStr: string): number => {
+    if (targetDateStr < balanceStartDate) {
+      return initialBalance;
+    }
+
+    let balance = initialBalance;
+
+    const [startYear, startMonth, startDay] = balanceStartDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = targetDateStr.split('-').map(Number);
+    const startDate = new Date(startYear, startMonth - 1, startDay);
+    const endDate = new Date(endYear, endMonth - 1, endDay);
+
+    for (let date = new Date(startDate); date <= endDate; date.setDate(date.getDate() + 1)) {
+      const dateStr = formatDateLocal(date.getFullYear(), date.getMonth(), date.getDate());
+      const dayTransactions = transactions.filter(transaction => transaction.date === dateStr);
+
+      balance += dayTransactions
+        .filter(transaction => transaction.type === 'income')
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+      balance -= dayTransactions
+        .filter(transaction => transaction.type === 'expense_fixed')
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+      balance -= dayTransactions
+        .filter(transaction => transaction.type === 'installment')
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+      balance -= dayTransactions
+        .filter(transaction => transaction.type === 'investment')
+        .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+      const recordedVariableExpenses = getRecordedVariableExpensesTotalForDate(dateStr, dailyExpenses, transactions);
+      balance -= recordedVariableExpenses > 0 ? recordedVariableExpenses : getPlannedAmountForDate(dateStr);
+    }
+
+    return balance;
+  };
 
   // Funções de navegação
   const navigatePrevious = () => {
@@ -127,13 +174,11 @@ export function StatsView() {
   const year = selectedDate.getFullYear();
   const month = selectedDate.getMonth();
 
-  let firstDay: Date, lastDay: Date;
+  let lastDay: Date;
 
   if (viewMode === 'month') {
-    firstDay = new Date(year, month, 1);
     lastDay = new Date(year, month + 1, 0);
   } else {
-    firstDay = new Date(year, 0, 1);
     lastDay = new Date(year, 11, 31);
   }
 
@@ -146,6 +191,7 @@ export function StatsView() {
   const transactionsInPeriod = transactions.filter(t => {
     return t.date >= firstDayStr && t.date <= lastDayStr;
   });
+  const dailyExpensesInPeriod = dailyExpenses.filter(expense => expense.date >= firstDayStr && expense.date <= lastDayStr);
 
   // Métricas gerais - incluir tanto pagas quanto não pagas para análise completa
   const totalIncome = transactionsInPeriod
@@ -154,11 +200,13 @@ export function StatsView() {
 
   const totalExpenses = transactionsInPeriod
     .filter(t => t.type !== 'income')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + t.amount, 0) +
+    dailyExpensesInPeriod.reduce((sum, expense) => sum + expense.amount, 0);
 
   const variableExpenses = transactionsInPeriod
     .filter(t => t.type === 'expense_variable')
-    .reduce((sum, t) => sum + t.amount, 0);
+    .reduce((sum, t) => sum + t.amount, 0) +
+    dailyExpensesInPeriod.reduce((sum, expense) => sum + expense.amount, 0);
 
   const fixedExpenses = transactionsInPeriod
     .filter(t => (t.type === 'expense_fixed' || t.type === 'installment'))
@@ -181,16 +229,18 @@ export function StatsView() {
   // e saldo no final do período (após o último dia)
   const transactionsBeforeFirstDay = transactions.filter(t => t.date < firstDayStr);
   const transactionsUntilLastDay = transactions.filter(t => t.date <= lastDayStr);
+  const dailyExpensesBeforeFirstDay = dailyExpenses.filter(expense => expense.date < firstDayStr);
+  const dailyExpensesUntilLastDay = dailyExpenses.filter(expense => expense.date <= lastDayStr);
 
   const balanceBeforePeriod = calculateBalanceForAnalysis(
     config?.initialBalance || 0,
     transactionsBeforeFirstDay
-  );
+  ) - dailyExpensesBeforeFirstDay.reduce((sum, expense) => sum + expense.amount, 0);
 
   const balanceAfterPeriod = calculateBalanceForAnalysis(
     config?.initialBalance || 0,
     transactionsUntilLastDay
-  );
+  ) - dailyExpensesUntilLastDay.reduce((sum, expense) => sum + expense.amount, 0);
 
   const periodBalanceChange = balanceAfterPeriod - balanceBeforePeriod;
 
@@ -209,7 +259,8 @@ export function StatsView() {
 
       const dayExpense = transactions
         .filter(t => t.date === dateStr && t.type !== 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
+        .reduce((sum, t) => sum + t.amount, 0) +
+        dailyExpenses.filter(expense => expense.date === dateStr).reduce((sum, expense) => sum + expense.amount, 0);
 
       if (dayIncome > 0 || dayExpense > 0) {
         incomeVsExpenses.push({
@@ -234,7 +285,10 @@ export function StatsView() {
 
       const monthExpense = transactions
         .filter(t => t.type !== 'income' && t.date >= monthStartStr && t.date <= monthEndStr)
-        .reduce((sum, t) => sum + t.amount, 0);
+        .reduce((sum, t) => sum + t.amount, 0) +
+        dailyExpenses
+          .filter(expense => expense.date >= monthStartStr && expense.date <= monthEndStr)
+          .reduce((sum, expense) => sum + expense.amount, 0);
 
       incomeVsExpenses.push({
         label: monthNames[m],
@@ -255,35 +309,38 @@ export function StatsView() {
       return acc;
     }, {});
 
+  dailyExpensesInPeriod.forEach(expense => {
+    if (!expensesByCategory[expense.category]) {
+      expensesByCategory[expense.category] = 0;
+    }
+
+    expensesByCategory[expense.category] += expense.amount;
+  });
+
   const categoryChartData = Object.entries(expensesByCategory)
     .map(([category, amount]: [string, any]) => ({
       name: category,
       value: parseFloat(amount.toFixed(2)),
-      percentage: ((amount / totalExpenses) * 100).toFixed(1)
+      percentage: totalExpenses > 0 ? ((amount / totalExpenses) * 100).toFixed(1) : '0.0'
     }))
     .sort((a, b) => b.value - a.value);
 
   // Dados para gráfico de pizza
   const pieColors = ['#76C893', '#9B97CE', '#8B7AB8', '#E6C563', '#D97B7B', '#C9B574', '#7FB77E', '#A69FBD'];
 
-  // Dados de performance diária (apenas para visualização mensal)
-  const performanceData = [];
+  // Dados da curva diária de saldo (apenas para visualização mensal)
+  const dailyBalanceData = [];
 
   if (viewMode === 'month') {
     const daysInMonth = new Date(year, month + 1, 0).getDate();
     for (let day = 1; day <= daysInMonth; day++) {
-      const date = new Date(year, month, day);
-      const dateStr = date.toISOString().split('T')[0];
-      const dayExpenses = getVariableExpensesForDate(dateStr, transactions);
+      const dateStr = formatDateLocal(year, month, day);
+      const dailyBalance = calculateBalanceUntilDate(dateStr);
 
-      if (date <= new Date(today) && dayExpenses > 0) {
-        performanceData.push({
-          dia: `${day}`,
-          padrão: parseFloat(dailyStandard.toFixed(2)),
-          real: parseFloat(dayExpenses.toFixed(2)),
-          diferença: parseFloat((dailyStandard - dayExpenses).toFixed(2))
-        });
-      }
+      dailyBalanceData.push({
+        dia: `${day}`,
+        saldo: parseFloat(dailyBalance.toFixed(2))
+      });
     }
   }
 
@@ -301,6 +358,8 @@ export function StatsView() {
   }
 
   const savingsRate = totalIncome > 0 ? ((totalIncome - totalExpenses) / totalIncome) * 100 : 0;
+  const variableExpenseShare = totalExpenses > 0 ? (variableExpenses / totalExpenses) * 100 : 0;
+  const fixedExpenseShare = totalExpenses > 0 ? (fixedExpenses / totalExpenses) * 100 : 0;
   if (savingsRate > 20) {
     insights.push({
       type: 'positive',
@@ -423,6 +482,50 @@ export function StatsView() {
         </div>
       </div>
 
+      {/* Gráfico de Saldo Diário (apenas modo mês) */}
+      {viewMode === 'month' && dailyBalanceData.length > 0 && (
+        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
+          <h3 className="text-xl font-semibold text-white mb-2">Curva de Saldo Diário</h3>
+          <p className="text-sm text-white/50 mb-6">
+            Evolução do saldo ao longo do mês, usando gastos reais quando existirem e o planejado como fallback.
+          </p>
+
+          <ResponsiveContainer width="100%" height={300}>
+            <AreaChart data={dailyBalanceData}>
+              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+              <XAxis
+                dataKey="dia"
+                stroke="#9CA3AF"
+                style={{ fontSize: '12px' }}
+                label={{ value: 'Dia do mês', position: 'insideBottom', offset: -5, fill: '#9CA3AF' }}
+              />
+              <YAxis
+                stroke="#9CA3AF"
+                style={{ fontSize: '12px' }}
+                tickFormatter={(value) => `R$ ${value}`}
+              />
+              <Tooltip
+                contentStyle={{
+                  backgroundColor: '#161618',
+                  border: '1px solid #ffffff20',
+                  borderRadius: '8px'
+                }}
+                formatter={(value: any) => `R$ ${formatCurrency(value)}`}
+              />
+              <Legend />
+              <Area
+                type="monotone"
+                dataKey="saldo"
+                stroke="#76C893"
+                fill="#76C893"
+                fillOpacity={0.3}
+                name="Saldo diário"
+              />
+            </AreaChart>
+          </ResponsiveContainer>
+        </div>
+      )}
+
       {/* Gráfico: Entradas vs Saídas */}
       <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
         <h3 className="text-xl font-semibold text-white mb-6">Entradas vs Saídas</h3>
@@ -530,55 +633,6 @@ export function StatsView() {
         </div>
       </div>
 
-      {/* Gráfico de Performance Diária (apenas modo mês) */}
-      {viewMode === 'month' && performanceData.length > 0 && (
-        <div className="bg-white/5 backdrop-blur-xl border border-white/10 rounded-3xl p-6 shadow-2xl">
-          <h3 className="text-xl font-semibold text-white mb-6">Performance Diária vs Padrão</h3>
-
-          <ResponsiveContainer width="100%" height={300}>
-            <AreaChart data={performanceData.slice(-15)}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
-              <XAxis
-                dataKey="dia"
-                stroke="#9CA3AF"
-                style={{ fontSize: '12px' }}
-                label={{ value: 'Dia do mês', position: 'insideBottom', offset: -5, fill: '#9CA3AF' }}
-              />
-              <YAxis
-                stroke="#9CA3AF"
-                style={{ fontSize: '12px' }}
-                tickFormatter={(value) => `R$ ${value}`}
-              />
-              <Tooltip
-                contentStyle={{
-                  backgroundColor: '#161618',
-                  border: '1px solid #ffffff20',
-                  borderRadius: '8px'
-                }}
-                formatter={(value: any) => `R$ ${formatCurrency(value)}`}
-              />
-              <Legend />
-              <Area
-                type="monotone"
-                dataKey="padrão"
-                stroke="#9B97CE"
-                fill="#9B97CE"
-                fillOpacity={0.3}
-                name="Padrão Diário"
-              />
-              <Area
-                type="monotone"
-                dataKey="real"
-                stroke="#76C893"
-                fill="#76C893"
-                fillOpacity={0.3}
-                name="Gasto Real"
-              />
-            </AreaChart>
-          </ResponsiveContainer>
-        </div>
-      )}
-
       {/* Resumo de Tipos de Gasto */}
       <div className="grid grid-cols-2 gap-6">
         <div className="bg-[#76C893]/10 border border-[#76C893]/30 rounded-3xl p-6">
@@ -594,11 +648,11 @@ export function StatsView() {
           <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
             <div
               className="h-full bg-[#76C893]"
-              style={{ width: `${(variableExpenses / totalExpenses) * 100}%` }}
+              style={{ width: `${variableExpenseShare}%` }}
             />
           </div>
           <p className="text-xs text-white/50 mt-2">
-            {((variableExpenses / totalExpenses) * 100).toFixed(0)}% do total de gastos
+            {variableExpenseShare.toFixed(0)}% do total de gastos
           </p>
         </div>
 
@@ -615,11 +669,11 @@ export function StatsView() {
           <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
             <div
               className="h-full bg-[#8B7AB8]"
-              style={{ width: `${(fixedExpenses / totalExpenses) * 100}%` }}
+              style={{ width: `${fixedExpenseShare}%` }}
             />
           </div>
           <p className="text-xs text-white/50 mt-2">
-            {((fixedExpenses / totalExpenses) * 100).toFixed(0)}% do total de gastos
+            {fixedExpenseShare.toFixed(0)}% do total de gastos
           </p>
         </div>
       </div>

@@ -16,12 +16,17 @@ import { useEstimates } from '@/lib/hooks/useEstimates';
 import { useTransactions } from '@/lib/hooks/useTransactions';
 import { useConfig } from '@/lib/hooks/useConfig';
 import { useDailyPlans } from '@/lib/hooks/useDailyPlans';
+import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
 import {
   calculateCurrentBalance,
-  getVariableExpensesForDate,
   checkProjectionStatus
 } from '../data/mockData';
-import { formatDateLocal, getTodayLocal, parseDateString, createDateFromString, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
+import { formatDateLocal, getTodayLocal, createDateFromString, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
+import {
+  getRecordedVariableExpensesTotalForDate,
+  getVariableExpenseEntriesForDate,
+  sumDailyExpensesUntilDate
+} from '@/lib/utils/dailyExpenses';
 
 interface DashboardProps {
   onNavigate?: (view: string) => void;
@@ -30,11 +35,21 @@ interface DashboardProps {
 export function Dashboard({ onNavigate }: DashboardProps) {
   const { user } = useAuth();
   const { estimates, loading: loadingEstimates } = useEstimates(user?.id);
-  const { transactions, loading: loadingTransactions, createTransaction, cancelFutureRecurring } = useTransactions(user?.id);
+  const { transactions, loading: loadingTransactions, cancelFutureRecurring } = useTransactions(user?.id);
   const { config, loading: loadingConfig, createConfig } = useConfig(user?.id);
-  const { dailyPlans, loading: loadingPlans, upsertDailyPlan, getPlannedForDate, refresh: refreshDailyPlans } = useDailyPlans(user?.id);
+  const { loading: loadingPlans, upsertDailyPlan, getPlannedForDate, refresh: refreshDailyPlans } = useDailyPlans(user?.id);
+  const {
+    dailyExpenses,
+    loading: loadingDailyExpenses,
+    createDailyExpense,
+    deleteDailyExpense,
+    getExpensesForDate,
+    refresh: refreshDailyExpenses
+  } = useDailyExpenses(user?.id);
   const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Data atual
-  const [saving, setSaving] = useState(false);
+  const [savingPlanned, setSavingPlanned] = useState(false);
+  const [savingDailyExpense, setSavingDailyExpense] = useState(false);
+  const [deletingDailyExpenseId, setDeletingDailyExpenseId] = useState<string | null>(null);
   const [configCreationAttempted, setConfigCreationAttempted] = useState(false);
 
   // Auto-create default config if user doesn't have one
@@ -59,7 +74,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   // Estados do modal unificado com abas
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
   const [selectedDay, setSelectedDay] = useState<string>('');
-  const [activeTab, setActiveTab] = useState<string>('planned'); // 'planned' ou 'details'
+  const [activeTab, setActiveTab] = useState<string>('expenses'); // 'expenses' ou 'details'
+  const [dailyExpenseForm, setDailyExpenseForm] = useState({
+    title: '',
+    category: '',
+    amount: ''
+  });
   const [plannedForm, setPlannedForm] = useState({
     plannedAmount: ''
   });
@@ -75,17 +95,56 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   });
 
   // Loading state
-  const loading = loadingEstimates || loadingTransactions || loadingConfig || loadingPlans;
+  const loading = loadingEstimates || loadingTransactions || loadingConfig || loadingPlans || loadingDailyExpenses;
 
   // Calcular valores baseados na data selecionada
-  const currentDateStr = formatDateLocal(selectedDate.getFullYear(), selectedDate.getMonth(), selectedDate.getDate());
   const dailyStandard = config?.dailyStandard || 0;
   const initialBalance = config?.initialBalance || 0;
 
   // Usar a data real atual
   const today = getTodayLocal();
-  const currentBalance = calculateCurrentBalance(initialBalance, transactions, config?.balanceStartDate, today);
-  const todayExpenses = getVariableExpensesForDate(today, transactions);
+  const getPlannedAmountForDate = (dateStr: string) => {
+    const customPlanned = getPlannedForDate(dateStr);
+    return customPlanned !== null ? customPlanned : dailyStandard;
+  };
+
+  const getRecordedVariableExpensesForDate = (dateStr: string) => {
+    return getRecordedVariableExpensesTotalForDate(dateStr, dailyExpenses, transactions);
+  };
+
+  const getProjectedVariableExpensesForDate = (dateStr: string) => {
+    const hypotheticalVariableExpenses = hypotheticalTransactions
+      .filter(t => t.type === 'expense_variable' && t.date === dateStr)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return getRecordedVariableExpensesForDate(dateStr) + hypotheticalVariableExpenses;
+  };
+
+  const getEffectiveVariableExpensesForDate = (dateStr: string) => {
+    const projectedVariableExpenses = getProjectedVariableExpensesForDate(dateStr);
+    return projectedVariableExpenses > 0 ? projectedVariableExpenses : getPlannedAmountForDate(dateStr);
+  };
+
+  const getDayTotals = (dateStr: string, dayTransactions: any[]) => {
+    const dayIncomes = dayTransactions
+      .filter(t => t.type === 'income')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const nonVariableExpenses = dayTransactions
+      .filter(t => t.type !== 'income' && t.type !== 'expense_variable')
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const dayExpenses = nonVariableExpenses + getEffectiveVariableExpensesForDate(dateStr);
+
+    return {
+      dayIncomes,
+      dayExpenses
+    };
+  };
+
+  const currentBalance = calculateCurrentBalance(initialBalance, transactions, config?.balanceStartDate, today) -
+    sumDailyExpensesUntilDate(dailyExpenses, today, config?.balanceStartDate);
+  const todayExpenses = getRecordedVariableExpensesForDate(today);
   const todayVariation = dailyStandard - todayExpenses;
 
   // Calcular próxima renda baseado no config do usuário
@@ -139,8 +198,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     const todayObj = createDateFromString(today);
     const currentMonth = todayObj.getMonth();
     const currentYear = todayObj.getFullYear();
-    const monthStart = formatDateLocal(currentYear, currentMonth, 1);
-
     let totalVariation = 0;
 
     // Processar cada dia desde o início do mês até hoje
@@ -150,19 +207,14 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     for (let day = startDay; day <= endDay; day++) {
       const dateStr = formatDateLocal(currentYear, currentMonth, day);
 
-      // Pegar gastos variáveis do dia
-      const dayVariableExpenses = transactions
-        .filter(t => t.type === 'expense_variable' && t.date === dateStr)
-        .reduce((sum, t) => sum + t.amount, 0);
+      const dayVariableExpenses = getRecordedVariableExpensesForDate(dateStr);
 
       if (dayVariableExpenses > 0) {
         // Tem gastos reais: comparar com o padrão
         totalVariation += (dailyStandard - dayVariableExpenses);
       } else {
         // Não tem gastos: verificar se tem planejado customizado
-        const customPlanned = getPlannedForDate(dateStr);
-        const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
-        totalVariation += (dailyStandard - plannedAmount);
+        totalVariation += (dailyStandard - getPlannedAmountForDate(dateStr));
       }
     }
 
@@ -210,16 +262,72 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   };
 
   // Funções do modal unificado
-  const handleDayClick = (dateStr: string, tab: 'planned' | 'details' = 'planned') => {
+  const handleDayClick = (dateStr: string, tab: 'expenses' | 'details' = 'expenses') => {
     setSelectedDay(dateStr);
     setActiveTab(tab);
     setIsDayModalOpen(true);
+    setDailyExpenseForm({
+      title: '',
+      category: '',
+      amount: ''
+    });
 
     // Carregar o planejado do dia (se existir) ou usar o padrão
-    const customPlanned = getPlannedForDate(dateStr);
     setPlannedForm({
-      plannedAmount: customPlanned !== null ? customPlanned.toString() : dailyStandard.toString()
+      plannedAmount: getPlannedAmountForDate(dateStr).toString()
     });
+  };
+
+  const handleAddDailyExpense = async () => {
+    if (!selectedDay) return;
+
+    if (!dailyExpenseForm.title || !dailyExpenseForm.category || !dailyExpenseForm.amount) {
+      alert('Preencha título, categoria e valor do gasto.');
+      return;
+    }
+
+    const amount = parseFloat(dailyExpenseForm.amount);
+    if (isNaN(amount) || amount <= 0) {
+      alert('Informe um valor válido maior que zero.');
+      return;
+    }
+
+    try {
+      setSavingDailyExpense(true);
+      await createDailyExpense({
+        date: selectedDay,
+        title: dailyExpenseForm.title,
+        category: dailyExpenseForm.category,
+        amount
+      });
+      await refreshDailyExpenses();
+      setDailyExpenseForm({
+        title: '',
+        category: '',
+        amount: ''
+      });
+    } catch (err) {
+      console.error('Error creating daily expense:', err);
+      alert('Erro ao adicionar gasto diário. Tente novamente.');
+    } finally {
+      setSavingDailyExpense(false);
+    }
+  };
+
+  const handleDeleteDailyExpense = async (id: string) => {
+    const confirmed = confirm('Deseja remover este lançamento diário?');
+    if (!confirmed) return;
+
+    try {
+      setDeletingDailyExpenseId(id);
+      await deleteDailyExpense(id);
+      await refreshDailyExpenses();
+    } catch (err) {
+      console.error('Error deleting daily expense:', err);
+      alert('Erro ao remover gasto diário. Tente novamente.');
+    } finally {
+      setDeletingDailyExpenseId(null);
+    }
   };
 
   const handleSavePlanned = async () => {
@@ -235,17 +343,16 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     }
 
     try {
-      setSaving(true);
+      setSavingPlanned(true);
       await upsertDailyPlan(selectedDay, value);
       await refreshDailyPlans(); // Reload data after saving
       alert('Planejamento salvo com sucesso!');
-      setIsDayModalOpen(false);
     } catch (err: any) {
       console.error('Error saving planned:', err);
       const errorMessage = err?.message || err?.error?.message || JSON.stringify(err);
       alert(`Erro ao salvar planejamento: ${errorMessage}`);
     } finally {
-      setSaving(false);
+      setSavingPlanned(false);
     }
   };
 
@@ -366,19 +473,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
         balance -= t.amount;
       });
 
-      // 5. GASTOS VARIÁVEIS - usar REALIZADO se existir, senão usar PLANEJADO
-      const variableExpenses = dayTransactions.filter(t => t.type === 'expense_variable');
-
-      if (variableExpenses.length > 0) {
-        // Tem gasto real: usar o total real
-        const totalReal = variableExpenses.reduce((sum, t) => sum + t.amount, 0);
-        balance -= totalReal;
-      } else {
-        // Não tem gasto real: descontar o planejado (customizado ou padrão)
-        const customPlanned = getPlannedForDate(dateStr);
-        const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
-        balance -= plannedAmount;
-      }
+      // 5. GASTOS VARIÁVEIS - usar os lançamentos diários/simulações se existirem, senão usar PLANEJADO
+      balance -= getEffectiveVariableExpensesForDate(dateStr);
     });
 
     return balance;
@@ -399,9 +495,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
       // Calcular gastos do dia para exibição
       const dayTransactions = [...transactions, ...hypotheticalTransactions].filter(t => t.date === dateStr);
-      const dayExpenses = dayTransactions
-        .filter(t => t.type !== 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
+      const { dayExpenses } = getDayTotals(dateStr, dayTransactions);
 
       calendarDays.push({
         day,
@@ -432,9 +526,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
     // Calcular gastos do dia para exibição
     const dayTransactions = allTransactions.filter(t => t.date === dateStr);
-    const dayExpenses = dayTransactions
-      .filter(t => t.type !== 'income')
-      .reduce((sum, t) => sum + t.amount, 0);
+    const { dayExpenses } = getDayTotals(dateStr, dayTransactions);
 
     // Determinar status baseado no saldo
     let status = 'neutral';
@@ -475,9 +567,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
       // Calcular gastos do dia para exibição
       const dayTransactions = [...transactions, ...hypotheticalTransactions].filter(t => t.date === dateStr);
-      const dayExpenses = dayTransactions
-        .filter(t => t.type !== 'income')
-        .reduce((sum, t) => sum + t.amount, 0);
+      const { dayExpenses } = getDayTotals(dateStr, dayTransactions);
 
       calendarDays.push({
         day,
@@ -681,22 +771,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           // Calcular entradas e saídas do dia
           const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
           const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-
-          // Calcular saídas: considerar valor planejado se não houver gastos variáveis
-          const variableExpenses = dayTransactions.filter(t => t.type === 'expense_variable');
-          const otherExpenses = dayTransactions.filter(t => t.type !== 'income' && t.type !== 'expense_variable');
-          const otherExpensesTotal = otherExpenses.reduce((sum, t) => sum + t.amount, 0);
-
-          let dayExpenses = otherExpensesTotal;
-          if (variableExpenses.length > 0) {
-            // Tem gastos reais variáveis: usar o total real
-            dayExpenses += variableExpenses.reduce((sum, t) => sum + t.amount, 0);
-          } else {
-            // Não tem gastos reais: usar o planejado (customizado ou padrão)
-            const customPlanned = getPlannedForDate(dayData.dateStr);
-            const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
-            dayExpenses += plannedAmount;
-          }
+          const { dayExpenses } = getDayTotals(dayData.dateStr, dayTransactions);
 
           return (
             <div
@@ -762,20 +837,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               // Calcular entradas e saídas do dia
               const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
               const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-
-              // Calcular saídas: considerar valor planejado se não houver gastos variáveis
-              const variableExpenses = dayTransactions.filter(t => t.type === 'expense_variable');
-              const otherExpenses = dayTransactions.filter(t => t.type !== 'income' && t.type !== 'expense_variable');
-              const otherExpensesTotal = otherExpenses.reduce((sum, t) => sum + t.amount, 0);
-
-              let dayExpenses = otherExpensesTotal;
-              if (variableExpenses.length > 0) {
-                dayExpenses += variableExpenses.reduce((sum, t) => sum + t.amount, 0);
-              } else {
-                const customPlanned = getPlannedForDate(dayData.dateStr);
-                const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
-                dayExpenses += plannedAmount;
-              }
+              const { dayExpenses } = getDayTotals(dayData.dateStr, dayTransactions);
 
               return (
                 <div
@@ -845,20 +907,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
             // Calcular entradas e saídas do dia (incluindo transações hipotéticas)
             const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
             const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
-
-            // Calcular saídas: considerar valor planejado se não houver gastos variáveis
-            const variableExpenses = dayTransactions.filter(t => t.type === 'expense_variable');
-            const otherExpenses = dayTransactions.filter(t => t.type !== 'income' && t.type !== 'expense_variable');
-            const otherExpensesTotal = otherExpenses.reduce((sum, t) => sum + t.amount, 0);
-
-            let dayExpenses = otherExpensesTotal;
-            if (variableExpenses.length > 0) {
-              dayExpenses += variableExpenses.reduce((sum, t) => sum + t.amount, 0);
-            } else {
-              const customPlanned = getPlannedForDate(dayData.dateStr);
-              const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
-              dayExpenses += plannedAmount;
-            }
+            const { dayExpenses } = getDayTotals(dayData.dateStr, dayTransactions);
 
             return (
               <div
@@ -950,9 +999,9 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
             <TabsList className="w-full bg-white/5 border border-white/10 grid grid-cols-2">
-              <TabsTrigger value="planned" className="flex-1 text-white/60 data-[state=active]:bg-white/10 data-[state=active]:text-white hover:text-white transition-colors">
+              <TabsTrigger value="expenses" className="flex-1 text-white/60 data-[state=active]:bg-white/10 data-[state=active]:text-white hover:text-white transition-colors">
                 <DollarSign className="w-4 h-4 mr-2" />
-                Gasto do dia
+                Lançamentos do dia
               </TabsTrigger>
               <TabsTrigger value="details" className="flex-1 text-white/60 data-[state=active]:bg-white/10 data-[state=active]:text-white hover:text-white transition-colors">
                 <Eye className="w-4 h-4 mr-2" />
@@ -960,79 +1009,231 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               </TabsTrigger>
             </TabsList>
 
-            <TabsContent value="planned" className="mt-6">
-              <div className="space-y-4">
-                {/* Info sobre planejado */}
-                <div className="p-4 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-xl">
-                  <p className="text-sm text-white/70">
-                    <strong className="text-[#9B97CE]">ℹ️ Como funciona:</strong> Se você não registrar gastos reais neste dia,
-                    o sistema vai descontar automaticamente o valor planejado do seu saldo.
-                    Defina um valor customizado aqui ou deixe em branco para usar o padrão.
-                  </p>
-                </div>
+            <TabsContent value="expenses" className="mt-6">
+              {(() => {
+                const dailyExpenseEntries = getExpensesForDate(selectedDay);
+                const recordedVariableEntries = getVariableExpenseEntriesForDate(selectedDay, dailyExpenses, transactions)
+                  .filter(entry => entry.source === 'daily_expense' || entry.paid);
+                const legacyVariableEntries = recordedVariableEntries.filter(entry => entry.source === 'legacy_transaction');
+                const recordedTotal = getRecordedVariableExpensesForDate(selectedDay);
+                const plannedAmount = getPlannedAmountForDate(selectedDay);
 
-                {/* Valor Padrão */}
-                <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
-                  <p className="text-xs text-[#9CA3AF] mb-1">Valor diário padrão (global)</p>
-                  <p className="text-2xl font-bold text-white">{dailyStandard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                </div>
+                return (
+                  <div className="space-y-4">
+                    <div className="p-4 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-xl">
+                      <p className="text-sm text-white/70">
+                        <strong className="text-[#9B97CE]">ℹ️ Como funciona:</strong> cada gasto diário agora é um lançamento com
+                        título, categoria e valor. O total do dia é a soma desses lançamentos. Se não houver lançamento real,
+                        o sistema usa o valor planejado deste dia na projeção.
+                      </p>
+                    </div>
 
-                {/* Valor Planejado Customizado para este dia */}
-                <div>
-                  <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
-                    Valor gasto neste dia
-                  </label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60">R$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      placeholder={`Padrão: ${dailyStandard.toFixed(2)}`}
-                      value={plannedForm.plannedAmount}
-                      onChange={(e) => setPlannedForm({ ...plannedForm, plannedAmount: e.target.value })}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
-                    />
+                    <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+                      <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                        <p className="text-xs text-[#9CA3AF] mb-1">Gasto lançado</p>
+                        <p className="text-2xl font-bold text-white">
+                          {recordedTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                        <p className="text-xs text-[#9CA3AF] mb-1">Planejado do dia</p>
+                        <p className="text-2xl font-bold text-[#9B97CE]">
+                          {plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </p>
+                      </div>
+                      <div className="p-4 bg-white/5 border border-white/10 rounded-xl">
+                        <p className="text-xs text-[#9CA3AF] mb-1">Valor diário padrão</p>
+                        <p className="text-2xl font-bold text-white">
+                          {dailyStandard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </p>
+                      </div>
+                    </div>
+
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4">
+                      <h4 className="text-sm font-semibold text-white">Adicionar gasto diário</h4>
+
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                            Título *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Ex: Almoço, Uber, Farmácia"
+                            value={dailyExpenseForm.title}
+                            onChange={(e) => setDailyExpenseForm({ ...dailyExpenseForm, title: e.target.value })}
+                            className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                          />
+                        </div>
+
+                        <div>
+                          <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                            Categoria *
+                          </label>
+                          <input
+                            type="text"
+                            placeholder="Ex: Alimentação, Transporte"
+                            value={dailyExpenseForm.category}
+                            onChange={(e) => setDailyExpenseForm({ ...dailyExpenseForm, category: e.target.value })}
+                            className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                          Valor *
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60">R$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder="0,00"
+                            value={dailyExpenseForm.amount}
+                            onChange={(e) => setDailyExpenseForm({ ...dailyExpenseForm, amount: e.target.value })}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+
+                      <button
+                        onClick={handleAddDailyExpense}
+                        disabled={savingDailyExpense}
+                        className="w-full px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                      >
+                        {savingDailyExpense ? 'Salvando lançamento...' : 'Adicionar lançamento'}
+                      </button>
+                    </div>
+
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-3">
+                      <div className="flex items-center justify-between">
+                        <h4 className="text-sm font-semibold text-white">Lançamentos cadastrados</h4>
+                        <span className="text-sm text-[#9CA3AF]">
+                          {dailyExpenseEntries.length} item(ns)
+                        </span>
+                      </div>
+
+                      {dailyExpenseEntries.length === 0 ? (
+                        <div className="text-center py-6">
+                          <p className="text-[#9CA3AF]">Nenhum gasto diário cadastrado para esta data.</p>
+                        </div>
+                      ) : (
+                        dailyExpenseEntries.map(expense => (
+                          <div key={expense.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg">
+                            <div>
+                              <p className="font-medium text-white">{expense.title}</p>
+                              <p className="text-sm text-[#9CA3AF]">{expense.category}</p>
+                            </div>
+                            <div className="flex items-center gap-3">
+                              <p className="text-lg font-bold text-white">
+                                {expense.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                              </p>
+                              <button
+                                onClick={() => handleDeleteDailyExpense(expense.id)}
+                                disabled={deletingDailyExpenseId === expense.id}
+                                className="p-2 bg-red-500/10 hover:bg-red-500/20 rounded-lg text-red-300 transition-colors disabled:opacity-50"
+                                title="Remover lançamento"
+                              >
+                                <X className="w-4 h-4" />
+                              </button>
+                            </div>
+                          </div>
+                        ))
+                      )}
+                    </div>
+
+                    {legacyVariableEntries.length > 0 && (
+                      <div className="bg-[#9B97CE]/10 border border-[#9B97CE]/20 rounded-xl p-4 space-y-3">
+                        <h4 className="text-sm font-semibold text-white">Lançamentos legados</h4>
+                        <p className="text-xs text-white/50">
+                          Estes gastos vieram do modelo antigo de transações variáveis e continuam contando no total do dia.
+                        </p>
+                        {legacyVariableEntries.map(entry => (
+                          <div key={entry.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg">
+                            <div>
+                              <p className="font-medium text-white">{entry.title}</p>
+                              <p className="text-sm text-[#9CA3AF]">{entry.category}</p>
+                            </div>
+                            <p className="text-lg font-bold text-white">
+                              {entry.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </p>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    <div className="bg-white/5 border border-white/10 rounded-xl p-4 space-y-4">
+                      <div>
+                        <h4 className="text-sm font-semibold text-white">Planejamento do dia</h4>
+                        <p className="text-xs text-white/50 mt-1">
+                          Se não houver lançamentos reais para este dia, a projeção usa este valor. Deixe igual ao padrão ou ajuste se necessário.
+                        </p>
+                      </div>
+
+                      <div>
+                        <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                          Valor planejado para o dia
+                        </label>
+                        <div className="relative">
+                          <span className="absolute left-3 top-1/2 -translate-y-1/2 text-white/60">R$</span>
+                          <input
+                            type="number"
+                            step="0.01"
+                            placeholder={`Padrão: ${dailyStandard.toFixed(2)}`}
+                            value={plannedForm.plannedAmount}
+                            onChange={(e) => setPlannedForm({ ...plannedForm, plannedAmount: e.target.value })}
+                            onWheel={(e) => e.currentTarget.blur()}
+                            className="w-full pl-10 pr-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white placeholder-white/30 focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
+                          />
+                        </div>
+                      </div>
+
+                      <div className="flex gap-3">
+                        <button
+                          onClick={() => setIsDayModalOpen(false)}
+                          className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-white rounded-xl transition-colors"
+                        >
+                          Fechar
+                        </button>
+                        <button
+                          onClick={handleSavePlanned}
+                          disabled={savingPlanned}
+                          className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        >
+                          {savingPlanned ? 'Salvando...' : 'Salvar planejamento'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
-                  <p className="text-xs text-white/40 mt-1">
-                    Deixe em branco para usar o valor padrão. Defina um valor específico se este dia for diferente.
-                  </p>
-                </div>
-
-                {/* Botões de ação */}
-                <div className="flex gap-3 mt-6">
-                  <button
-                    onClick={() => setIsDayModalOpen(false)}
-                    className="flex-1 px-4 py-3 bg-white/5 hover:bg-white/10 border border-white/20 text-white rounded-xl transition-colors"
-                  >
-                    Cancelar
-                  </button>
-                  <button
-                    onClick={handleSavePlanned}
-                    disabled={saving}
-                    className="flex-1 px-4 py-3 bg-[#76C893] hover:bg-[#9B97CE] text-[#161618] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                  >
-                    {saving ? 'Salvando...' : 'Salvar planejamento'}
-                  </button>
-                </div>
-              </div>
+                );
+              })()}
             </TabsContent>
 
             <TabsContent value="details" className="mt-6">
               <div className="space-y-4">
                 {(() => {
-                  // Filtrar transações do dia
                   const dayTransactions = transactions.filter(t => t.date === selectedDay);
-                  const dayExpenses = dayTransactions.filter(t => t.type !== 'income');
                   const dayIncomes = dayTransactions.filter(t => t.type === 'income');
+                  const fixedExpenses = dayTransactions.filter(t => t.type === 'expense_fixed');
+                  const installments = dayTransactions.filter(t => t.type === 'installment');
+                  const investments = dayTransactions.filter(t => t.type === 'investment');
+                  const variableExpenseEntries = getVariableExpenseEntriesForDate(selectedDay, dailyExpenses, transactions)
+                    .filter(entry => entry.source === 'daily_expense' || entry.paid);
 
-                  const totalExpenses = dayExpenses.reduce((sum, t) => sum + t.amount, 0);
-                  const totalIncomes = dayIncomes.reduce((sum, t) => sum + t.amount, 0);
+                  const totalVariableExpenses = variableExpenseEntries.reduce((sum, entry) => sum + entry.amount, 0);
+                  const totalFixedExpenses = [...fixedExpenses, ...installments, ...investments]
+                    .reduce((sum, transaction) => sum + transaction.amount, 0);
+                  const totalExpenses = totalVariableExpenses + totalFixedExpenses;
+                  const totalIncomes = dayIncomes.reduce((sum, transaction) => sum + transaction.amount, 0);
                   const balance = totalIncomes - totalExpenses;
+                  const plannedAmount = getPlannedAmountForDate(selectedDay);
+                  const difference = plannedAmount - totalVariableExpenses;
+                  const hasRealExpenses = totalVariableExpenses > 0;
 
                   return (
                     <>
-                      {/* Resumo do Dia */}
                       <div className="grid grid-cols-3 gap-4 p-4 bg-white/5 rounded-xl border border-white/10">
                         <div className="text-center">
                           <p className="text-xs text-[#9CA3AF] mb-1">Entradas</p>
@@ -1050,63 +1251,43 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                         </div>
                       </div>
 
-                      {/* Planejado vs Realizado */}
-                      {(() => {
-                        const variableExpenses = dayTransactions
-                          .filter(t => t.type === 'expense_variable')
-                          .reduce((sum, t) => sum + t.amount, 0);
-
-                        // Pegar o planejado (customizado ou padrão)
-                        const customPlanned = getPlannedForDate(selectedDay);
-                        const plannedAmount = customPlanned !== null ? customPlanned : dailyStandard;
-                        const difference = plannedAmount - variableExpenses;
-                        const hasRealExpenses = variableExpenses > 0;
-
-                        return (
-                          <div className="p-4 bg-white/5 rounded-xl border border-white/10">
-                            <h4 className="text-sm font-semibold text-white mb-3">Planejado vs Realizado</h4>
-                            <div className="grid grid-cols-3 gap-4">
-                              <div>
-                                <p className="text-xs text-[#9CA3AF] mb-1">Planejado</p>
-                                <p className="text-xl font-bold text-[#9B97CE]">{plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                                {customPlanned !== null && (
-                                  <p className="text-xs text-[#9B97CE] mt-1">Customizado</p>
-                                )}
-                              </div>
-                              <div className="text-center border-x border-white/10">
-                                <p className="text-xs text-[#9CA3AF] mb-1">Realizado</p>
-                                <p className={`text-xl font-bold ${hasRealExpenses ? 'text-white' : 'text-white/30'}`}>
-                                  {variableExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                </p>
-                                {!hasRealExpenses && (
-                                  <p className="text-xs text-white/50 mt-1">Sem gastos</p>
-                                )}
-                              </div>
-                              <div className="text-right">
-                                <p className="text-xs text-[#9CA3AF] mb-1">Diferença</p>
-                                <p className={`text-xl font-bold ${difference >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-                                  {difference >= 0 ? '+' : ''}{difference.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-                                </p>
-                                {difference >= 0 ? (
-                                  <p className="text-xs text-[#76C893] mt-1">Economizou!</p>
-                                ) : (
-                                  <p className="text-xs text-[#D97B7B] mt-1">Excedeu</p>
-                                )}
-                              </div>
-                            </div>
+                      <div className="p-4 bg-white/5 rounded-xl border border-white/10">
+                        <h4 className="text-sm font-semibold text-white mb-3">Planejado vs Realizado</h4>
+                        <div className="grid grid-cols-3 gap-4">
+                          <div>
+                            <p className="text-xs text-[#9CA3AF] mb-1">Planejado</p>
+                            <p className="text-xl font-bold text-[#9B97CE]">{plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                           </div>
-                        );
-                      })()}
+                          <div className="text-center border-x border-white/10">
+                            <p className="text-xs text-[#9CA3AF] mb-1">Realizado</p>
+                            <p className={`text-xl font-bold ${hasRealExpenses ? 'text-white' : 'text-white/30'}`}>
+                              {totalVariableExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </p>
+                            {!hasRealExpenses && (
+                              <p className="text-xs text-white/50 mt-1">Sem gastos</p>
+                            )}
+                          </div>
+                          <div className="text-right">
+                            <p className="text-xs text-[#9CA3AF] mb-1">Diferença</p>
+                            <p className={`text-xl font-bold ${difference >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+                              {difference >= 0 ? '+' : ''}{difference.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                            </p>
+                            {difference >= 0 ? (
+                              <p className="text-xs text-[#76C893] mt-1">Economizou!</p>
+                            ) : (
+                              <p className="text-xs text-[#D97B7B] mt-1">Excedeu</p>
+                            )}
+                          </div>
+                        </div>
+                      </div>
 
-                      {/* Lista de Transações */}
                       <div className="space-y-3 max-h-96 overflow-y-auto">
-                        {dayTransactions.length === 0 ? (
+                        {dayTransactions.length === 0 && variableExpenseEntries.length === 0 ? (
                           <div className="text-center py-8">
-                            <p className="text-[#9CA3AF]">Nenhuma transação neste dia</p>
+                            <p className="text-[#9CA3AF]">Nenhum lançamento neste dia</p>
                           </div>
                         ) : (
                           <>
-                            {/* Entradas */}
                             {dayIncomes.length > 0 && (
                               <div>
                                 <h4 className="text-sm font-semibold text-[#76C893] mb-2">Entradas</h4>
@@ -1138,99 +1319,90 @@ export function Dashboard({ onNavigate }: DashboardProps) {
                               </div>
                             )}
 
-                            {/* Gastos Variáveis */}
-                            {(() => {
-                              const variableExpenses = dayExpenses.filter(t => t.type === 'expense_variable');
-                              return variableExpenses.length > 0 && (
-                                <div>
-                                  <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Gastos Variáveis</h4>
-                                  {variableExpenses.map(t => (
-                                    <div key={t.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg mb-2">
-                                      <div>
-                                        <p className="font-medium text-white">{t.description}</p>
-                                        <p className="text-sm text-[#9CA3AF]">{t.category}</p>
-                                      </div>
-                                      <p className="text-lg font-bold text-white">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                                    </div>
-                                  ))}
-                                </div>
-                              );
-                            })()}
-
-                            {/* Gastos Fixos */}
-                            {(() => {
-                              const fixedExpenses = dayExpenses.filter(t => t.type === 'expense_fixed');
-                              return fixedExpenses.length > 0 && (
-                                <div>
-                                  <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Gastos Fixos</h4>
-                                  {fixedExpenses.map(t => (
-                                    <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
-                                      <div>
-                                        <p className="font-medium text-white">{t.description}</p>
-                                        <p className="text-sm text-[#9CA3AF]">{t.category}</p>
-                                      </div>
-                                      <div className="text-right flex flex-col items-end gap-1">
-                                        <p className="text-lg font-bold text-white">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                                        {t.recurring && (
-                                          <div className="flex items-center gap-2">
-                                            <span className="inline-block text-xs px-2 py-0.5 bg-[#8B7AB8]/20 text-[#8B7AB8] rounded">
-                                              Recorrente
-                                            </span>
-                                            <button
-                                              onClick={() => handleCancelRecurring(t.id, t.description)}
-                                              className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors"
-                                              title="Cancelar recorrências futuras"
-                                            >
-                                              Cancelar
-                                            </button>
-                                          </div>
+                            {variableExpenseEntries.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Gastos Diários</h4>
+                                {variableExpenseEntries.map(entry => (
+                                  <div key={entry.id} className="flex items-center justify-between p-3 bg-white/5 border border-white/10 rounded-lg mb-2">
+                                    <div>
+                                      <div className="flex items-center gap-2">
+                                        <p className="font-medium text-white">{entry.title}</p>
+                                        {entry.source === 'legacy_transaction' && (
+                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#9B97CE]/20 text-[#9B97CE] rounded">
+                                            Legado
+                                          </span>
                                         )}
                                       </div>
+                                      <p className="text-sm text-[#9CA3AF]">{entry.category}</p>
                                     </div>
-                                  ))}
-                                </div>
-                              );
-                            })()}
+                                    <p className="text-lg font-bold text-white">{entry.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
 
-                            {/* Parcelas */}
-                            {(() => {
-                              const installments = dayExpenses.filter(t => t.type === 'installment');
-                              return installments.length > 0 && (
-                                <div>
-                                  <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Parcelas</h4>
-                                  {installments.map(t => (
-                                    <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
-                                      <div>
-                                        <p className="font-medium text-white">{t.description}</p>
-                                        <p className="text-sm text-[#9CA3AF]">
-                                          {t.category} • Parcela {t.installmentNumber}/{t.totalInstallments}
-                                        </p>
-                                      </div>
+                            {fixedExpenses.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Gastos Fixos</h4>
+                                {fixedExpenses.map(t => (
+                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
+                                    <div>
+                                      <p className="font-medium text-white">{t.description}</p>
+                                      <p className="text-sm text-[#9CA3AF]">{t.category}</p>
+                                    </div>
+                                    <div className="text-right flex flex-col items-end gap-1">
                                       <p className="text-lg font-bold text-white">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                      {t.recurring && (
+                                        <div className="flex items-center gap-2">
+                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#8B7AB8]/20 text-[#8B7AB8] rounded">
+                                            Recorrente
+                                          </span>
+                                          <button
+                                            onClick={() => handleCancelRecurring(t.id, t.description)}
+                                            className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors"
+                                            title="Cancelar recorrências futuras"
+                                          >
+                                            Cancelar
+                                          </button>
+                                        </div>
+                                      )}
                                     </div>
-                                  ))}
-                                </div>
-                              );
-                            })()}
+                                  </div>
+                                ))}
+                              </div>
+                            )}
 
-                            {/* Investimentos */}
-                            {(() => {
-                              const investments = dayTransactions.filter(t => t.type === 'investment');
-                              return investments.length > 0 && (
-                                <div>
-                                  <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Investimentos</h4>
-                                  {investments.map(t => (
-                                    <div key={t.id} className="flex items-center justify-between p-3 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-lg mb-2">
-                                      <div>
-                                        <p className="font-medium text-white">{t.description}</p>
-                                        <p className="text-sm text-[#9CA3AF]">{t.category}</p>
-                                      </div>
-                                      <p className="text-lg font-bold text-[#9B97CE]">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                            {installments.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-[#8B7AB8] mb-2">Parcelas</h4>
+                                {installments.map(t => (
+                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#8B7AB8]/10 border border-[#8B7AB8]/30 rounded-lg mb-2">
+                                    <div>
+                                      <p className="font-medium text-white">{t.description}</p>
+                                      <p className="text-sm text-[#9CA3AF]">
+                                        {t.category} • Parcela {t.installmentNumber}/{t.totalInstallments}
+                                      </p>
                                     </div>
-                                  ))}
-                                </div>
-                              );
-                            })()}
+                                    <p className="text-lg font-bold text-white">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {investments.length > 0 && (
+                              <div>
+                                <h4 className="text-sm font-semibold text-[#9B97CE] mb-2">Investimentos</h4>
+                                {investments.map(t => (
+                                  <div key={t.id} className="flex items-center justify-between p-3 bg-[#9B97CE]/10 border border-[#9B97CE]/30 rounded-lg mb-2">
+                                    <div>
+                                      <p className="font-medium text-white">{t.description}</p>
+                                      <p className="text-sm text-[#9CA3AF]">{t.category}</p>
+                                    </div>
+                                    <p className="text-lg font-bold text-[#9B97CE]">{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
                           </>
                         )}
                       </div>

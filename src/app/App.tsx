@@ -11,6 +11,7 @@ import { useEstimates } from '@/lib/hooks/useEstimates';
 import { useInvestments } from '@/lib/hooks/useInvestments';
 import { useGoals } from '@/lib/hooks/useGoals';
 import { useConfig } from '@/lib/hooks/useConfig';
+import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
 import { Calendar, TrendingUp, Target, ClipboardList, DollarSign, LogOut, Settings, User, Trash2, ChevronDown } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './components/ui/dialog';
 import { getTodayLocal } from '@/lib/utils/dateHelpers';
@@ -41,6 +42,7 @@ export default function App() {
   const { investments, deleteInvestment: deleteInvestmentFn } = useInvestments(user?.id);
   const { goals, deleteGoal: deleteGoalFn } = useGoals(user?.id);
   const { config, updateConfig } = useConfig(user?.id);
+  const { dailyExpenses, deleteDailyExpense: deleteDailyExpenseFn } = useDailyExpenses(user?.id);
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -112,6 +114,10 @@ export default function App() {
       // Delete all goals
       const deleteGoalPromises = goals.map(g => deleteGoalFn(g.id));
       await Promise.all(deleteGoalPromises);
+
+      // Delete all daily expenses
+      const deleteDailyExpensePromises = dailyExpenses.map(expense => deleteDailyExpenseFn(expense.id));
+      await Promise.all(deleteDailyExpensePromises);
 
       // Reset user config to defaults
       if (config) {

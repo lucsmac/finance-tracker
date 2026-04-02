@@ -11,6 +11,7 @@ As migrations devem ser executadas em ordem numérica/alfabética:
 3. `02-auth-triggers.sql` - **CRÍTICO**: Sincronização auth.users → public.users
 4. `20260304_add_daily_plans.sql` - Adiciona feature de planejamento diário
 5. `add_balance_start_date.sql` - Adiciona data de início do saldo ao user_configs
+6. `20260401_add_daily_expenses.sql` - Adiciona lançamentos detalhados de gastos diários
 
 ## Como Aplicar
 

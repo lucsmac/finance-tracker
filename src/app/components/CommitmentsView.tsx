@@ -28,7 +28,7 @@ export function CommitmentsView() {
   const [deletingId, setDeletingId] = useState<string>('');
   const [deletingDescription, setDeletingDescription] = useState<string>('');
   const [commitmentForm, setCommitmentForm] = useState({
-    type: 'expense_fixed' as 'expense_fixed' | 'expense_variable' | 'installment',
+    type: 'expense_fixed' as 'expense_fixed' | 'installment',
     description: '',
     category: '',
     amount: '',
@@ -40,10 +40,10 @@ export function CommitmentsView() {
     installmentNumber: '1'
   });
 
-  // Filtrar compromissos do mês selecionado (fixos, variáveis e parcelas)
+  // Filtrar compromissos do mês selecionado (fixos e parcelas)
   const commitments = transactions
     .filter(t =>
-      (t.type === 'expense_fixed' || t.type === 'expense_variable' || t.type === 'installment') &&
+      (t.type === 'expense_fixed' || t.type === 'installment') &&
       createDateFromString(t.date).getMonth() === selectedDate.getMonth() &&
       createDateFromString(t.date).getFullYear() === selectedDate.getFullYear()
     )
@@ -179,7 +179,6 @@ export function CommitmentsView() {
           });
         }
       } else {
-        // Se for gasto fixo ou variável, usar createTransaction normal
         const isRecurring = commitmentForm.type === 'expense_fixed' ? commitmentForm.recurring : false;
 
         await createTransaction({
@@ -375,7 +374,6 @@ export function CommitmentsView() {
           totalInstallments: parseInt(commitmentForm.totalInstallments)
         });
       } else {
-        // Se for gasto fixo ou variável, usar createTransaction normal
         await createTransaction({
           type: commitmentForm.type,
           category: commitmentForm.category || 'Geral',
@@ -746,11 +744,9 @@ export function CommitmentsView() {
                       )}
                       <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
                         commitment.type === 'expense_fixed' ? 'bg-[#8B7AB8]/20 text-[#8B7AB8]' :
-                        commitment.type === 'expense_variable' ? 'bg-[#9B97CE]/20 text-[#9B97CE]' :
                         'bg-[#8B7AB8]/20 text-[#8B7AB8]'
                         }`}>
                         {commitment.type === 'expense_fixed' ? 'Fixo' :
-                         commitment.type === 'expense_variable' ? 'Variável' :
                          'Parcela'}
                       </span>
                       <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getCategoryBadgeClass(commitment.category)}`}>
@@ -857,11 +853,9 @@ export function CommitmentsView() {
                       )}
                       <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${
                         commitment.type === 'expense_fixed' ? 'bg-[#8B7AB8]/20 text-[#8B7AB8]' :
-                        commitment.type === 'expense_variable' ? 'bg-[#9B97CE]/20 text-[#9B97CE]' :
                         'bg-[#8B7AB8]/20 text-[#8B7AB8]'
                         }`}>
                         {commitment.type === 'expense_fixed' ? 'Fixo' :
-                         commitment.type === 'expense_variable' ? 'Variável' :
                          'Parcela'}
                       </span>
                       <span className={`inline-block px-2 py-1 rounded text-xs font-medium ${getCategoryBadgeClass(commitment.category)}`}>
@@ -1031,11 +1025,10 @@ export function CommitmentsView() {
               </label>
               <select
                 value={commitmentForm.type}
-                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'expense_variable' | 'installment' })}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'installment' })}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               >
                 <option value="expense_fixed" className="bg-[#161618]">Gasto Fixo</option>
-                <option value="expense_variable" className="bg-[#161618]">Gasto Variável</option>
                 <option value="installment" className="bg-[#161618]">Parcelamento</option>
               </select>
             </div>
@@ -1221,11 +1214,10 @@ export function CommitmentsView() {
               </label>
               <select
                 value={commitmentForm.type}
-                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'expense_variable' | 'installment' })}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'installment' })}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               >
                 <option value="expense_fixed" className="bg-[#161618]">Gasto Fixo</option>
-                <option value="expense_variable" className="bg-[#161618]">Gasto Variável</option>
                 <option value="installment" className="bg-[#161618]">Parcelamento</option>
               </select>
             </div>
@@ -1415,11 +1407,10 @@ export function CommitmentsView() {
               </label>
               <select
                 value={commitmentForm.type}
-                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'expense_variable' | 'installment' })}
+                onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as 'expense_fixed' | 'installment' })}
                 className="w-full px-4 py-3 bg-white/5 border border-white/20 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-[#76C893] focus:border-transparent"
               >
                 <option value="expense_fixed" className="bg-[#161618]">Gasto Fixo</option>
-                <option value="expense_variable" className="bg-[#161618]">Gasto Variável</option>
                 <option value="installment" className="bg-[#161618]">Parcelamento</option>
               </select>
             </div>

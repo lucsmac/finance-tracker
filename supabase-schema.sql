@@ -95,6 +95,18 @@ CREATE TABLE daily_plans (
   UNIQUE(user_id, date)
 );
 
+-- Create daily_expenses table (itemized daily spending entries)
+CREATE TABLE daily_expenses (
+  id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  date DATE NOT NULL,
+  title TEXT NOT NULL,
+  category TEXT NOT NULL,
+  amount DECIMAL(10,2) NOT NULL CHECK (amount > 0),
+  created_at TIMESTAMPTZ DEFAULT NOW(),
+  updated_at TIMESTAMPTZ DEFAULT NOW()
+);
+
 -- Create indexes for performance
 CREATE INDEX idx_estimates_user_id ON estimates(user_id);
 CREATE INDEX idx_estimates_active ON estimates(user_id, active);
@@ -105,6 +117,8 @@ CREATE INDEX idx_investments_user_id ON investments(user_id);
 CREATE INDEX idx_goals_user_id ON goals(user_id);
 CREATE INDEX idx_daily_plans_user_id ON daily_plans(user_id);
 CREATE INDEX idx_daily_plans_date ON daily_plans(user_id, date);
+CREATE INDEX idx_daily_expenses_user_id ON daily_expenses(user_id);
+CREATE INDEX idx_daily_expenses_date ON daily_expenses(user_id, date);
 
 -- Enable Row Level Security (RLS)
 ALTER TABLE users ENABLE ROW LEVEL SECURITY;
@@ -114,6 +128,7 @@ ALTER TABLE transactions ENABLE ROW LEVEL SECURITY;
 ALTER TABLE investments ENABLE ROW LEVEL SECURITY;
 ALTER TABLE goals ENABLE ROW LEVEL SECURITY;
 ALTER TABLE daily_plans ENABLE ROW LEVEL SECURITY;
+ALTER TABLE daily_expenses ENABLE ROW LEVEL SECURITY;
 
 -- RLS Policies (MVP: single authenticated user)
 -- Users can only see their own data
@@ -149,6 +164,11 @@ CREATE POLICY "Users can insert own daily plans" ON daily_plans FOR INSERT WITH 
 CREATE POLICY "Users can update own daily plans" ON daily_plans FOR UPDATE USING (auth.uid() = user_id);
 CREATE POLICY "Users can delete own daily plans" ON daily_plans FOR DELETE USING (auth.uid() = user_id);
 
+CREATE POLICY "Users can view own daily expenses" ON daily_expenses FOR SELECT USING (auth.uid() = user_id);
+CREATE POLICY "Users can insert own daily expenses" ON daily_expenses FOR INSERT WITH CHECK (auth.uid() = user_id);
+CREATE POLICY "Users can update own daily expenses" ON daily_expenses FOR UPDATE USING (auth.uid() = user_id);
+CREATE POLICY "Users can delete own daily expenses" ON daily_expenses FOR DELETE USING (auth.uid() = user_id);
+
 -- Function to update updated_at timestamp
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
@@ -166,6 +186,7 @@ CREATE TRIGGER update_transactions_updated_at BEFORE UPDATE ON transactions FOR 
 CREATE TRIGGER update_investments_updated_at BEFORE UPDATE ON investments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_goals_updated_at BEFORE UPDATE ON goals FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 CREATE TRIGGER update_daily_plans_updated_at BEFORE UPDATE ON daily_plans FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+CREATE TRIGGER update_daily_expenses_updated_at BEFORE UPDATE ON daily_expenses FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
 -- Function to automatically create a user record when someone signs up
 CREATE OR REPLACE FUNCTION handle_new_user()
