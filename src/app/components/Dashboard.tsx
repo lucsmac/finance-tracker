@@ -18,14 +18,12 @@ import { useConfig } from '@/lib/hooks/useConfig';
 import { useDailyPlans } from '@/lib/hooks/useDailyPlans';
 import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
 import {
-  calculateCurrentBalance,
   checkProjectionStatus
 } from '../data/mockData';
 import { formatDateLocal, getTodayLocal, createDateFromString, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
 import {
   getRecordedVariableExpensesTotalForDate,
-  getVariableExpenseEntriesForDate,
-  sumDailyExpensesUntilDate
+  getVariableExpenseEntriesForDate
 } from '@/lib/utils/dailyExpenses';
 
 interface DashboardProps {
@@ -103,6 +101,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   // Usar a data real atual
   const today = getTodayLocal();
+  const allTransactions = [...transactions, ...hypotheticalTransactions];
+
   const getPlannedAmountForDate = (dateStr: string) => {
     const customPlanned = getPlannedForDate(dateStr);
     return customPlanned !== null ? customPlanned : dailyStandard;
@@ -142,90 +142,179 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     };
   };
 
-  const currentBalance = calculateCurrentBalance(initialBalance, transactions, config?.balanceStartDate, today) -
-    sumDailyExpensesUntilDate(dailyExpenses, today, config?.balanceStartDate);
-  const todayExpenses = getRecordedVariableExpensesForDate(today);
-  const todayVariation = dailyStandard - todayExpenses;
+  const getMonthLastDay = (year: number, month: number) => {
+    return new Date(year, month + 1, 0).getDate();
+  };
 
-  // Calcular próxima renda baseado no config do usuário
+  const getSafeMonthDate = (year: number, month: number, day: number) => {
+    const normalizedDate = new Date(year, month, 1);
+    const normalizedYear = normalizedDate.getFullYear();
+    const normalizedMonth = normalizedDate.getMonth();
+
+    return formatDateLocal(
+      normalizedYear,
+      normalizedMonth,
+      Math.min(day, getMonthLastDay(normalizedYear, normalizedMonth))
+    );
+  };
+
+  const getDateDiffInDays = (startDateStr: string, endDateStr: string) => {
+    const startDate = createDateFromString(startDateStr);
+    const endDate = createDateFromString(endDateStr);
+    return Math.round((endDate.getTime() - startDate.getTime()) / (1000 * 60 * 60 * 24));
+  };
+
+  // Função para calcular o saldo até uma determinada data (planejado vs realizado)
+  const calculateBalanceUntilDate = (targetDateStr: string): number => {
+    // Usar a data de início do saldo configurada pelo usuário, ou hoje como fallback
+    const balanceStartDate = config?.balanceStartDate || today;
+
+    // Para dias anteriores à data de início, retornar apenas o saldo inicial (sem processar)
+    if (targetDateStr < balanceStartDate) {
+      return initialBalance;
+    }
+
+    let balance = initialBalance;
+
+    const [startYear, startMonth, startDay] = balanceStartDate.split('-').map(Number);
+    const [endYear, endMonth, endDay] = targetDateStr.split('-').map(Number);
+
+    const startDateObj = new Date(startYear, startMonth - 1, startDay);
+    const endDateObj = new Date(endYear, endMonth - 1, endDay);
+
+    for (let date = new Date(startDateObj); date <= endDateObj; date.setDate(date.getDate() + 1)) {
+      const dateStr = formatDateLocal(date.getFullYear(), date.getMonth(), date.getDate());
+      const dayTransactions = allTransactions.filter(t => t.date === dateStr);
+
+      balance += dayTransactions
+        .filter(t => t.type === 'income')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      balance -= dayTransactions
+        .filter(t => t.type === 'expense_fixed')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      balance -= dayTransactions
+        .filter(t => t.type === 'installment')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      balance -= dayTransactions
+        .filter(t => t.type === 'investment')
+        .reduce((sum, t) => sum + t.amount, 0);
+
+      balance -= getEffectiveVariableExpensesForDate(dateStr);
+    }
+
+    return balance;
+  };
+
   const calculateNextIncome = (): { days: number; date: string } => {
+    const nextIncomeTransaction = allTransactions
+      .filter(t => t.type === 'income' && (t.date > today || (t.date === today && !t.paid)))
+      .sort((a, b) => a.date.localeCompare(b.date))[0];
+
+    if (nextIncomeTransaction) {
+      return {
+        days: getDateDiffInDays(today, nextIncomeTransaction.date),
+        date: nextIncomeTransaction.date
+      };
+    }
+
     if (!config?.mainIncomeDay) return { days: 0, date: '' };
 
     const currentDate = createDateFromString(today);
-    const currentDay = currentDate.getDate();
-    const incomeDay = config.mainIncomeDay;
+    const currentYear = currentDate.getFullYear();
+    const currentMonth = currentDate.getMonth();
+    const currentMonthIncomeDate = getSafeMonthDate(currentYear, currentMonth, config.mainIncomeDay);
 
-    let nextIncomeYear: number;
-    let nextIncomeMonth: number;
-
-    if (currentDay < incomeDay) {
-      // Próximo salário é neste mês
-      nextIncomeYear = currentDate.getFullYear();
-      nextIncomeMonth = currentDate.getMonth();
-    } else {
-      // Próximo salário é no próximo mês
-      const tempDate = new Date(currentDate.getFullYear(), currentDate.getMonth() + 1, 1);
-      nextIncomeYear = tempDate.getFullYear();
-      nextIncomeMonth = tempDate.getMonth();
-    }
-
-    const nextIncomeDate = new Date(nextIncomeYear, nextIncomeMonth, incomeDay);
-    const diffTime = nextIncomeDate.getTime() - currentDate.getTime();
-    const diffDays = Math.ceil(diffTime / (1000 * 60 * 60 * 24));
+    const fallbackDate = today <= currentMonthIncomeDate
+      ? currentMonthIncomeDate
+      : getSafeMonthDate(currentYear, currentMonth + 1, config.mainIncomeDay);
 
     return {
-      days: diffDays,
-      date: formatDateLocal(nextIncomeYear, nextIncomeMonth, incomeDay)
+      days: getDateDiffInDays(today, fallbackDate),
+      date: fallbackDate
     };
   };
 
   // Calcular gastos comprometidos até a próxima renda
   const calculateCommittedUntilNextIncome = (nextIncomeDate: string): number => {
-    // Gastos fixos e parcelas entre hoje e próxima renda
-    const committed = transactions
+    if (!nextIncomeDate) return 0;
+
+    return allTransactions
       .filter(t =>
+        !t.paid &&
         t.date >= today &&
         t.date < nextIncomeDate &&
         (t.type === 'expense_fixed' || t.type === 'installment')
       )
       .reduce((sum, t) => sum + t.amount, 0);
-
-    return committed;
   };
 
-  // Calcular variação acumulada do mês (considera planejado vs realizado)
-  const calculateMonthVariation = (): number => {
-    const todayObj = createDateFromString(today);
-    const currentMonth = todayObj.getMonth();
-    const currentYear = todayObj.getFullYear();
-    let totalVariation = 0;
+  const calculateProjectedMonthExpenses = (date: Date): number => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const daysInMonth = getMonthLastDay(year, month);
 
-    // Processar cada dia desde o início do mês até hoje
-    const startDay = 1;
-    const endDay = todayObj.getDate();
+    let total = 0;
 
-    for (let day = startDay; day <= endDay; day++) {
-      const dateStr = formatDateLocal(currentYear, currentMonth, day);
+    for (let day = 1; day <= daysInMonth; day++) {
+      const dateStr = formatDateLocal(year, month, day);
+      const dayTransactions = allTransactions.filter(t => t.date === dateStr);
+      const nonVariableExpenses = dayTransactions
+        .filter(t => t.type !== 'income' && t.type !== 'expense_variable')
+        .reduce((sum, t) => sum + t.amount, 0);
 
-      const dayVariableExpenses = getRecordedVariableExpensesForDate(dateStr);
+      total += nonVariableExpenses + getEffectiveVariableExpensesForDate(dateStr);
+    }
 
-      if (dayVariableExpenses > 0) {
-        // Tem gastos reais: comparar com o padrão
-        totalVariation += (dailyStandard - dayVariableExpenses);
-      } else {
-        // Não tem gastos: verificar se tem planejado customizado
-        totalVariation += (dailyStandard - getPlannedAmountForDate(dateStr));
+    return total;
+  };
+
+  const calculateProjectedMonthIncome = (date: Date): number => {
+    const year = date.getFullYear();
+    const month = date.getMonth();
+    const monthStart = formatDateLocal(year, month, 1);
+    const monthEnd = formatDateLocal(year, month, getMonthLastDay(year, month));
+
+    const incomeTransactionsTotal = allTransactions
+      .filter(t => t.type === 'income' && t.date >= monthStart && t.date <= monthEnd)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    const todayDate = createDateFromString(today);
+    const currentMonthIndex = todayDate.getFullYear() * 12 + todayDate.getMonth();
+    const selectedMonthIndex = year * 12 + month;
+
+    if (
+      config?.mainIncomeAmount &&
+      config.mainIncomeDay &&
+      selectedMonthIndex >= currentMonthIndex
+    ) {
+      const configuredIncomeDate = getSafeMonthDate(year, month, config.mainIncomeDay);
+      const hasConfiguredIncomeTransaction = allTransactions.some(
+        t => t.type === 'income' && t.date === configuredIncomeDate
+      );
+
+      if (!hasConfiguredIncomeTransaction) {
+        return incomeTransactionsTotal + config.mainIncomeAmount;
       }
     }
 
-    return totalVariation;
+    return incomeTransactionsTotal;
   };
 
+  const availableBalance = calculateBalanceUntilDate(today);
+  const todayExpenses = getRecordedVariableExpensesForDate(today);
+  const todayPlannedAmount = getPlannedAmountForDate(today);
+  const todayVariation = todayExpenses - todayPlannedAmount;
+  const monthExpensesTotal = calculateProjectedMonthExpenses(selectedDate);
+  const monthIncomeTotal = calculateProjectedMonthIncome(selectedDate);
+  const monthRemainingTotal = monthIncomeTotal - monthExpensesTotal;
+
   // Novos cálculos
-  const accumulatedVariation = calculateMonthVariation();
   const nextIncomeInfo = calculateNextIncome();
   const committedAmount = calculateCommittedUntilNextIncome(nextIncomeInfo.date);
-  const projectionStatus = checkProjectionStatus(currentBalance, committedAmount, dailyStandard, nextIncomeInfo.days);
+  const projectionStatus = checkProjectionStatus(availableBalance, committedAmount, dailyStandard, nextIncomeInfo.days);
 
   // Funções de navegação de mês
   const navigateToPreviousMonth = () => {
@@ -413,73 +502,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   const calendarDays: any[] = [];
 
-  // Função para calcular o saldo até uma determinada data (planejado vs realizado)
-  const calculateBalanceUntilDate = (targetDateStr: string): number => {
-    // Usar a data de início do saldo configurada pelo usuário, ou hoje como fallback
-    const balanceStartDate = config?.balanceStartDate || today;
-
-    // Para dias anteriores à data de início, retornar apenas o saldo inicial (sem processar)
-    if (targetDateStr < balanceStartDate) {
-      return initialBalance;
-    }
-
-    // Saldo inicial
-    let balance = initialBalance;
-
-    // A contagem começa da DATA DE INÍCIO configurada até a data alvo
-    const startDate = balanceStartDate;
-    const endDate = targetDateStr;
-
-    const allDates: string[] = [];
-
-    // Parse start and end dates
-    const [startYear, startMonth, startDay] = startDate.split('-').map(Number);
-    const [endYear, endMonth, endDay] = endDate.split('-').map(Number);
-
-    const startDateObj = new Date(startYear, startMonth - 1, startDay);
-    const endDateObj = new Date(endYear, endMonth - 1, endDay);
-
-    // Generate all dates between start and end
-    for (let d = new Date(startDateObj); d <= endDateObj; d.setDate(d.getDate() + 1)) {
-      allDates.push(formatDateLocal(d.getFullYear(), d.getMonth(), d.getDate()));
-    }
-
-    // Processar cada dia desde hoje até a data alvo
-    allDates.forEach(dateStr => {
-      // Pegar todas as transações deste dia específico
-      const dayTransactions = [...transactions, ...hypotheticalTransactions].filter(t => t.date === dateStr);
-
-      // 1. ENTRADAS (income) - SOMAR
-      const incomes = dayTransactions.filter(t => t.type === 'income');
-      incomes.forEach(t => {
-        balance += t.amount;
-      });
-
-      // 2. GASTOS FIXOS (expense_fixed) - SUBTRAIR
-      const fixedExpenses = dayTransactions.filter(t => t.type === 'expense_fixed');
-      fixedExpenses.forEach(t => {
-        balance -= t.amount;
-      });
-
-      // 3. PARCELAS (installment) - SUBTRAIR
-      const installments = dayTransactions.filter(t => t.type === 'installment');
-      installments.forEach(t => {
-        balance -= t.amount;
-      });
-
-      // 4. INVESTIMENTOS (investment) - SUBTRAIR
-      const investments = dayTransactions.filter(t => t.type === 'investment');
-      investments.forEach(t => {
-        balance -= t.amount;
-      });
-
-      // 5. GASTOS VARIÁVEIS - usar os lançamentos diários/simulações se existirem, senão usar PLANEJADO
-      balance -= getEffectiveVariableExpensesForDate(dateStr);
-    });
-
-    return balance;
-  };
-
   // Dias do mês anterior para completar a primeira semana
   if (firstDayOfWeek > 0) {
     const prevMonth = month === 0 ? 11 : month - 1;
@@ -510,9 +532,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
       });
     }
   }
-
-  // Combinar transações reais com hipotéticas para projeção
-  const allTransactions = [...transactions, ...hypotheticalTransactions];
 
   // Dias do mês
   for (let day = 1; day <= daysInMonth; day++) {
@@ -653,8 +672,8 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           {/* Card 1 - Saldo Disponível */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Saldo disponível</p>
-            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{currentBalance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-            <p className="text-xs text-[#9CA3AF]">Saldo atual em conta</p>
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{availableBalance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+            <p className="text-xs text-[#9CA3AF]">Saldo disponível hoje</p>
           </div>
 
           {/* Card 2 - Valor Diário Padrão */}
@@ -668,18 +687,25 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-r sm:border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Gasto de hoje</p>
             <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{todayExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-            <p className={`text-xs ${todayVariation >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-              {todayVariation >= 0 ? 'Economizou' : 'Gastou'} {Math.abs(todayVariation).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
-            </p>
+            {todayVariation === 0 ? (
+              <p className="text-xs text-white">Dentro do planejado</p>
+            ) : (
+              <p className="text-xs text-white">
+                {Math.abs(todayVariation).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} {todayVariation > 0 ? 'acima' : 'abaixo'} do planejado
+              </p>
+            )}
           </div>
 
           {/* Card 4 - Gastos do Mês */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Gastos do mês</p>
-            <p className={`text-2xl sm:text-3xl font-bold mb-1 ${accumulatedVariation >= 0 ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
-              {accumulatedVariation >= 0 ? '+' : ''}{accumulatedVariation.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">
+              {monthExpensesTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </p>
-            <p className="text-xs text-[#9CA3AF]">{formatMonthYear(selectedDate)}</p>
+            <p className="text-xs text-white">
+              {monthRemainingTotal >= 0 ? 'Sobrará ' : 'Faltará '}
+              {Math.abs(monthRemainingTotal).toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+            </p>
           </div>
         </div>
       </div>
@@ -692,10 +718,12 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           {/* Sub-card 1 - Dias até próxima renda */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Dias até próxima renda</p>
-            {nextIncomeInfo.days > 0 ? (
+            {nextIncomeInfo.date ? (
               <>
-                <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{nextIncomeInfo.days} dias</p>
-                <p className="text-xs text-[#9CA3AF]">Salário em {formatNextIncomeDate(nextIncomeInfo.date)}</p>
+                <p className="text-2xl sm:text-3xl font-bold text-white mb-1">
+                  {nextIncomeInfo.days === 0 ? 'Hoje' : `${nextIncomeInfo.days} ${nextIncomeInfo.days === 1 ? 'dia' : 'dias'}`}
+                </p>
+                <p className="text-xs text-[#9CA3AF]">Próxima renda em {formatNextIncomeDate(nextIncomeInfo.date)}</p>
               </>
             ) : (
               <>
@@ -708,10 +736,10 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           {/* Sub-card 2 - Status da projeção */}
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0 sm:border-x sm:border-white/10">
             <p className="text-[#9CA3AF] text-sm mb-1">Status da projeção</p>
-            <p className={`text-2xl sm:text-3xl font-bold mb-1 ${projectionStatus === 'positive' ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+            <p className="text-2xl sm:text-3xl font-bold text-white mb-1">
               {projectionStatus === 'positive' ? 'Positivo' : 'Negativo'}
             </p>
-            <p className={`text-xs ${projectionStatus === 'positive' ? 'text-[#76C893]' : 'text-[#D97B7B]'}`}>
+            <p className="text-xs text-white">
               {projectionStatus === 'positive' ? 'Saldo suficiente' : 'Saldo insuficiente'}
             </p>
           </div>
@@ -720,7 +748,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
           <div className="text-center p-4 sm:p-0 bg-white/5 sm:bg-transparent rounded-xl sm:rounded-none border border-white/10 sm:border-0">
             <p className="text-[#9CA3AF] text-sm mb-1">Comprometido</p>
             <p className="text-2xl sm:text-3xl font-bold text-white mb-1">{committedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-            <p className="text-xs text-[#9CA3AF]">Fixos + Parcelas futuras</p>
+            <p className="text-xs text-[#9CA3AF]">Falta pagar até a próxima renda</p>
           </div>
         </div>
       </div>
