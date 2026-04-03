@@ -3,6 +3,7 @@ import {
   ArrowLeft,
   ArrowRight,
   Calculator,
+  BookOpen,
   CalendarDays,
   CircleDollarSign,
   LogOut,
@@ -39,6 +40,7 @@ interface FirstAccessSetupProps {
   onSubmit: (data: FirstAccessSetupData) => Promise<void>
   onSignOut?: () => Promise<void> | void
   onBack?: () => void
+  onHelp?: () => void
   preview?: boolean
   initialValues?: FirstAccessSetupInitialValues
   mode?: 'create' | 'edit'
@@ -107,6 +109,7 @@ export function FirstAccessSetup({
   onSubmit,
   onSignOut,
   onBack,
+  onHelp,
   preview = false,
   initialValues,
   mode = 'create',
@@ -242,16 +245,28 @@ export function FirstAccessSetup({
             )}
           </div>
 
-          {hasSecondaryAction && (
-            <button
-              type="button"
-              onClick={handleSecondaryAction}
-              className="app-button-secondary hidden rounded-2xl px-4 py-3 text-sm sm:inline-flex sm:items-center sm:gap-2"
-            >
-              {onBack ? <ArrowLeft className="h-4 w-4" /> : <LogOut className="h-4 w-4" />}
-              {secondaryActionLabel}
-            </button>
-          )}
+          <div className="hidden gap-3 sm:flex">
+            {onHelp && (
+              <button
+                type="button"
+                onClick={onHelp}
+                className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm"
+              >
+                <BookOpen className="h-4 w-4" />
+                Como usar
+              </button>
+            )}
+            {hasSecondaryAction && (
+              <button
+                type="button"
+                onClick={handleSecondaryAction}
+                className="app-button-secondary inline-flex items-center gap-2 rounded-2xl px-4 py-3 text-sm"
+              >
+                {onBack ? <ArrowLeft className="h-4 w-4" /> : <LogOut className="h-4 w-4" />}
+                {secondaryActionLabel}
+              </button>
+            )}
+          </div>
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -396,6 +411,15 @@ export function FirstAccessSetup({
             )}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
+              {onHelp && (
+                <button
+                  type="button"
+                  onClick={onHelp}
+                  className="app-button-secondary rounded-2xl px-4 py-4 sm:hidden"
+                >
+                  Como usar
+                </button>
+              )}
               {hasSecondaryAction && (
                 <button
                   type="button"

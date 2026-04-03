@@ -4,6 +4,7 @@ import { CommitmentsView } from './components/CommitmentsView';
 import { IncomesView } from './components/IncomesView';
 import { StatsView } from './components/StatsView';
 import { GoalsView } from './components/GoalsView';
+import { GuideLandingPage } from './components/GuideLandingPage';
 import { Auth } from './components/Auth';
 import { FirstAccessSetup } from './components/FirstAccessSetup';
 import { getUserThemePreference, type ThemePreference, useAuth } from '@/lib/hooks/useAuth';
@@ -13,14 +14,14 @@ import { useInvestments } from '@/lib/hooks/useInvestments';
 import { useGoals } from '@/lib/hooks/useGoals';
 import { useConfig } from '@/lib/hooks/useConfig';
 import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
-import { Calendar, TrendingUp, Target, ClipboardList, DollarSign, LogOut, Settings, User, Trash2, ChevronDown, Moon, Sun } from 'lucide-react';
+import { Calendar, TrendingUp, Target, ClipboardList, DollarSign, LogOut, Settings, User, Trash2, ChevronDown, Moon, Sun, BookOpen } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './components/ui/dialog';
 import { Switch } from './components/ui/switch';
 import { createDateFromString, getTodayLocal } from '@/lib/utils/dateHelpers';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 
-type AppView = 'dashboard' | 'commitments' | 'incomes' | 'stats' | 'goals';
+type AppView = 'dashboard' | 'commitments' | 'incomes' | 'stats' | 'goals' | 'guide';
 
 const VIEW_PATHS: Record<AppView, string> = {
   dashboard: '/',
@@ -28,6 +29,7 @@ const VIEW_PATHS: Record<AppView, string> = {
   incomes: '/entradas',
   stats: '/analise',
   goals: '/metas',
+  guide: '/como-usar',
 };
 
 const VIEW_ALIASES: Record<AppView, string[]> = {
@@ -36,6 +38,7 @@ const VIEW_ALIASES: Record<AppView, string[]> = {
   incomes: ['/entradas', '/incomes'],
   stats: ['/analise', '/analysis', '/stats'],
   goals: ['/metas', '/goals'],
+  guide: ['/como-usar', '/guia', '/ajuda', '/help'],
 };
 
 const normalizePathname = (pathname: string) => {
@@ -68,6 +71,7 @@ export default function App() {
   const [savingPreview, setSavingPreview] = useState(false);
   const [pendingThemePreference, setPendingThemePreference] = useState<ThemePreference | null>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const lastNonGuideViewRef = useRef<AppView>('dashboard');
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
   const isFirstAccessPreview =
@@ -95,6 +99,10 @@ export default function App() {
   };
 
   const navigateToView = (view: AppView) => {
+    if (view !== 'guide') {
+      lastNonGuideViewRef.current = view;
+    }
+
     setCurrentView(view);
 
     if (typeof window === 'undefined') return;
@@ -123,6 +131,9 @@ export default function App() {
 
     const handlePopState = () => {
       const viewFromUrl = getViewFromPath(window.location.pathname) ?? 'dashboard';
+      if (viewFromUrl !== 'guide') {
+        lastNonGuideViewRef.current = viewFromUrl;
+      }
       setCurrentView(viewFromUrl);
     };
 
@@ -140,6 +151,12 @@ export default function App() {
     if (currentPath === expectedPath) return;
     window.history.replaceState({ view: currentView }, '', expectedPath);
   }, [config, currentView, isEditingSetupOpen, isFirstAccessPreview, loading, user]);
+
+  useEffect(() => {
+    if (currentView !== 'guide') {
+      lastNonGuideViewRef.current = currentView;
+    }
+  }, [currentView]);
 
   useEffect(() => {
     if (loading) return;
@@ -167,6 +184,15 @@ export default function App() {
     } finally {
       setPendingThemePreference(null);
     }
+  };
+
+  const handleGuideBack = () => {
+    if (!user || !config) {
+      navigateToView('dashboard');
+      return;
+    }
+
+    navigateToView(lastNonGuideViewRef.current);
   };
 
   const handleFirstAccessSubmit = async (initialConfig: {
@@ -311,8 +337,20 @@ export default function App() {
   }
 
   // Show auth screen if not logged in
+  if (currentView === 'guide') {
+    return (
+      <GuideLandingPage
+        isAuthenticated={Boolean(user)}
+        hasConfig={Boolean(config)}
+        userEmail={user?.email}
+        onPrimaryAction={() => navigateToView('dashboard')}
+        onSecondaryAction={handleGuideBack}
+      />
+    );
+  }
+
   if (!user) {
-    return <Auth />;
+    return <Auth onOpenGuide={() => navigateToView('guide')} />;
   }
 
   if (!config) {
@@ -322,6 +360,7 @@ export default function App() {
         saving={savingFirstAccess}
         onSubmit={handleFirstAccessSubmit}
         onSignOut={signOut}
+        onHelp={() => navigateToView('guide')}
       />
     );
   }
@@ -334,6 +373,7 @@ export default function App() {
         saving={savingSetupEdit}
         onSubmit={handleEditSetupSubmit}
         onBack={() => setIsEditingSetupOpen(false)}
+        onHelp={() => navigateToView('guide')}
         initialValues={{
           form: {
             initialBalance: config.initialBalance.toString(),
@@ -428,6 +468,19 @@ export default function App() {
                   </button>
                 </div>
               </div>
+
+              <div className="my-2 border-t border-[var(--app-border)]" />
+
+              <button
+                onClick={() => {
+                  setIsProfileMenuOpen(false);
+                  navigateToView('guide');
+                }}
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-text)]"
+              >
+                <BookOpen className="w-4 h-4" />
+                <span className="text-sm">Como usar</span>
+              </button>
 
               <div className="my-2 border-t border-[var(--app-border)]" />
 

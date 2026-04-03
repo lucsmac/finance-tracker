@@ -1,7 +1,12 @@
+import { BookOpen, ArrowRight } from 'lucide-react'
 import { useState } from 'react'
 import { useAuth } from '@/lib/hooks/useAuth'
 
-export function Auth() {
+interface AuthProps {
+  onOpenGuide?: () => void
+}
+
+export function Auth({ onOpenGuide }: AuthProps) {
   const [isSignUp, setIsSignUp] = useState(false)
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -167,6 +172,20 @@ export function Auth() {
               </svg>
             </button>
           </div>
+
+          {onOpenGuide && (
+            <div className="mt-4 border-t border-[var(--app-border)] pt-4 text-center">
+              <button
+                type="button"
+                onClick={onOpenGuide}
+                className="inline-flex items-center gap-2 text-sm font-medium text-[var(--app-text-muted)] transition-colors hover:text-[var(--app-accent)]"
+              >
+                <BookOpen className="h-4 w-4" />
+                Como usar o AutoMoney
+                <ArrowRight className="h-4 w-4" />
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Footer */}
