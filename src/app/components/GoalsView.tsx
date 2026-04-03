@@ -72,9 +72,9 @@ export function GoalsView() {
 
   const getStatusColor = (status: 'success' | 'warning' | 'danger'): string => {
     switch (status) {
-      case 'success': return '#AFFD37';
-      case 'warning': return '#FDE837';
-      case 'danger': return '#E837FD';
+      case 'success': return 'var(--app-success)';
+      case 'warning': return 'var(--app-warning)';
+      case 'danger': return 'var(--app-danger)';
     }
   };
 
@@ -182,7 +182,7 @@ export function GoalsView() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[var(--app-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Carregando metas...</p>
+          <p className="text-[var(--app-text)]">Carregando metas...</p>
         </div>
       </div>
     );
@@ -196,11 +196,11 @@ export function GoalsView() {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <X className="w-8 h-8 text-red-600" />
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">Erro ao carregar metas</h3>
-          <p className="text-gray-400 mb-4">{error.message}</p>
+          <h3 className="mb-2 text-lg font-semibold text-[var(--app-text)]">Erro ao carregar metas</h3>
+          <p className="mb-4 text-[var(--app-text-muted)]">{error.message}</p>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90"
+            className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-[var(--app-accent-foreground)] transition-opacity hover:opacity-90"
           >
             Recarregar página
           </button>
@@ -225,7 +225,7 @@ export function GoalsView() {
             onClick={() => setViewMode('month')}
             className={`rounded-xl px-6 py-2 transition-all font-medium ${
               viewMode === 'month'
-                ? 'bg-[var(--app-accent)] text-white'
+                ? 'bg-[var(--app-accent)] text-[var(--app-accent-foreground)]'
                 : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
             }`}
           >
@@ -235,7 +235,7 @@ export function GoalsView() {
             onClick={() => setViewMode('year')}
             className={`rounded-xl px-6 py-2 transition-all font-medium ${
               viewMode === 'year'
-                ? 'bg-[var(--app-accent)] text-white'
+                ? 'bg-[var(--app-accent)] text-[var(--app-accent-foreground)]'
                 : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
             }`}
           >
@@ -245,7 +245,7 @@ export function GoalsView() {
 
         <button
           onClick={handleOpenAddDialog}
-          className="app-button-primary flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium text-white sm:w-auto sm:px-6"
+          className="app-button-primary flex w-full items-center justify-center gap-2 rounded-2xl px-5 py-3 font-medium text-[var(--app-accent-foreground)] sm:w-auto sm:px-6"
         >
           <Plus className="w-5 h-5" />
           Nova Meta
@@ -257,15 +257,15 @@ export function GoalsView() {
         <div className="app-panel rounded-[1.75rem] p-6">
           <div className="flex items-center gap-3 mb-2">
             <Target className="w-6 h-6 text-[var(--app-accent)]" />
-            <span className="text-[#9CA3AF] text-sm">Total de Metas</span>
+            <span className="text-sm text-[var(--app-text-faint)]">Total de Metas</span>
           </div>
-          <p className="text-3xl font-bold text-white">{totalGoals}</p>
+          <p className="text-3xl font-bold text-[var(--app-text)]">{totalGoals}</p>
         </div>
 
         <div className="app-panel rounded-[1.75rem] p-6">
           <div className="flex items-center gap-3 mb-2">
             <TrendingUp className="w-6 h-6 text-[var(--app-success)]" />
-            <span className="text-[#9CA3AF] text-sm">Metas Alcançadas</span>
+            <span className="text-sm text-[var(--app-text-faint)]">Metas Alcançadas</span>
           </div>
           <p className="text-3xl font-bold text-[var(--app-success)]">{achievedGoals}</p>
         </div>
@@ -273,7 +273,7 @@ export function GoalsView() {
         <div className="app-panel rounded-[1.75rem] p-6">
           <div className="flex items-center gap-3 mb-2">
             <TrendingDown className="w-6 h-6 text-[var(--app-warning)]" />
-            <span className="text-[#9CA3AF] text-sm">Em Progresso</span>
+            <span className="text-sm text-[var(--app-text-faint)]">Em Progresso</span>
           </div>
           <p className="text-3xl font-bold text-[var(--app-warning)]">{inProgressGoals}</p>
         </div>
@@ -283,9 +283,9 @@ export function GoalsView() {
       <div className="space-y-4">
         {filteredGoals.length === 0 ? (
           <div className="app-panel rounded-[1.75rem] p-12 text-center">
-            <Target className="w-16 h-16 text-[#9CA3AF] mx-auto mb-4" />
-            <p className="text-[#9CA3AF] text-lg mb-2">Nenhuma meta cadastrada</p>
-            <p className="text-[#9CA3AF] text-sm">
+            <Target className="mx-auto mb-4 h-16 w-16 text-[var(--app-text-faint)]" />
+            <p className="mb-2 text-lg text-[var(--app-text-muted)]">Nenhuma meta cadastrada</p>
+            <p className="text-sm text-[var(--app-text-faint)]">
               Clique em "Nova Meta" para começar a definir seus objetivos
             </p>
           </div>
@@ -298,31 +298,31 @@ export function GoalsView() {
             return (
               <div
                 key={goal.id}
-                className="app-panel rounded-[1.75rem] p-5 transition-all hover:border-white/20 sm:p-6"
+                className="app-panel rounded-[1.75rem] p-5 transition-all hover:border-[var(--app-border-strong)] sm:p-6"
               >
                 <div className="mb-4 flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
                   <div className="min-w-0 flex-1">
                     <div className="flex items-center gap-3 mb-2">
                       <Target className="w-5 h-5" style={{ color: statusColor }} />
-                      <h3 className="break-words text-xl font-semibold text-white">{goal.name}</h3>
+                      <h3 className="break-words text-xl font-semibold text-[var(--app-text)]">{goal.name}</h3>
                     </div>
-                    <p className="mb-1 break-words text-sm text-[#9CA3AF]">
+                    <p className="mb-1 break-words text-sm text-[var(--app-text-faint)]">
                       {getGoalTypeLabel(goal.type)}
                       {goal.category && ` - ${goal.category}`}
                     </p>
-                    <p className="break-words font-medium text-white">{formatGoalValue(goal)}</p>
+                    <p className="break-words font-medium text-[var(--app-text)]">{formatGoalValue(goal)}</p>
                   </div>
 
                   <div className="flex items-center gap-2 self-start sm:self-auto">
                     <button
                       onClick={() => handleEditGoal(goal)}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                      className="rounded-lg p-2 transition-colors hover:bg-[var(--app-surface-hover)]"
                     >
                       <Pencil className="w-4 h-4 text-[var(--app-accent)]" />
                     </button>
                     <button
                       onClick={() => handleDeleteGoal(goal.id)}
-                      className="p-2 hover:bg-white/10 rounded-lg transition-colors"
+                      className="rounded-lg p-2 transition-colors hover:bg-[var(--app-surface-hover)]"
                     >
                       <Trash2 className="w-4 h-4 text-[var(--app-danger)]" />
                     </button>
@@ -332,12 +332,12 @@ export function GoalsView() {
                 {/* Progress Bar */}
                 <div className="space-y-2">
                   <div className="flex items-center justify-between text-sm">
-                    <span className="text-[#9CA3AF]">Progresso</span>
+                    <span className="text-[var(--app-text-faint)]">Progresso</span>
                     <span className="font-medium" style={{ color: statusColor }}>
                       {Math.min(percentage, 100).toFixed(0)}%
                     </span>
                   </div>
-                  <div className="w-full h-3 bg-white/10 rounded-full overflow-hidden">
+                  <div className="h-3 w-full overflow-hidden rounded-full bg-[var(--app-surface-hover)]">
                     <div
                       className="h-full rounded-full transition-all duration-500"
                       style={{
@@ -370,28 +370,28 @@ export function GoalsView() {
       }}>
         <DialogContent className="app-panel-strong max-h-[calc(100vh-2rem)] w-[calc(100vw-1.5rem)] max-w-md overflow-y-auto rounded-[2rem]">
           <DialogHeader>
-            <DialogTitle className="text-2xl font-bold">
+            <DialogTitle className="text-2xl font-bold text-[var(--app-text)]">
               {editingGoal ? 'Editar Meta' : 'Nova Meta'}
             </DialogTitle>
           </DialogHeader>
           <div className="space-y-4 pt-4">
             <div>
-              <label className="text-sm text-[#9CA3AF] mb-2 block">Título da Meta</label>
+              <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Título da Meta</label>
               <input
                 type="text"
                 value={goalForm.name}
                 onChange={(e) => setGoalForm({ ...goalForm, name: e.target.value })}
                 placeholder="Ex: Economizar R$ 2.000"
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[var(--app-accent)]"
+                className="w-full rounded-lg border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] placeholder:text-[var(--app-field-placeholder)] focus:outline-none focus:border-[var(--app-accent)]"
               />
             </div>
 
             <div>
-              <label className="text-sm text-[#9CA3AF] mb-2 block">Tipo de Meta</label>
+              <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Tipo de Meta</label>
               <select
                 value={goalForm.type}
                 onChange={(e) => setGoalForm({ ...goalForm, type: e.target.value as GoalType })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--app-accent)]"
+                className="w-full rounded-lg border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] focus:outline-none focus:border-[var(--app-accent)]"
               >
                 <option value="savings">Economizar valor</option>
                 <option value="max_spending">Gastar no máximo</option>
@@ -401,11 +401,11 @@ export function GoalsView() {
             </div>
 
             <div>
-              <label className="text-sm text-[#9CA3AF] mb-2 block">Período</label>
+              <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Período</label>
               <select
                 value={goalForm.period}
                 onChange={(e) => setGoalForm({ ...goalForm, period: e.target.value as GoalPeriod })}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white focus:outline-none focus:border-[var(--app-accent)]"
+                className="w-full rounded-lg border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] focus:outline-none focus:border-[var(--app-accent)]"
               >
                 <option value="month">Mensal</option>
                 <option value="year">Anual</option>
@@ -413,38 +413,38 @@ export function GoalsView() {
             </div>
 
             <div>
-              <label className="text-sm text-[#9CA3AF] mb-2 block">Valor Alvo</label>
+              <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Valor Alvo</label>
               <input
                 type="number"
                 value={goalForm.targetAmount}
                 onChange={(e) => setGoalForm({ ...goalForm, targetAmount: e.target.value })}
                 placeholder="Ex: 2000"
                 onWheel={(e) => e.currentTarget.blur()}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[var(--app-accent)]"
+                className="w-full rounded-lg border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] placeholder:text-[var(--app-field-placeholder)] focus:outline-none focus:border-[var(--app-accent)]"
               />
             </div>
 
             <div>
-              <label className="text-sm text-[#9CA3AF] mb-2 block">Valor Atual</label>
+              <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Valor Atual</label>
               <input
                 type="number"
                 value={goalForm.currentAmount}
                 onChange={(e) => setGoalForm({ ...goalForm, currentAmount: e.target.value })}
                 placeholder="Ex: 500"
                 onWheel={(e) => e.currentTarget.blur()}
-                className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[var(--app-accent)]"
+                className="w-full rounded-lg border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] placeholder:text-[var(--app-field-placeholder)] focus:outline-none focus:border-[var(--app-accent)]"
               />
             </div>
 
             {(goalForm.type === 'category_reduction') && (
               <div>
-                <label className="text-sm text-[#9CA3AF] mb-2 block">Categoria</label>
+                <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Categoria</label>
                 <input
                   type="text"
                   value={goalForm.category}
                   onChange={(e) => setGoalForm({ ...goalForm, category: e.target.value })}
                   placeholder="Ex: Alimentação"
-                  className="w-full px-4 py-3 bg-white/5 border border-white/10 rounded-lg text-white placeholder-[#9CA3AF] focus:outline-none focus:border-[var(--app-accent)]"
+                  className="w-full rounded-lg border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] placeholder:text-[var(--app-field-placeholder)] focus:outline-none focus:border-[var(--app-accent)]"
                 />
               </div>
             )}
@@ -462,7 +462,7 @@ export function GoalsView() {
               <button
                 onClick={handleSaveGoal}
                 disabled={saving || !goalForm.name || !goalForm.targetAmount}
-                className="app-button-primary flex-1 rounded-2xl px-4 py-3 font-medium text-white disabled:cursor-not-allowed disabled:opacity-50"
+                className="app-button-primary flex-1 rounded-2xl px-4 py-3 font-medium text-[var(--app-accent-foreground)] disabled:cursor-not-allowed disabled:opacity-50"
               >
                 {saving ? 'Salvando...' : editingGoal ? 'Salvar' : 'Criar Meta'}
               </button>

@@ -11,24 +11,28 @@ type CommitmentType = 'expense_fixed' | 'expense_variable' | 'installment';
 
 const summaryCardClass = 'app-panel min-w-0 rounded-[1.5rem] p-4 sm:p-5';
 const summaryValueClass =
-  'max-w-full text-[clamp(1.45rem,7vw,1.875rem)] font-bold leading-tight text-white tabular-nums [overflow-wrap:anywhere]';
+  'max-w-full text-[clamp(1.45rem,7vw,1.875rem)] font-bold leading-tight text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]';
 const inlineAmountClass =
-  'max-w-full text-xl font-bold leading-tight text-white tabular-nums [overflow-wrap:anywhere]';
+  'max-w-full text-xl font-bold leading-tight text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]';
 const neutralBadgeClass =
-  'inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-[var(--app-text-muted)]';
+  'inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-2.5 py-1 text-xs font-medium text-[var(--app-text-muted)]';
 const iconButtonClass =
-  'rounded-lg p-2 text-[var(--app-text-muted)] transition-colors hover:bg-white/10 hover:text-white';
-const modalContentClass = 'app-panel-strong max-h-[90vh] overflow-y-auto rounded-[2rem] p-4 text-white sm:p-6';
+  'rounded-lg p-2 text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-surface-hover)] hover:text-[var(--app-text)]';
+const modalContentClass = 'app-panel-strong max-h-[90vh] overflow-y-auto rounded-[2rem] p-4 text-[var(--app-text)] sm:p-6';
 const modalFieldClass =
-  'w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-white focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]';
+  'w-full rounded-xl border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] placeholder:text-[var(--app-field-placeholder)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]';
 const modalActionRowClass = 'mt-6 flex flex-col gap-3 sm:flex-row';
-const checkboxClass = 'h-5 w-5 rounded border-white/20 bg-white/5 text-[var(--app-accent)] focus:ring-[var(--app-accent)]';
+const checkboxClass = 'h-5 w-5 rounded border-[var(--app-field-border)] bg-[var(--app-field-bg)] text-[var(--app-accent)] focus:ring-[var(--app-accent)]';
+const sectionHeaderClass = 'border-b border-[var(--app-border)] bg-[var(--app-surface-soft)] px-4 py-4 sm:px-6';
+const listRowClass = 'px-4 py-4 transition-colors hover:bg-[var(--app-surface-soft)] sm:px-6';
+const secondaryButtonClass =
+  'app-button-secondary flex-1 rounded-xl px-4 py-3 transition-colors';
 
 const getToolbarButtonClass = (isActive: boolean) =>
   `rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
     isActive
-      ? 'border-white/20 bg-white/10 text-white'
-      : 'border-white/10 bg-white/[0.03] text-[var(--app-text-muted)] hover:bg-white/[0.06] hover:text-white'
+      ? 'border-[var(--app-border-strong)] bg-[var(--app-surface-hover)] text-[var(--app-text)]'
+      : 'border-[var(--app-border)] bg-[var(--app-surface-soft)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-hover)] hover:text-[var(--app-text)]'
   }`;
 
 export function CommitmentsView() {
@@ -123,8 +127,8 @@ export function CommitmentsView() {
   const getCategoryBadgeClass = (category: string) => {
     const palette = [
       neutralBadgeClass,
-      'inline-flex items-center rounded-full border border-white/12 bg-white/[0.06] px-2.5 py-1 text-xs font-medium text-white/85',
-      'inline-flex items-center rounded-full border border-white/8 bg-black/20 px-2.5 py-1 text-xs font-medium text-white/70'
+      'inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface-hover)] px-2.5 py-1 text-xs font-medium text-[var(--app-text)]',
+      'inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-black-soft)] px-2.5 py-1 text-xs font-medium text-[var(--app-text-muted)]'
     ];
 
     const hash = category
@@ -141,7 +145,7 @@ export function CommitmentsView() {
 
   const getCommitmentTypeBadgeClass = (type: CommitmentType) => {
     if (type === 'expense_variable') {
-      return 'inline-flex items-center rounded-full border border-white/12 bg-white/[0.06] px-2.5 py-1 text-xs font-medium text-white';
+      return 'inline-flex items-center rounded-full border border-[rgba(133,55,253,0.28)] bg-[rgba(133,55,253,0.14)] px-2.5 py-1 text-xs font-medium text-[var(--app-accent)]';
     }
 
     return neutralBadgeClass;
@@ -485,7 +489,7 @@ export function CommitmentsView() {
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
           <div className="w-12 h-12 border-4 border-[var(--app-accent)] border-t-transparent rounded-full animate-spin mx-auto mb-4"></div>
-          <p className="text-white">Carregando compromissos...</p>
+          <p className="text-[var(--app-text)]">Carregando compromissos...</p>
         </div>
       </div>
     );
@@ -499,11 +503,11 @@ export function CommitmentsView() {
           <div className="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center mx-auto mb-4">
             <X className="w-8 h-8 text-red-600" />
           </div>
-          <h3 className="text-lg font-semibold text-white mb-2">Erro ao carregar compromissos</h3>
-          <p className="text-gray-400 mb-4">{error.message}</p>
+          <h3 className="mb-2 text-lg font-semibold text-[var(--app-text)]">Erro ao carregar compromissos</h3>
+          <p className="mb-4 text-[var(--app-text-muted)]">{error.message}</p>
           <button
             onClick={() => window.location.reload()}
-            className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-white transition-opacity hover:opacity-90"
+            className="rounded-lg bg-[var(--app-accent)] px-4 py-2 text-[var(--app-accent-foreground)] transition-opacity hover:opacity-90"
           >
             Recarregar página
           </button>
@@ -535,22 +539,22 @@ export function CommitmentsView() {
         <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={navigateToPreviousMonth}
-            className="app-pill rounded-2xl p-2 transition-colors hover:bg-white/10"
+            className="app-pill rounded-2xl p-2 transition-colors hover:bg-[var(--app-surface-hover)]"
             aria-label="Mês anterior"
           >
-            <ChevronLeft className="w-5 h-5 text-white" />
+            <ChevronLeft className="h-5 w-5 text-[var(--app-text)]" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
-              <button className="app-pill flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 transition-colors hover:bg-white/10 sm:px-4">
-                <span className="max-w-[10.5rem] truncate text-sm font-medium text-white sm:max-w-none sm:text-lg">
+              <button className="app-pill flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 transition-colors hover:bg-[var(--app-surface-hover)] sm:px-4">
+                <span className="max-w-[10.5rem] truncate text-sm font-medium text-[var(--app-text)] sm:max-w-none sm:text-lg">
                   {formatMonthYear(selectedDate)}
                 </span>
-                <CalendarIcon className="w-4 h-4 text-white/80" />
+                <CalendarIcon className="h-4 w-4 text-[var(--app-text-muted)]" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="app-panel-strong w-auto border-white/20 p-0">
+            <PopoverContent className="app-panel-strong w-auto border-[var(--app-field-border)] p-0">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -562,10 +566,10 @@ export function CommitmentsView() {
 
           <button
             onClick={navigateToNextMonth}
-            className="app-pill rounded-2xl p-2 transition-colors hover:bg-white/10"
+            className="app-pill rounded-2xl p-2 transition-colors hover:bg-[var(--app-surface-hover)]"
             aria-label="Próximo mês"
           >
-            <ChevronRight className="w-5 h-5 text-white" />
+            <ChevronRight className="h-5 w-5 text-[var(--app-text)]" />
           </button>
         </div>
       </div>
@@ -579,9 +583,9 @@ export function CommitmentsView() {
         </div>
 
         <div className={summaryCardClass}>
-          <p className="mb-2 text-sm text-[#AFFD37]">Pagos</p>
+          <p className="mb-2 text-sm text-[var(--app-success)]">Pagos</p>
           <p className={summaryValueClass}>{totalPaid.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-          <p className="mt-1 text-xs text-[#AFFD37]">{paid.length} itens</p>
+          <p className="mt-1 text-xs text-[var(--app-success)]">{paid.length} itens</p>
         </div>
 
         <div className={summaryCardClass}>
@@ -591,11 +595,11 @@ export function CommitmentsView() {
         </div>
 
         <div className={summaryCardClass}>
-          <p className="mb-2 text-sm text-[#f1d5d1]">Atrasados</p>
+          <p className="mb-2 text-sm text-[var(--app-overdue)]">Atrasados</p>
           <p className={summaryValueClass}>
             {overdue.length > 0 ? overdue.length : '0'}
           </p>
-          <p className="mt-1 text-xs text-[#f1d5d1]">
+          <p className="mt-1 text-xs text-[var(--app-overdue)]">
             {overdue.length > 0 ? 'Necessita atenção' : 'Tudo em dia'}
           </p>
         </div>
@@ -669,37 +673,37 @@ export function CommitmentsView() {
       {/* Pendentes */}
       {(statusFilter === 'all' || statusFilter === 'pending') && (
       <div className="app-panel overflow-hidden rounded-[1.75rem]">
-        <div className="border-b border-white/10 bg-white/[0.03] px-4 py-4 sm:px-6">
+        <div className={sectionHeaderClass}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-white">Pendentes</h3>
+              <h3 className="text-lg font-semibold text-[var(--app-text)]">Pendentes</h3>
               <p className="mt-1 text-sm text-[var(--app-text-faint)]">{pending.length} compromissos pendentes</p>
             </div>
-            <span className="max-w-full text-lg font-semibold text-white tabular-nums [overflow-wrap:anywhere]">
+            <span className="max-w-full text-lg font-semibold text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">
               {totalPending.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
         </div>
 
-        <div className="divide-y divide-white/10">
+        <div className="divide-y divide-[var(--app-border)]">
           {pending.map(commitment => {
             const isOverdue = commitment.date < todayStr;
 
             return (
-            <div key={commitment.id} className="px-4 py-4 transition-colors hover:bg-white/[0.03] sm:px-6">
+            <div key={commitment.id} className={listRowClass}>
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-3 sm:gap-4">
                   <div className={`mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border ${
                     isOverdue
-                      ? 'border-[#C27C75]/30 bg-[#C27C75]/10 text-[#f1d5d1]'
-                      : 'border-white/10 bg-white/[0.04] text-white/75'
+                      ? 'border-[var(--app-overdue-border)] bg-[var(--app-overdue-surface)] text-[var(--app-overdue)]'
+                      : 'border-[var(--app-border)] bg-[var(--app-surface-soft)] text-[var(--app-text-muted)]'
                   }`}>
                     <CalendarIcon className="h-5 w-5" />
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-base font-medium text-white [overflow-wrap:anywhere]">
+                      <h4 className="text-base font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">
                         {commitment.description}
                       </h4>
                       {commitment.installmentNumber && (
@@ -719,7 +723,7 @@ export function CommitmentsView() {
                         </span>
                       )}
                       {isOverdue && (
-                        <span className="inline-flex items-center rounded-full border border-[#C27C75]/30 bg-[#C27C75]/14 px-2.5 py-1 text-xs font-medium text-[#f1d5d1]">
+                        <span className="inline-flex items-center rounded-full border border-[var(--app-overdue-border)] bg-[var(--app-overdue-surface)] px-2.5 py-1 text-xs font-medium text-[var(--app-overdue)]">
                           Atrasado
                         </span>
                       )}
@@ -769,9 +773,9 @@ export function CommitmentsView() {
 
                     <button
                       onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
-                      className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-white transition-colors sm:w-auto ${
+                      className={`inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium text-[var(--app-accent-foreground)] transition-colors sm:w-auto ${
                         isOverdue
-                          ? 'bg-[#C27C75] hover:bg-[#b56f69]'
+                          ? 'bg-[var(--app-overdue)] hover:opacity-90'
                           : 'bg-[var(--app-accent)] hover:opacity-90'
                       }`}
                     >
@@ -786,7 +790,7 @@ export function CommitmentsView() {
 
           {pending.length === 0 && (
             <div className="px-6 py-8 text-center">
-              <p className="text-[#9CA3AF]">Nenhum compromisso pendente</p>
+              <p className="text-[var(--app-text-muted)]">Nenhum compromisso pendente</p>
             </div>
           )}
         </div>
@@ -796,30 +800,30 @@ export function CommitmentsView() {
       {/* Pagos */}
       {(statusFilter === 'all' || statusFilter === 'paid') && (
       <div className="app-panel overflow-hidden rounded-[1.75rem]">
-        <div className="border-b border-white/10 bg-white/[0.03] px-4 py-4 sm:px-6">
+        <div className={sectionHeaderClass}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-white">Pagos</h3>
+              <h3 className="text-lg font-semibold text-[var(--app-text)]">Pagos</h3>
               <p className="mt-1 text-sm text-[var(--app-text-faint)]">{paid.length} compromissos quitados</p>
             </div>
-            <span className="max-w-full text-lg font-semibold text-white tabular-nums [overflow-wrap:anywhere]">
+            <span className="max-w-full text-lg font-semibold text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">
               {totalPaid.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
         </div>
 
-        <div className="divide-y divide-white/10">
+        <div className="divide-y divide-[var(--app-border)]">
           {paid.map(commitment => (
-            <div key={commitment.id} className="px-4 py-4 transition-colors hover:bg-white/[0.03] sm:px-6">
+            <div key={commitment.id} className={listRowClass}>
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#AFFD37]/25 bg-[#AFFD37]/10">
-                    <Check className="w-6 h-6 text-[#AFFD37]" />
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--app-success-border)] bg-[var(--app-success-surface)]">
+                    <Check className="w-6 h-6 text-[var(--app-success)]" />
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-base font-medium text-white [overflow-wrap:anywhere]">
+                      <h4 className="text-base font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">
                         {commitment.description}
                       </h4>
                       {commitment.installmentNumber && (
@@ -846,7 +850,7 @@ export function CommitmentsView() {
                     <p className={inlineAmountClass}>
                       {commitment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                     </p>
-                    <span className="mt-2 inline-flex items-center rounded-full border border-[#AFFD37]/25 bg-[#AFFD37]/10 px-2.5 py-1 text-xs font-medium text-[#AFFD37]">
+                    <span className="mt-2 inline-flex items-center rounded-full border border-[var(--app-success-border)] bg-[var(--app-success-surface)] px-2.5 py-1 text-xs font-medium text-[var(--app-success)]">
                       Pago
                     </span>
                   </div>
@@ -880,7 +884,7 @@ export function CommitmentsView() {
 
                     <button
                       onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
-                      className="inline-flex w-full items-center justify-center rounded-xl border border-white/15 bg-white/[0.04] px-4 py-2.5 text-sm font-medium text-white transition-colors hover:bg-white/10 sm:w-auto"
+                      className="app-button-secondary inline-flex w-full items-center justify-center rounded-xl px-4 py-2.5 text-sm font-medium sm:w-auto"
                     >
                       Marcar como não pago
                     </button>
@@ -892,7 +896,7 @@ export function CommitmentsView() {
 
           {paid.length === 0 && (
             <div className="px-6 py-8 text-center">
-              <p className="text-[#9CA3AF]">Nenhum compromisso pago</p>
+              <p className="text-[var(--app-text-muted)]">Nenhum compromisso pago</p>
             </div>
           )}
         </div>
@@ -901,7 +905,7 @@ export function CommitmentsView() {
 
       {/* Timeline */}
       <div className="app-panel rounded-[1.75rem] p-4 sm:p-6">
-        <h3 className="text-lg font-semibold text-white mb-4">Timeline de Vencimentos</h3>
+        <h3 className="mb-4 text-lg font-semibold text-[var(--app-text)]">Timeline de Vencimentos</h3>
 
         <div className="space-y-4">
           {filteredCommitments.map((commitment, index) => {
@@ -910,25 +914,25 @@ export function CommitmentsView() {
             const isToday = commitment.date === todayStr;
 
             return (
-              <div key={commitment.id} className="flex items-start gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.03] p-4">
+              <div key={commitment.id} className="flex items-start gap-3 rounded-[1.25rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
                 <div className="flex flex-col items-center">
                   <div className={`w-3 h-3 rounded-full ${commitment.paid
-                      ? 'bg-[#AFFD37]'
+                      ? 'bg-[var(--app-success)]'
                       : isPast
-                        ? 'bg-[#C27C75]/100'
+                        ? 'bg-[var(--app-overdue)]'
                         : isToday
-                          ? 'bg-[#8537FD]'
-                          : 'bg-gray-300'
+                          ? 'bg-[var(--app-accent)]'
+                          : 'bg-[var(--app-text-faint)]'
                     }`}></div>
                   {index < filteredCommitments.length - 1 && (
-                    <div className="w-0.5 h-12 bg-gray-200"></div>
+                    <div className="h-12 w-0.5 bg-[var(--app-border)]"></div>
                   )}
                 </div>
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-white">
+                      <p className="text-sm font-medium text-[var(--app-text)]">
                         {commitmentDate.toLocaleDateString('pt-BR', {
                           day: '2-digit',
                           month: 'long'
@@ -937,14 +941,14 @@ export function CommitmentsView() {
                       <p className="mt-1 text-sm text-[var(--app-text-muted)] [overflow-wrap:anywhere]">
                         {commitment.description}
                       </p>
-                      <p className="mt-2 max-w-full text-sm font-semibold text-white tabular-nums [overflow-wrap:anywhere]">
+                      <p className="mt-2 max-w-full text-sm font-semibold text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">
                         {commitment.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
                       <span className={`mt-2 ${getCategoryBadgeClass(commitment.category)}`}>
                         {commitment.category}
                       </span>
                       {commitment.paid && (
-                        <span className="ml-2 inline-flex items-center text-xs text-[#AFFD37]">✓ Pago</span>
+                        <span className="ml-2 inline-flex items-center text-xs text-[var(--app-success)]">✓ Pago</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2 self-end sm:self-auto">
@@ -965,7 +969,7 @@ export function CommitmentsView() {
                       <button
                         onClick={() => handleTogglePaid(commitment.id, commitment.paid || false)}
                         className={`${iconButtonClass} ${
-                          commitment.paid ? 'text-[#AFFD37]' : 'text-[#9CA3AF]'
+                          commitment.paid ? 'text-[var(--app-success)]' : 'text-[var(--app-text-muted)]'
                         }`}
                         title={commitment.paid ? 'Marcar como não pago' : 'Marcar como pago'}
                       >
@@ -979,7 +983,7 @@ export function CommitmentsView() {
           })}
 
           {filteredCommitments.length === 0 && (
-            <p className="text-[#9CA3AF] text-sm">Nenhum compromisso para o filtro selecionado</p>
+            <p className="text-sm text-[var(--app-text-muted)]">Nenhum compromisso para o filtro selecionado</p>
           )}
         </div>
       </div>
@@ -988,7 +992,7 @@ export function CommitmentsView() {
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
         <DialogContent className={`${modalContentClass} max-w-lg`}>
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-white sm:text-2xl">
+            <DialogTitle className="text-xl font-bold text-[var(--app-text)] sm:text-2xl">
               Adicionar Compromisso
             </DialogTitle>
             <DialogDescription className="text-[var(--app-text-muted)]">
@@ -999,7 +1003,7 @@ export function CommitmentsView() {
           <div className="space-y-4 mt-4">
             {/* Tipo de Compromisso */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Tipo *
               </label>
               <select
@@ -1007,15 +1011,15 @@ export function CommitmentsView() {
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as CommitmentType })}
                 className={modalFieldClass}
               >
-                <option value="expense_fixed" className="bg-[#111214]">Gasto Fixo</option>
-                <option value="expense_variable" className="bg-[#111214]">Gasto Variável</option>
-                <option value="installment" className="bg-[#111214]">Parcelamento</option>
+                <option value="expense_fixed">Gasto Fixo</option>
+                <option value="expense_variable">Gasto Variável</option>
+                <option value="installment">Parcelamento</option>
               </select>
             </div>
 
             {/* Descrição */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Descrição *
               </label>
               <input
@@ -1029,7 +1033,7 @@ export function CommitmentsView() {
 
             {/* Categoria */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Categoria *
               </label>
               <input
@@ -1043,7 +1047,7 @@ export function CommitmentsView() {
 
             {/* Valor */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Valor *
               </label>
               <input
@@ -1059,7 +1063,7 @@ export function CommitmentsView() {
 
             {/* Data de Vencimento */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Data de Vencimento *
               </label>
               <input
@@ -1081,7 +1085,7 @@ export function CommitmentsView() {
                     onChange={(e) => setCommitmentForm({ ...commitmentForm, recurring: e.target.checked, generateNextMonths: e.target.checked ? commitmentForm.generateNextMonths : false })}
                     className={checkboxClass}
                   />
-                  <label htmlFor="recurring" className="text-sm font-medium text-[#9CA3AF]">
+                  <label htmlFor="recurring" className="text-sm font-medium text-[var(--app-text-muted)]">
                     Compromisso recorrente (repete todo mês)
                   </label>
                 </div>
@@ -1096,7 +1100,7 @@ export function CommitmentsView() {
                       onChange={(e) => setCommitmentForm({ ...commitmentForm, generateNextMonths: e.target.checked })}
                       className={checkboxClass}
                     />
-                    <label htmlFor="generateNextMonths" className="text-sm font-medium text-[#9CA3AF]">
+                    <label htmlFor="generateNextMonths" className="text-sm font-medium text-[var(--app-text-muted)]">
                       Criar também para os próximos 2 meses (total de 3)
                     </label>
                   </div>
@@ -1109,7 +1113,7 @@ export function CommitmentsView() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                    <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                       Parcela Atual *
                     </label>
                     <input
@@ -1123,7 +1127,7 @@ export function CommitmentsView() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                    <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                       Total de Parcelas *
                     </label>
                     <input
@@ -1147,7 +1151,7 @@ export function CommitmentsView() {
                   onChange={(e) => setCommitmentForm({ ...commitmentForm, generateAllInstallments: e.target.checked })}
                   className={checkboxClass}
                 />
-                  <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[#9CA3AF]">
+                  <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[var(--app-text-muted)]">
                     Criar todas as parcelas restantes automaticamente
                   </label>
                 </div>
@@ -1159,14 +1163,14 @@ export function CommitmentsView() {
           <div className={modalActionRowClass}>
             <button
               onClick={() => setIsAddModalOpen(false)}
-              className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/10"
+              className={secondaryButtonClass}
             >
               Cancelar
             </button>
             <button
               onClick={handleSaveCommitment}
               disabled={!commitmentForm.description || !commitmentForm.category || !commitmentForm.amount || !commitmentForm.date}
-              className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-[var(--app-accent-foreground)] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Compromisso
             </button>
@@ -1178,7 +1182,7 @@ export function CommitmentsView() {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className={`${modalContentClass} max-w-lg`}>
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-white sm:text-2xl">
+            <DialogTitle className="text-xl font-bold text-[var(--app-text)] sm:text-2xl">
               Editar Compromisso
             </DialogTitle>
             <DialogDescription className="text-[var(--app-text-muted)]">
@@ -1189,7 +1193,7 @@ export function CommitmentsView() {
           <div className="space-y-4 mt-4">
             {/* Tipo de Compromisso */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Tipo *
               </label>
               <select
@@ -1197,15 +1201,15 @@ export function CommitmentsView() {
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as CommitmentType })}
                 className={modalFieldClass}
               >
-                <option value="expense_fixed" className="bg-[#111214]">Gasto Fixo</option>
-                <option value="expense_variable" className="bg-[#111214]">Gasto Variável</option>
-                <option value="installment" className="bg-[#111214]">Parcelamento</option>
+                <option value="expense_fixed">Gasto Fixo</option>
+                <option value="expense_variable">Gasto Variável</option>
+                <option value="installment">Parcelamento</option>
               </select>
             </div>
 
             {/* Descrição */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Descrição *
               </label>
               <input
@@ -1219,7 +1223,7 @@ export function CommitmentsView() {
 
             {/* Categoria */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Categoria *
               </label>
               <input
@@ -1233,7 +1237,7 @@ export function CommitmentsView() {
 
             {/* Valor */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Valor *
               </label>
               <input
@@ -1249,7 +1253,7 @@ export function CommitmentsView() {
 
             {/* Data de Vencimento */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Data de Vencimento *
               </label>
               <input
@@ -1271,7 +1275,7 @@ export function CommitmentsView() {
                     onChange={(e) => setCommitmentForm({ ...commitmentForm, recurring: e.target.checked, generateNextMonths: e.target.checked ? commitmentForm.generateNextMonths : false })}
                     className={checkboxClass}
                   />
-                  <label htmlFor="recurring-edit" className="text-sm font-medium text-[#9CA3AF]">
+                  <label htmlFor="recurring-edit" className="text-sm font-medium text-[var(--app-text-muted)]">
                     Compromisso recorrente (repete todo mês)
                   </label>
                 </div>
@@ -1286,7 +1290,7 @@ export function CommitmentsView() {
                       onChange={(e) => setCommitmentForm({ ...commitmentForm, generateNextMonths: e.target.checked })}
                       className={checkboxClass}
                     />
-                    <label htmlFor="generateNextMonths-edit" className="text-sm font-medium text-[#9CA3AF]">
+                    <label htmlFor="generateNextMonths-edit" className="text-sm font-medium text-[var(--app-text-muted)]">
                       Criar também para os próximos 2 meses (total de 3)
                     </label>
                   </div>
@@ -1299,7 +1303,7 @@ export function CommitmentsView() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                    <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                       Parcela Atual *
                     </label>
                     <input
@@ -1313,7 +1317,7 @@ export function CommitmentsView() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                    <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                       Total de Parcelas *
                     </label>
                     <input
@@ -1337,7 +1341,7 @@ export function CommitmentsView() {
                   onChange={(e) => setCommitmentForm({ ...commitmentForm, generateAllInstallments: e.target.checked })}
                   className={checkboxClass}
                 />
-                  <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[#9CA3AF]">
+                  <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[var(--app-text-muted)]">
                     Criar todas as parcelas restantes automaticamente
                   </label>
                 </div>
@@ -1349,14 +1353,14 @@ export function CommitmentsView() {
           <div className={modalActionRowClass}>
             <button
               onClick={() => setIsEditModalOpen(false)}
-              className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/10"
+              className={secondaryButtonClass}
             >
               Cancelar
             </button>
             <button
               onClick={handleSaveEdit}
               disabled={!commitmentForm.description || !commitmentForm.category || !commitmentForm.amount || !commitmentForm.date}
-              className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-[var(--app-accent-foreground)] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               Salvar Alterações
             </button>
@@ -1368,9 +1372,9 @@ export function CommitmentsView() {
       <Dialog open={isDuplicateModalOpen} onOpenChange={setIsDuplicateModalOpen}>
         <DialogContent className={`${modalContentClass} max-w-lg overflow-y-auto`}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-xl font-bold text-white sm:text-2xl">
-              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-white/10 bg-white/[0.04]">
-                <Copy className="w-6 h-6 text-white" />
+            <DialogTitle className="flex items-center gap-3 text-xl font-bold text-[var(--app-text)] sm:text-2xl">
+              <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)]">
+                <Copy className="h-6 w-6 text-[var(--app-text)]" />
               </div>
               Duplicar Compromisso
             </DialogTitle>
@@ -1383,7 +1387,7 @@ export function CommitmentsView() {
             {/* Usa o mesmo formulário do modal de adicionar */}
             {/* Tipo de Compromisso */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Tipo *
               </label>
               <select
@@ -1391,15 +1395,15 @@ export function CommitmentsView() {
                 onChange={(e) => setCommitmentForm({ ...commitmentForm, type: e.target.value as CommitmentType })}
                 className={modalFieldClass}
               >
-                <option value="expense_fixed" className="bg-[#111214]">Gasto Fixo</option>
-                <option value="expense_variable" className="bg-[#111214]">Gasto Variável</option>
-                <option value="installment" className="bg-[#111214]">Parcelamento</option>
+                <option value="expense_fixed">Gasto Fixo</option>
+                <option value="expense_variable">Gasto Variável</option>
+                <option value="installment">Parcelamento</option>
               </select>
             </div>
 
             {/* Descrição */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Descrição *
               </label>
               <input
@@ -1413,7 +1417,7 @@ export function CommitmentsView() {
 
             {/* Categoria */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Categoria *
               </label>
               <input
@@ -1427,7 +1431,7 @@ export function CommitmentsView() {
 
             {/* Valor */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Valor (R$) *
               </label>
               <input
@@ -1443,7 +1447,7 @@ export function CommitmentsView() {
 
             {/* Data */}
             <div>
-              <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                 Data *
               </label>
               <input
@@ -1464,7 +1468,7 @@ export function CommitmentsView() {
                   onChange={(e) => setCommitmentForm({ ...commitmentForm, recurring: e.target.checked })}
                   className={checkboxClass}
                 />
-                <label htmlFor="recurring-duplicate" className="text-sm font-medium text-[#9CA3AF]">
+                <label htmlFor="recurring-duplicate" className="text-sm font-medium text-[var(--app-text-muted)]">
                   Compromisso recorrente (repete todo mês)
                 </label>
               </div>
@@ -1475,7 +1479,7 @@ export function CommitmentsView() {
               <div className="space-y-4">
                 <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                   <div>
-                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                    <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                       Parcela Atual *
                     </label>
                     <input
@@ -1489,7 +1493,7 @@ export function CommitmentsView() {
                     />
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-[#9CA3AF] mb-2">
+                    <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
                       Total de Parcelas *
                     </label>
                     <input
@@ -1513,7 +1517,7 @@ export function CommitmentsView() {
                   onChange={(e) => setCommitmentForm({ ...commitmentForm, generateAllInstallments: e.target.checked })}
                   className={checkboxClass}
                 />
-                  <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[#9CA3AF]">
+                  <label htmlFor="generateAllInstallments" className="text-sm font-medium text-[var(--app-text-muted)]">
                     Criar todas as parcelas restantes automaticamente
                   </label>
                 </div>
@@ -1525,14 +1529,14 @@ export function CommitmentsView() {
           <div className={modalActionRowClass}>
             <button
               onClick={() => setIsDuplicateModalOpen(false)}
-              className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/10"
+              className={secondaryButtonClass}
             >
               Cancelar
             </button>
             <button
               onClick={handleSaveDuplicate}
               disabled={saving || !commitmentForm.description || !commitmentForm.category || !commitmentForm.amount || !commitmentForm.date}
-              className="flex-1 rounded-xl bg-[var(--app-accent)] px-4 py-3 font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-xl bg-[var(--app-accent)] px-4 py-3 font-semibold text-[var(--app-accent-foreground)] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? 'Duplicando...' : 'Duplicar'}
             </button>
@@ -1544,7 +1548,7 @@ export function CommitmentsView() {
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <DialogContent className={`${modalContentClass} max-w-md`}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-xl font-bold text-white sm:text-2xl">
+            <DialogTitle className="flex items-center gap-3 text-xl font-bold text-[var(--app-text)] sm:text-2xl">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-500/30 bg-red-500/10">
                 <Trash2 className="w-6 h-6 text-red-400" />
               </div>
@@ -1555,9 +1559,9 @@ export function CommitmentsView() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-4 p-4 bg-white/5 border border-white/10 rounded-xl">
-            <p className="text-sm text-[#9CA3AF] mb-1">Compromisso:</p>
-            <p className="text-white font-medium">{deletingDescription}</p>
+          <div className="mt-4 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
+            <p className="mb-1 text-sm text-[var(--app-text-muted)]">Compromisso:</p>
+            <p className="font-medium text-[var(--app-text)]">{deletingDescription}</p>
           </div>
 
           {/* Botões de ação */}
@@ -1565,14 +1569,14 @@ export function CommitmentsView() {
             <button
               onClick={() => setIsDeleteModalOpen(false)}
               disabled={saving}
-              className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`${secondaryButtonClass} disabled:cursor-not-allowed disabled:opacity-50`}
             >
               Cancelar
             </button>
             <button
               onClick={handleDeleteCommitment}
               disabled={saving}
-              className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-white rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+              className="flex-1 px-4 py-3 bg-red-500 hover:bg-red-600 text-[var(--app-accent-foreground)] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
             >
               {saving ? 'Deletando...' : 'Deletar Compromisso'}
             </button>

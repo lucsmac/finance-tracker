@@ -13,27 +13,35 @@ import { useInvestments } from '@/lib/hooks/useInvestments';
 import { useGoals } from '@/lib/hooks/useGoals';
 import { useConfig } from '@/lib/hooks/useConfig';
 import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
-import { Calendar, TrendingUp, Target, ClipboardList, DollarSign, LogOut, Settings, User, Trash2, ChevronDown } from 'lucide-react';
+import { Calendar, TrendingUp, Target, ClipboardList, DollarSign, LogOut, Settings, User, Trash2, ChevronDown, Moon, Sun } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './components/ui/dialog';
+import { Switch } from './components/ui/switch';
 import { getTodayLocal } from '@/lib/utils/dateHelpers';
+import { useTheme } from 'next-themes';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'commitments' | 'incomes' | 'stats' | 'goals'>('dashboard');
   const { user, loading, signOut } = useAuth();
+  const { resolvedTheme, setTheme } = useTheme();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
   const [savingFirstAccess, setSavingFirstAccess] = useState(false);
+  const [savingPreview, setSavingPreview] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
+  const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
+  const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
+  const isFirstAccessPreview =
+    pathname === '/preview/primeiro-acesso' ||
+    pathname === '/preview/first-access' ||
+    searchParams?.get('preview') === 'primeiro-acesso' ||
+    searchParams?.get('preview') === 'first-access';
 
   // Config form state
   const [configForm, setConfigForm] = useState({
     initialBalance: '',
-    monthStartDay: '',
-    mainIncomeDay: '',
-    mainIncomeAmount: '',
     dailyStandard: '',
     balanceStartDate: ''
   });
@@ -46,8 +54,9 @@ export default function App() {
   const { config, loading: configLoading, createConfig, updateConfig } = useConfig(user?.id);
   const { dailyExpenses, deleteDailyExpense: deleteDailyExpenseFn } = useDailyExpenses(user?.id);
   const userName = user?.email?.split('@')[0] || 'Usuário';
-  const activeNavItemClass = 'bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]';
-  const inactiveNavItemClass = 'text-[var(--app-text-muted)] hover:bg-white/5 hover:text-[var(--app-text)]';
+  const isDarkTheme = (resolvedTheme ?? 'dark') === 'dark';
+  const activeNavItemClass = 'bg-[var(--app-nav-active-bg)] text-[var(--app-text)] shadow-[var(--app-nav-active-shadow)]';
+  const inactiveNavItemClass = 'text-[var(--app-text-muted)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-text)]';
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -65,9 +74,6 @@ export default function App() {
     if (config) {
       setConfigForm({
         initialBalance: config.initialBalance.toString(),
-        monthStartDay: config.monthStartDay.toString(),
-        mainIncomeDay: config.mainIncomeDay.toString(),
-        mainIncomeAmount: config.mainIncomeAmount.toString(),
         dailyStandard: config.dailyStandard.toString(),
         balanceStartDate: config.balanceStartDate || getTodayLocal()
       });
@@ -82,9 +88,6 @@ export default function App() {
       setSavingConfig(true);
       await updateConfig({
         initialBalance: parseFloat(configForm.initialBalance) || 0,
-        monthStartDay: parseInt(configForm.monthStartDay) || 1,
-        mainIncomeDay: parseInt(configForm.mainIncomeDay) || 5,
-        mainIncomeAmount: parseFloat(configForm.mainIncomeAmount) || 0,
         dailyStandard: parseFloat(configForm.dailyStandard) || 0,
         balanceStartDate: configForm.balanceStartDate
       });
@@ -112,6 +115,16 @@ export default function App() {
       await createConfig(initialConfig);
     } finally {
       setSavingFirstAccess(false);
+    }
+  };
+
+  const handlePreviewSubmit = async () => {
+    try {
+      setSavingPreview(true);
+      await new Promise((resolve) => window.setTimeout(resolve, 700));
+      alert('Preview apenas: essa rota serve para visualizar a tela de primeiro acesso sem salvar nada.')
+    } finally {
+      setSavingPreview(false);
     }
   };
 
@@ -163,6 +176,32 @@ export default function App() {
     }
   };
 
+  if (isFirstAccessPreview) {
+    return (
+      <FirstAccessSetup
+        preview
+        userEmail="preview@automoney.app"
+        saving={savingPreview}
+        onSubmit={handlePreviewSubmit}
+        initialValues={{
+          form: {
+            initialBalance: '2450.00',
+            balanceStartDate: getTodayLocal(),
+            dailyStandard: '77.22',
+          },
+          calculator: {
+            food: '180',
+            transport: '120',
+            leisure: '90',
+            personalCare: '40',
+            smallExtras: '70',
+            monthlyExtras: '150',
+          },
+        }}
+      />
+    );
+  }
+
   // Show loading state while checking auth
   if (loading || (user && configLoading)) {
     return (
@@ -193,14 +232,32 @@ export default function App() {
 
   return (
     <div className="app-shell">
-      {/* User Profile Menu */}
-      <div className="app-content fixed right-4 top-4 z-50 sm:right-6 sm:top-6" ref={profileMenuRef}>
+      {/* Top Controls */}
+      <div className="app-content fixed right-4 top-4 z-50 flex items-center gap-2 sm:right-6 sm:top-6 sm:gap-3" ref={profileMenuRef}>
+        <button
+          type="button"
+          onClick={() => {
+            setIsProfileMenuOpen(false);
+            setIsSettingsModalOpen(true);
+          }}
+          className="app-pill flex h-12 w-12 items-center justify-center rounded-full text-[var(--app-text-muted)] transition-all hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-text)]"
+          aria-label="Abrir configurações"
+        >
+          <Settings className="h-5 w-5" />
+        </button>
+
         <button
           onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
-          className="app-pill flex items-center gap-3 rounded-full px-3.5 py-2.5 text-[var(--app-text)] transition-all hover:bg-white/10"
+          className="app-pill flex items-center gap-3 rounded-full px-3.5 py-2.5 text-[var(--app-text)] transition-all hover:bg-[var(--app-surface-soft)]"
         >
           {/* User Avatar */}
-          <div className="flex h-9 w-9 items-center justify-center rounded-full border border-[rgba(133,55,253,0.35)] bg-[var(--app-accent)] text-white shadow-[0_10px_25px_rgba(133,55,253,0.2)]">
+          <div
+            className="flex h-9 w-9 items-center justify-center rounded-full border bg-[var(--app-accent)] text-[var(--app-accent-foreground)]"
+            style={{
+              borderColor: 'color-mix(in srgb, var(--app-accent) 35%, transparent)',
+              boxShadow: '0 10px 25px color-mix(in srgb, var(--app-accent) 20%, transparent)',
+            }}
+          >
             <User className="h-5 w-5" />
           </div>
 
@@ -218,7 +275,7 @@ export default function App() {
         {isProfileMenuOpen && (
           <div className="app-panel-strong absolute top-full right-0 mt-3 w-72 overflow-hidden rounded-[1.5rem]">
             {/* User Info */}
-            <div className="border-b border-white/10 px-5 py-4">
+            <div className="border-b border-[var(--app-border)] px-5 py-4">
               <p className="app-kicker mb-2">Perfil</p>
               <p className="text-sm font-medium text-[var(--app-text)]">{userName}</p>
               <p className="mt-1 text-xs text-[var(--app-text-muted)]">{user?.email}</p>
@@ -229,30 +286,19 @@ export default function App() {
               <button
                 onClick={() => {
                   setIsProfileMenuOpen(false);
-                  setIsSettingsModalOpen(true);
-                }}
-                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/5 hover:text-[var(--app-text)]"
-              >
-                <Settings className="w-4 h-4" />
-                <span className="text-sm">Configurações</span>
-              </button>
-
-              <button
-                onClick={() => {
-                  setIsProfileMenuOpen(false);
                   setIsResetModalOpen(true);
                 }}
-                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[#e3b0aa] transition-colors hover:bg-red-500/10 hover:text-[#f2d7d3]"
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[var(--app-danger-muted)] transition-colors hover:bg-[var(--app-danger-surface)] hover:text-[var(--app-danger-text)]"
               >
                 <Trash2 className="w-4 h-4" />
                 <span className="text-sm">Resetar Dados</span>
               </button>
 
-              <div className="my-2 border-t border-white/10" />
+              <div className="my-2 border-t border-[var(--app-border)]" />
 
               <button
                 onClick={signOut}
-                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/5 hover:text-[var(--app-text)]"
+                className="flex w-full items-center gap-3 rounded-2xl px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-text)]"
               >
                 <LogOut className="w-4 h-4" />
                 <span className="text-sm">Sair</span>
@@ -362,6 +408,40 @@ export default function App() {
               </div>
             </div>
 
+            {/* Appearance Section */}
+            <div className="app-panel rounded-[1.5rem] p-4">
+              <div className="flex items-start justify-between gap-4">
+                <div>
+                  <h3 className="mb-1 text-sm font-semibold text-[var(--app-text)]">Aparência</h3>
+                  <p className="text-xs text-[var(--app-text-faint)]">Escolha entre tema claro e escuro.</p>
+                </div>
+
+                <div className="app-pill flex items-center gap-2 rounded-full px-3 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setTheme('light')}
+                    aria-label="Ativar tema claro"
+                    className={`rounded-full p-2 transition-colors ${!isDarkTheme ? 'bg-[var(--app-nav-active-bg)] text-[var(--app-warning)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-warning)]'}`}
+                  >
+                    <Sun className="h-4 w-4" />
+                  </button>
+                  <Switch
+                    checked={isDarkTheme}
+                    onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                    aria-label="Alternar tema"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setTheme('dark')}
+                    aria-label="Ativar tema escuro"
+                    className={`rounded-full p-2 transition-colors ${isDarkTheme ? 'bg-[var(--app-nav-active-bg)] text-[var(--app-accent)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-accent)]'}`}
+                  >
+                    <Moon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+            </div>
+
             {/* Financial Configuration Section */}
             <div className="app-panel rounded-[1.5rem] p-4">
               <h3 className="mb-3 text-sm font-semibold text-[var(--app-text)]">Configurações financeiras</h3>
@@ -381,40 +461,6 @@ export default function App() {
                     />
                   </div>
                   <p className="mt-1 text-xs text-[var(--app-text-faint)]">O saldo inicial da sua conta</p>
-                </div>
-
-                {/* Dia da renda principal */}
-                <div>
-                  <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Dia da renda principal</label>
-                  <input
-                    type="number"
-                    min="1"
-                    max="31"
-                    value={configForm.mainIncomeDay}
-                    onChange={(e) => setConfigForm({ ...configForm, mainIncomeDay: e.target.value })}
-                    onWheel={(e) => e.currentTarget.blur()}
-                    className="w-full rounded-2xl px-4 py-3"
-                    placeholder="5"
-                  />
-                  <p className="mt-1 text-xs text-[var(--app-text-faint)]">Usado para projetar quando a proxima entrada principal acontece.</p>
-                </div>
-
-                {/* Valor da renda principal */}
-                <div>
-                  <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Valor da renda principal</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-text-muted)]">R$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={configForm.mainIncomeAmount}
-                      onChange={(e) => setConfigForm({ ...configForm, mainIncomeAmount: e.target.value })}
-                      onWheel={(e) => e.currentTarget.blur()}
-                      className="w-full rounded-2xl py-3 pl-10 pr-4"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-[var(--app-text-faint)]">Serve como referencia para as projecoes, mesmo antes de voce lancar a entrada do mes.</p>
                 </div>
 
                 {/* Valor Diário Padrão */}
@@ -479,8 +525,8 @@ export default function App() {
 
             {/* Danger Zone */}
             <div className="app-note-danger rounded-[1.5rem] p-4">
-              <h3 className="mb-2 text-sm font-semibold text-[#f2d7d3]">Zona de perigo</h3>
-              <p className="mb-3 text-xs text-[#e9c4bf]">
+              <h3 className="mb-2 text-sm font-semibold text-[var(--app-danger-text)]">Zona de perigo</h3>
+              <p className="mb-3 text-xs text-[var(--app-danger-muted)]">
                 Esta ação deletará permanentemente todos os seus dados.
               </p>
               <button
@@ -512,22 +558,22 @@ export default function App() {
         <DialogContent className="max-w-md rounded-[2rem] app-panel-strong">
           <DialogHeader>
             <DialogTitle className="flex items-center gap-4 text-2xl font-semibold text-[var(--app-text)]">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-red-500/10 text-[#f2d7d3]">
+              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--app-danger-surface)] text-[var(--app-danger-text)]">
                 <Trash2 className="w-5 h-5" />
               </div>
               Resetar Todos os Dados
             </DialogTitle>
-            <DialogDescription className="mt-4 text-[#e9c4bf]">
+            <DialogDescription className="mt-4 text-[var(--app-danger-muted)]">
               Atenção: esta ação é irreversível.
             </DialogDescription>
           </DialogHeader>
 
           <div className="mt-4 space-y-4">
             <div className="app-note-danger rounded-[1.5rem] p-4">
-              <p className="mb-2 text-sm font-semibold text-[#f2d7d3]">
+              <p className="mb-2 text-sm font-semibold text-[var(--app-danger-text)]">
                 Os seguintes dados serão deletados permanentemente:
               </p>
-              <ul className="space-y-1 text-sm text-[#e9c4bf]">
+              <ul className="space-y-1 text-sm text-[var(--app-danger-muted)]">
                 <li>• {transactions.length} transações</li>
                 <li>• {estimates.length} estimativas</li>
                 <li>• {investments.length} investimentos</li>

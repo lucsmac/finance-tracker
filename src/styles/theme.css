@@ -3,69 +3,103 @@
 :root {
   --font-size: 16px;
   --font-sans: "Avenir Next", "SF Pro Display", "Segoe UI", sans-serif;
-  --background: #0c0c0c;
-  --foreground: #ffffff;
-  --card: #181818;
-  --card-foreground: #ffffff;
-  --popover: #181818;
-  --popover-foreground: #ffffff;
-  --primary: #8537fd;
+  color-scheme: light;
+  --background: #f4f1eb;
+  --foreground: #1d1728;
+  --card: rgba(255, 255, 255, 0.88);
+  --card-foreground: #1d1728;
+  --popover: rgba(255, 255, 255, 0.96);
+  --popover-foreground: #1d1728;
+  --primary: #6e3dfa;
   --primary-foreground: #ffffff;
-  --secondary: rgba(255, 255, 255, 0.06);
-  --secondary-foreground: #ffffff;
-  --muted: rgba(255, 255, 255, 0.04);
-  --muted-foreground: #b8b8b8;
-  --accent: rgba(133, 55, 253, 0.14);
-  --accent-foreground: #ffffff;
-  --destructive: #e837fd;
+  --secondary: rgba(52, 35, 89, 0.06);
+  --secondary-foreground: #241a35;
+  --muted: rgba(52, 35, 89, 0.04);
+  --muted-foreground: #6b6178;
+  --accent: rgba(110, 61, 250, 0.1);
+  --accent-foreground: #24173b;
+  --destructive: #c43ad1;
   --destructive-foreground: #ffffff;
-  --border: rgba(255, 255, 255, 0.08);
-  --input: rgba(255, 255, 255, 0.06);
-  --input-background: rgba(255, 255, 255, 0.04);
-  --switch-background: #5a5f68;
+  --border: rgba(52, 35, 89, 0.1);
+  --input: rgba(255, 255, 255, 0.88);
+  --input-background: rgba(255, 255, 255, 0.9);
+  --switch-background: #d1c9de;
   --font-weight-medium: 500;
   --font-weight-normal: 400;
-  --ring: rgba(133, 55, 253, 0.42);
-  --chart-1: #8537fd;
-  --chart-2: #e837fd;
-  --chart-3: #affd37;
-  --chart-4: #fde837;
-  --chart-5: #ffffff;
+  --ring: rgba(110, 61, 250, 0.24);
+  --chart-1: #6e3dfa;
+  --chart-2: #c43ad1;
+  --chart-3: #7dae2d;
+  --chart-4: #c79a10;
+  --chart-5: #1d1728;
   --radius: 0.625rem;
-  --sidebar: #181818;
-  --sidebar-foreground: #ffffff;
-  --sidebar-primary: #8537fd;
+  --sidebar: rgba(255, 255, 255, 0.88);
+  --sidebar-foreground: #1d1728;
+  --sidebar-primary: #6e3dfa;
   --sidebar-primary-foreground: #ffffff;
-  --sidebar-accent: rgba(255, 255, 255, 0.05);
-  --sidebar-accent-foreground: #ffffff;
-  --sidebar-border: rgba(255, 255, 255, 0.08);
-  --sidebar-ring: rgba(133, 55, 253, 0.42);
+  --sidebar-accent: rgba(110, 61, 250, 0.08);
+  --sidebar-accent-foreground: #24173b;
+  --sidebar-border: rgba(52, 35, 89, 0.1);
+  --sidebar-ring: rgba(110, 61, 250, 0.24);
 
-  --app-bg: #0c0c0c;
-  --app-surface: rgba(24, 24, 24, 0.9);
-  --app-surface-strong: rgba(24, 24, 24, 0.96);
-  --app-surface-soft: rgba(255, 255, 255, 0.04);
-  --app-surface-hover: rgba(255, 255, 255, 0.07);
-  --app-border: rgba(255, 255, 255, 0.09);
-  --app-border-strong: rgba(133, 55, 253, 0.28);
-  --app-text: #ffffff;
-  --app-text-muted: #d0d0d0;
-  --app-text-faint: #8f8f8f;
-  --app-accent: #8537fd;
-  --app-accent-strong: #e837fd;
-  --app-accent-soft: rgba(133, 55, 253, 0.16);
-  --app-info: #8537fd;
-  --app-success: #affd37;
-  --app-warning: #fde837;
-  --app-danger: #e837fd;
+  --app-bg: linear-gradient(180deg, #fdfbf8 0%, #fbf8f4 42%, #f7f2ed 100%);
+  --app-surface: rgba(255, 255, 255, 0.78);
+  --app-surface-strong: rgba(255, 255, 255, 0.92);
+  --app-surface-soft: rgba(110, 61, 250, 0.045);
+  --app-surface-hover: rgba(110, 61, 250, 0.075);
+  --app-border: rgba(52, 35, 89, 0.1);
+  --app-border-strong: rgba(110, 61, 250, 0.22);
+  --app-text: #1d1728;
+  --app-text-muted: #645a73;
+  --app-text-faint: #93889f;
+  --app-accent: #6e3dfa;
+  --app-accent-foreground: #ffffff;
+  --app-accent-strong: #c43ad1;
+  --app-accent-soft: rgba(110, 61, 250, 0.12);
+  --app-info: #6e3dfa;
+  --app-success: #5f8d24;
+  --app-success-surface: rgba(95, 141, 36, 0.12);
+  --app-success-border: rgba(95, 141, 36, 0.22);
+  --app-warning: #a98315;
+  --app-warning-surface: rgba(169, 131, 21, 0.12);
+  --app-warning-border: rgba(169, 131, 21, 0.22);
+  --app-danger: #b23fc1;
+  --app-danger-surface: rgba(196, 58, 209, 0.1);
+  --app-danger-border: rgba(196, 58, 209, 0.2);
+  --app-danger-text: #8a2a95;
+  --app-danger-muted: #a957ae;
+  --app-overdue: #b16d66;
+  --app-overdue-surface: rgba(177, 109, 102, 0.12);
+  --app-overdue-border: rgba(177, 109, 102, 0.22);
+  --app-grid-line: rgba(29, 23, 40, 0.05);
+  --app-overlay: rgba(241, 236, 229, 0.74);
+  --app-top-line: rgba(52, 35, 89, 0.08);
+  --app-glow-1: rgba(110, 61, 250, 0.1);
+  --app-glow-2: rgba(196, 58, 209, 0.06);
+  --app-shadow-color: rgba(69, 50, 105, 0.1);
+  --app-shadow-color-strong: rgba(69, 50, 105, 0.16);
+  --app-panel-highlight-top: rgba(255, 255, 255, 0.52);
+  --app-panel-highlight-edge: rgba(255, 255, 255, 0.18);
+  --app-pill-highlight-top: rgba(255, 255, 255, 0.46);
+  --app-popover-highlight-top: rgba(255, 255, 255, 0.45);
+  --app-field-highlight-top: rgba(255, 255, 255, 0.28);
+  --app-nav-active-bg: rgba(110, 61, 250, 0.12);
+  --app-nav-active-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.7), 0 10px 24px rgba(110, 61, 250, 0.12);
+  --app-badge-bg: #ffffff;
+  --app-badge-text: #3c2354;
+  --app-field-bg: rgba(255, 255, 255, 0.8);
+  --app-field-bg-strong: rgba(255, 255, 255, 0.92);
+  --app-field-border: rgba(52, 35, 89, 0.12);
+  --app-field-placeholder: rgba(100, 90, 115, 0.72);
+  --app-black-soft: rgba(52, 35, 89, 0.05);
 
   --color-lime: #affd37;
-  --color-bg-dark: #181818;
-  --color-bg-darker: #0c0c0c;
-  --color-lavender: #8537fd;
-  --color-purple: #e837fd;
+  --color-bg-dark: #ffffff;
+  --color-bg-darker: #f4f1eb;
+  --color-lavender: #6e3dfa;
+  --color-purple: #c43ad1;
   --color-white: #ffffff;
-  --color-gray-medium: #d0d0d0;
+  --color-gray-medium: #645a73;
 
   /* Semantic tokens */
   --color-ft-primary: var(--color-lime);
@@ -73,11 +107,12 @@
   --color-ft-accent: var(--color-purple);
   --color-ft-bg-primary: var(--color-bg-dark);
   --color-ft-bg-secondary: var(--color-bg-darker);
-  --color-ft-text-primary: var(--color-white);
-  --color-ft-text-secondary: var(--color-gray-medium);
+  --color-ft-text-primary: var(--app-text);
+  --color-ft-text-secondary: var(--app-text-muted);
 }
 
 .dark {
+  color-scheme: dark;
   --background: #0c0c0c;
   --foreground: #ffffff;
   --card: #181818;
@@ -112,6 +147,56 @@
   --sidebar-accent-foreground: #ffffff;
   --sidebar-border: rgba(255, 255, 255, 0.08);
   --sidebar-ring: rgba(133, 55, 253, 0.42);
+  --app-bg: #0c0c0c;
+  --app-surface: rgba(24, 24, 24, 0.9);
+  --app-surface-strong: rgba(24, 24, 24, 0.96);
+  --app-surface-soft: rgba(255, 255, 255, 0.04);
+  --app-surface-hover: rgba(255, 255, 255, 0.07);
+  --app-border: rgba(255, 255, 255, 0.045);
+  --app-border-strong: rgba(133, 55, 253, 0.28);
+  --app-text: #ffffff;
+  --app-text-muted: #d0d0d0;
+  --app-text-faint: #8f8f8f;
+  --app-accent: #8537fd;
+  --app-accent-foreground: #ffffff;
+  --app-accent-strong: #e837fd;
+  --app-accent-soft: rgba(133, 55, 253, 0.16);
+  --app-info: #8537fd;
+  --app-success: #affd37;
+  --app-success-surface: rgba(175, 253, 55, 0.12);
+  --app-success-border: rgba(175, 253, 55, 0.22);
+  --app-warning: #fde837;
+  --app-warning-surface: rgba(253, 232, 55, 0.12);
+  --app-warning-border: rgba(253, 232, 55, 0.22);
+  --app-danger: #e837fd;
+  --app-danger-surface: rgba(232, 55, 253, 0.12);
+  --app-danger-border: rgba(232, 55, 253, 0.22);
+  --app-danger-text: #ffd9ff;
+  --app-danger-muted: #e9c4bf;
+  --app-overdue: #e9c4bf;
+  --app-overdue-surface: rgba(194, 124, 117, 0.18);
+  --app-overdue-border: rgba(194, 124, 117, 0.3);
+  --app-grid-line: rgba(255, 255, 255, 0.03);
+  --app-overlay: rgba(5, 6, 10, 0.72);
+  --app-top-line: rgba(255, 255, 255, 0.1);
+  --app-glow-1: rgba(133, 55, 253, 0.08);
+  --app-glow-2: rgba(232, 55, 253, 0.07);
+  --app-shadow-color: rgba(0, 0, 0, 0.44);
+  --app-shadow-color-strong: rgba(0, 0, 0, 0.48);
+  --app-panel-highlight-top: rgba(255, 255, 255, 0.024);
+  --app-panel-highlight-edge: rgba(255, 255, 255, 0.008);
+  --app-pill-highlight-top: rgba(255, 255, 255, 0.018);
+  --app-popover-highlight-top: rgba(255, 255, 255, 0.022);
+  --app-field-highlight-top: rgba(255, 255, 255, 0.018);
+  --app-nav-active-bg: rgba(255, 255, 255, 0.1);
+  --app-nav-active-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  --app-badge-bg: #ffffff;
+  --app-badge-text: #37053b;
+  --app-field-bg: rgba(255, 255, 255, 0.04);
+  --app-field-bg-strong: rgba(255, 255, 255, 0.05);
+  --app-field-border: rgba(255, 255, 255, 0.07);
+  --app-field-placeholder: rgba(255, 255, 255, 0.34);
+  --app-black-soft: rgba(0, 0, 0, 0.2);
 }
 
 @theme inline {
@@ -163,7 +248,7 @@
   body {
     @apply bg-background text-foreground;
     font-family: var(--font-sans);
-    background: #0c0c0c;
+    background: var(--app-bg);
     color: var(--app-text);
     letter-spacing: -0.01em;
     min-height: 100vh;
@@ -241,8 +326,8 @@
   }
 
   ::selection {
-    background: rgba(133, 55, 253, 0.28);
-    color: #ffffff;
+    background: color-mix(in srgb, var(--app-accent) 26%, transparent);
+    color: var(--app-accent-foreground);
   }
 }
 
@@ -251,6 +336,7 @@
     position: relative;
     min-height: 100vh;
     isolation: isolate;
+    background: var(--app-bg);
     color: var(--app-text);
   }
 
@@ -259,8 +345,8 @@
     position: absolute;
     inset: 0;
     background:
-      radial-gradient(circle at 18% 0%, rgba(133, 55, 253, 0.08), transparent 24%),
-      radial-gradient(circle at 88% 100%, rgba(232, 55, 253, 0.07), transparent 22%);
+      radial-gradient(circle at 18% 0%, var(--app-glow-1), transparent 24%),
+      radial-gradient(circle at 88% 100%, var(--app-glow-2), transparent 22%);
     pointer-events: none;
     z-index: 0;
   }
@@ -270,8 +356,8 @@
     position: absolute;
     inset: 0;
     background-image:
-      linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
-      linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+      linear-gradient(var(--app-grid-line) 1px, transparent 1px),
+      linear-gradient(90deg, var(--app-grid-line) 1px, transparent 1px);
     background-size: 120px 120px;
     mask-image: linear-gradient(180deg, rgba(0, 0, 0, 0.2), transparent 30%, transparent 70%, rgba(0, 0, 0, 0.2));
     opacity: 0.08;
@@ -285,39 +371,39 @@
   }
 
   .app-panel {
-    background: rgba(24, 24, 24, 0.92);
+    background: var(--app-surface);
     border: 1px solid var(--app-border);
     box-shadow:
-      0 30px 80px rgba(0, 0, 0, 0.44),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+      0 30px 80px var(--app-shadow-color),
+      inset 0 1px 0 var(--app-panel-highlight-top),
+      inset 0 0 0 1px var(--app-panel-highlight-edge);
     backdrop-filter: blur(24px);
   }
 
   .app-panel-strong {
-    background: rgba(24, 24, 24, 0.97);
+    background: var(--app-surface-strong);
     border: 1px solid var(--app-border);
     box-shadow:
-      0 36px 90px rgba(0, 0, 0, 0.48),
-      inset 0 1px 0 rgba(255, 255, 255, 0.05),
-      inset 0 0 0 1px rgba(255, 255, 255, 0.02);
+      0 36px 90px var(--app-shadow-color-strong),
+      inset 0 1px 0 var(--app-panel-highlight-top),
+      inset 0 0 0 1px var(--app-panel-highlight-edge);
     backdrop-filter: blur(24px);
   }
 
   .app-pill {
-    background: rgba(24, 24, 24, 0.86);
+    background: var(--app-surface);
     border: 1px solid var(--app-border);
     box-shadow:
-      inset 0 1px 0 rgba(255, 255, 255, 0.04),
-      0 10px 24px rgba(0, 0, 0, 0.2);
+      inset 0 1px 0 var(--app-pill-highlight-top),
+      0 10px 24px color-mix(in srgb, var(--app-shadow-color) 70%, transparent);
     backdrop-filter: blur(18px);
   }
 
   .app-button-primary {
     background: var(--app-accent);
-    border: 1px solid rgba(133, 55, 253, 0.42);
-    color: #ffffff;
-    box-shadow: 0 16px 36px rgba(133, 55, 253, 0.24);
+    border: 1px solid color-mix(in srgb, var(--app-accent) 42%, transparent);
+    color: var(--app-accent-foreground);
+    box-shadow: 0 16px 36px color-mix(in srgb, var(--app-accent) 24%, transparent);
     transition:
       transform 180ms ease,
       box-shadow 180ms ease,
@@ -328,31 +414,31 @@
   .app-button-primary:hover {
     transform: translateY(-1px);
     filter: saturate(1.04);
-    box-shadow: 0 18px 42px rgba(133, 55, 253, 0.3);
+    box-shadow: 0 18px 42px color-mix(in srgb, var(--app-accent) 30%, transparent);
   }
 
   .app-button-secondary {
-    background: rgba(255, 255, 255, 0.045);
-    border: 1px solid var(--app-border);
+    background: var(--app-surface-soft);
+    border: 1px solid var(--app-field-border);
     color: var(--app-text);
     transition: background-color 180ms ease, border-color 180ms ease, color 180ms ease;
   }
 
   .app-button-secondary:hover {
-    background: rgba(255, 255, 255, 0.075);
-    border-color: rgba(255, 255, 255, 0.12);
+    background: var(--app-surface-hover);
+    border-color: var(--app-border-strong);
   }
 
   .app-button-danger {
-    background: rgba(232, 55, 253, 0.14);
-    border: 1px solid rgba(232, 55, 253, 0.26);
-    color: #ffd9ff;
+    background: var(--app-danger-surface);
+    border: 1px solid var(--app-danger-border);
+    color: var(--app-danger-text);
     transition: background-color 180ms ease, border-color 180ms ease;
   }
 
   .app-button-danger:hover {
-    background: rgba(232, 55, 253, 0.2);
-    border-color: rgba(232, 55, 253, 0.34);
+    background: color-mix(in srgb, var(--app-danger-surface) 88%, var(--app-accent-soft));
+    border-color: color-mix(in srgb, var(--app-danger-border) 88%, var(--app-accent));
   }
 
   .app-kicker {
@@ -374,14 +460,14 @@
 
   .app-note {
     color: var(--app-text-muted);
-    background: rgba(255, 255, 255, 0.04);
+    background: var(--app-surface-soft);
     border: 1px solid var(--app-border);
   }
 
   .app-note-accent {
     color: var(--app-text-muted);
     background: var(--app-accent-soft);
-    border: 1px solid rgba(133, 55, 253, 0.24);
+    border: 1px solid color-mix(in srgb, var(--app-accent) 24%, transparent);
   }
 
   .app-note-success {
@@ -391,57 +477,57 @@
   }
 
   .app-note-danger {
-    color: #ffd9ff;
-    background: rgba(232, 55, 253, 0.12);
-    border: 1px solid rgba(232, 55, 253, 0.22);
+    color: var(--app-danger-text);
+    background: var(--app-danger-surface);
+    border: 1px solid var(--app-danger-border);
   }
 
   .app-tag {
     color: var(--app-text-muted);
-    background: rgba(255, 255, 255, 0.05);
-    border: 1px solid rgba(255, 255, 255, 0.08);
+    background: var(--app-surface-soft);
+    border: 1px solid var(--app-field-border);
   }
 
-  .app-shell [data-slot="dialog-overlay"] {
-    background: rgba(5, 6, 10, 0.72);
+  [data-slot="dialog-overlay"] {
+    background: var(--app-overlay);
     backdrop-filter: blur(6px);
   }
 
-  .app-shell [data-slot="dialog-content"],
-  .app-shell [data-slot="popover-content"] {
-    background: rgba(24, 24, 24, 0.97);
+  [data-slot="dialog-content"],
+  [data-slot="popover-content"] {
+    background: var(--app-surface-strong);
     border: 1px solid var(--app-border);
     box-shadow:
-      0 36px 90px rgba(0, 0, 0, 0.44),
-      inset 0 1px 0 rgba(255, 255, 255, 0.04);
+      0 36px 90px var(--app-shadow-color-strong),
+      inset 0 1px 0 var(--app-popover-highlight-top);
     backdrop-filter: blur(24px);
   }
 
-  .app-shell [data-slot="tabs-list"] {
-    background: rgba(255, 255, 255, 0.04);
+  [data-slot="tabs-list"] {
+    background: var(--app-surface-soft);
     border: 1px solid var(--app-border);
     padding: 0.25rem;
     height: auto;
   }
 
-  .app-shell [data-slot="tabs-trigger"] {
+  [data-slot="tabs-trigger"] {
     color: var(--app-text-muted);
     transition: background-color 180ms ease, color 180ms ease, border-color 180ms ease;
   }
 
-  .app-shell [data-slot="tabs-trigger"][data-state="active"] {
-    background: rgba(133, 55, 253, 0.12);
-    border-color: rgba(133, 55, 253, 0.24);
+  [data-slot="tabs-trigger"][data-state="active"] {
+    background: var(--app-nav-active-bg);
+    border-color: var(--app-border-strong);
     color: var(--app-text);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.04);
+    box-shadow: var(--app-nav-active-shadow);
   }
 
-  .app-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
-  .app-shell select,
-  .app-shell textarea {
-    background: rgba(255, 255, 255, 0.04);
-    border: 1px solid var(--app-border);
-    box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.03);
+  :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]),
+  :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) select,
+  :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) textarea {
+    background: var(--app-field-bg);
+    border: 1px solid var(--app-field-border);
+    box-shadow: inset 0 1px 0 var(--app-field-highlight-top);
     color: var(--app-text);
     accent-color: var(--app-accent);
     transition:
@@ -450,23 +536,104 @@
       background-color 180ms ease;
   }
 
-  .app-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"])::placeholder,
-  .app-shell textarea::placeholder {
-    color: rgba(255, 255, 255, 0.34);
+  :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"])::placeholder,
+  :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) textarea::placeholder {
+    color: var(--app-field-placeholder);
   }
 
-  .app-shell input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
-  .app-shell select:focus,
-  .app-shell textarea:focus {
-    border-color: rgba(133, 55, 253, 0.38);
+  :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) input:not([type="checkbox"]):not([type="radio"]):not([type="range"]):not([type="color"]):focus,
+  :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) select:focus,
+  :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) textarea:focus {
+    border-color: var(--app-border-strong);
     box-shadow:
-      0 0 0 3px rgba(133, 55, 253, 0.14),
-      inset 0 1px 0 rgba(255, 255, 255, 0.03);
+      0 0 0 3px color-mix(in srgb, var(--app-accent) 14%, transparent),
+      inset 0 1px 0 rgba(255, 255, 255, 0.35);
     outline: none;
   }
 
-  .app-shell select option {
-    background: #181818;
+  :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) select option {
+    background: var(--app-surface-strong);
     color: var(--app-text);
+  }
+
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).text-white,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .text-white {
+    color: var(--app-text);
+  }
+
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).text-white\/85,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).text-white\/80,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).text-white\/75,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).text-white\/70,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).text-white\/65,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).text-white\/60,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .text-white\/85,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .text-white\/80,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .text-white\/75,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .text-white\/70,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .text-white\/65,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .text-white\/60 {
+    color: var(--app-text-muted);
+  }
+
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).text-white\/50,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).text-white\/40,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).text-white\/30,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .text-white\/50,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .text-white\/40,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .text-white\/30 {
+    color: var(--app-text-faint);
+  }
+
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).hover\:text-white:hover,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .hover\:text-white:hover {
+    color: var(--app-text);
+  }
+
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).placeholder-white\/30::placeholder,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).placeholder-gray-400::placeholder,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .placeholder-white\/30::placeholder,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .placeholder-gray-400::placeholder {
+    color: var(--app-field-placeholder);
+  }
+
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).border-white\/10,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).border-white\/12,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).border-white\/15,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).border-white\/20,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .border-white\/10,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .border-white\/12,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .border-white\/15,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .border-white\/20 {
+    border-color: var(--app-field-border);
+  }
+
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .divide-white\/10 > :not([hidden]) ~ :not([hidden]) {
+    border-color: var(--app-field-border);
+  }
+
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).bg-white\/\[0\.03\],
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).bg-white\/\[0\.04\],
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).bg-white\/\[0\.05\],
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).bg-white\/\[0\.06\],
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).bg-white\/5,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).bg-white\/10,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .bg-white\/\[0\.03\],
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .bg-white\/\[0\.04\],
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .bg-white\/\[0\.05\],
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .bg-white\/\[0\.06\],
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .bg-white\/5,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .bg-white\/10 {
+    background-color: var(--app-surface-soft);
+  }
+
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).bg-black\/20,
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .bg-black\/20 {
+    background-color: var(--app-black-soft);
+  }
+
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]).bg-\[\#181818\],
+  .light :is(.app-shell, [data-slot="dialog-content"], [data-slot="popover-content"]) .bg-\[\#181818\] {
+    background-color: var(--app-surface-strong);
   }
 }

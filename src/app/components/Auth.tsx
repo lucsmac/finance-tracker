@@ -31,9 +31,9 @@ export function Auth() {
 
   return (
     <div
-      className="relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10"
+      className="app-shell relative flex min-h-screen items-center justify-center overflow-hidden px-4 py-10"
       style={{
-        background: '#0c0c0c'
+        background: 'var(--app-bg)'
       }}
     >
       {/* Decorative elements */}
@@ -48,7 +48,7 @@ export function Auth() {
         <div className="mb-12 text-center">
           <p className="app-kicker mb-4">Private finance cockpit</p>
           <div className="mb-6 inline-flex h-20 w-20 items-center justify-center rounded-[1.75rem] border border-[rgba(133,55,253,0.35)] bg-[var(--app-accent)] shadow-[0_16px_40px_rgba(133,55,253,0.22)]">
-            <svg className="h-10 w-10 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg className="h-10 w-10 text-[var(--app-accent-foreground)]" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 8c-1.657 0-3 .895-3 2s1.343 2 3 2 3 .895 3 2-1.343 2-3 2m0-8c1.11 0 2.08.402 2.599 1M12 8V7m0 1v8m0 0v1m0-1c-1.11 0-2.08-.402-2.599-1M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
             </svg>
           </div>
@@ -121,7 +121,7 @@ export function Auth() {
               <div className={`rounded-2xl p-4 text-sm animate-in fade-in slide-in-from-top-2 duration-300 ${
                 error.includes('criada')
                   ? 'border border-[rgba(212,176,138,0.24)] bg-[rgba(212,176,138,0.14)] text-[var(--app-text)]'
-                  : 'border border-[rgba(194,124,117,0.24)] bg-[rgba(194,124,117,0.14)] text-[#f1d5d1]'
+                  : 'border border-[rgba(194,124,117,0.24)] bg-[rgba(194,124,117,0.14)] text-[var(--app-danger-text)]'
               }`}>
                 <div className="flex items-start gap-3">
                   <svg className="w-5 h-5 flex-shrink-0 mt-0.5" fill="currentColor" viewBox="0 0 20 20">

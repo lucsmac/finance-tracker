@@ -23,11 +23,22 @@ interface FirstAccessSetupData {
   balanceStartDate: string
 }
 
+interface FirstAccessSetupInitialValues {
+  form?: {
+    initialBalance?: string
+    balanceStartDate?: string
+    dailyStandard?: string
+  }
+  calculator?: Partial<Record<keyof DailyBudgetCalculatorValues, string>>
+}
+
 interface FirstAccessSetupProps {
   userEmail?: string
   saving: boolean
   onSubmit: (data: FirstAccessSetupData) => Promise<void>
-  onSignOut: () => Promise<void>
+  onSignOut?: () => Promise<void> | void
+  preview?: boolean
+  initialValues?: FirstAccessSetupInitialValues
 }
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
@@ -83,20 +94,22 @@ export function FirstAccessSetup({
   saving,
   onSubmit,
   onSignOut,
+  preview = false,
+  initialValues,
 }: FirstAccessSetupProps) {
-  const [form, setForm] = useState({
-    initialBalance: '',
-    balanceStartDate: getTodayLocal(),
-    dailyStandard: '',
-  })
-  const [calculatorValues, setCalculatorValues] = useState<Record<keyof DailyBudgetCalculatorValues, string>>({
-    food: '',
-    transport: '',
-    leisure: '',
-    personalCare: '',
-    smallExtras: '',
-    monthlyExtras: '',
-  })
+  const [form, setForm] = useState(() => ({
+    initialBalance: initialValues?.form?.initialBalance ?? '',
+    balanceStartDate: initialValues?.form?.balanceStartDate ?? getTodayLocal(),
+    dailyStandard: initialValues?.form?.dailyStandard ?? '',
+  }))
+  const [calculatorValues, setCalculatorValues] = useState<Record<keyof DailyBudgetCalculatorValues, string>>(() => ({
+    food: initialValues?.calculator?.food ?? '',
+    transport: initialValues?.calculator?.transport ?? '',
+    leisure: initialValues?.calculator?.leisure ?? '',
+    personalCare: initialValues?.calculator?.personalCare ?? '',
+    smallExtras: initialValues?.calculator?.smallExtras ?? '',
+    monthlyExtras: initialValues?.calculator?.monthlyExtras ?? '',
+  }))
   const [error, setError] = useState<string | null>(null)
 
   const parsedCalculatorValues = useMemo<DailyBudgetCalculatorValues>(
@@ -159,8 +172,8 @@ export function FirstAccessSetup({
 
   return (
     <div
-      className="relative min-h-screen overflow-hidden px-4 py-8 sm:px-6 lg:px-8"
-      style={{ background: '#0c0c0c' }}
+      className="app-shell relative min-h-screen overflow-hidden px-4 py-8 sm:px-6 lg:px-8"
+      style={{ background: 'var(--app-bg)' }}
     >
       <div className="pointer-events-none absolute inset-0 overflow-hidden">
         <div className="absolute inset-x-0 top-0 h-px bg-white/10" />
@@ -180,18 +193,25 @@ export function FirstAccessSetup({
               Antes de abrir o painel, precisamos do saldo inicial, da data em que o controle comeca
               e de um gasto diario sugerido para as despesas variaveis.
             </p>
+            {preview && (
+              <div className="mt-4 inline-flex rounded-full border border-[rgba(175,253,55,0.22)] bg-[rgba(175,253,55,0.08)] px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-[#d8ff92]">
+                Modo preview: nada sera salvo
+              </div>
+            )}
           </div>
 
-          <button
-            type="button"
-            onClick={() => {
-              void onSignOut()
-            }}
-            className="app-button-secondary hidden rounded-2xl px-4 py-3 text-sm sm:inline-flex sm:items-center sm:gap-2"
-          >
-            <LogOut className="h-4 w-4" />
-            Sair
-          </button>
+          {onSignOut && (
+            <button
+              type="button"
+              onClick={() => {
+                void onSignOut()
+              }}
+              className="app-button-secondary hidden rounded-2xl px-4 py-3 text-sm sm:inline-flex sm:items-center sm:gap-2"
+            >
+              <LogOut className="h-4 w-4" />
+              {preview ? 'Voltar' : 'Sair'}
+            </button>
+          )}
         </div>
 
         <div className="grid gap-6 lg:grid-cols-[1.1fr_0.9fr]">
@@ -262,7 +282,7 @@ export function FirstAccessSetup({
                     <button
                       type="button"
                       onClick={handleApplySuggestion}
-                      className="inline-flex items-center gap-2 rounded-xl border border-[rgba(133,55,253,0.28)] bg-[var(--app-accent)]/15 px-3 py-2 text-xs font-medium text-white transition-colors hover:bg-[var(--app-accent)]/25"
+                      className="inline-flex items-center gap-2 rounded-xl border border-[rgba(133,55,253,0.28)] bg-[var(--app-accent)]/15 px-3 py-2 text-xs font-medium text-[var(--app-accent)] transition-colors hover:bg-[var(--app-accent)]/25"
                     >
                       <Sparkles className="h-4 w-4" />
                       Usar sugestao
@@ -281,7 +301,7 @@ export function FirstAccessSetup({
                     value={form.dailyStandard}
                     onChange={(event) => setForm((current) => ({ ...current, dailyStandard: event.target.value }))}
                     onWheel={(event) => event.currentTarget.blur()}
-                    className="w-full rounded-2xl border border-white/10 bg-[#0c0c0c]/60 py-3.5 pl-12 pr-4 text-[var(--app-text)] placeholder:text-[var(--app-text-faint)] focus:border-[rgba(133,55,253,0.4)] focus:outline-none focus:ring-2 focus:ring-[rgba(133,55,253,0.16)]"
+                    className="w-full rounded-2xl border border-white/10 bg-[var(--app-field-bg-strong)] py-3.5 pl-12 pr-4 text-[var(--app-text)] placeholder:text-[var(--app-text-faint)] focus:border-[rgba(133,55,253,0.4)] focus:outline-none focus:ring-2 focus:ring-[rgba(133,55,253,0.16)]"
                     placeholder="0,00"
                   />
                 </div>
@@ -328,21 +348,23 @@ export function FirstAccessSetup({
             )}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              <button
-                type="button"
-                onClick={() => {
-                  void onSignOut()
-                }}
-                className="app-button-secondary rounded-2xl px-4 py-4 sm:hidden"
-              >
-                Sair
-              </button>
+              {onSignOut && (
+                <button
+                  type="button"
+                  onClick={() => {
+                    void onSignOut()
+                  }}
+                  className="app-button-secondary rounded-2xl px-4 py-4 sm:hidden"
+                >
+                  {preview ? 'Voltar' : 'Sair'}
+                </button>
+              )}
               <button
                 type="submit"
                 disabled={saving}
                 className="app-button-primary inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-4 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {saving ? 'Salvando configuracao...' : 'Entrar no painel'}
+                {saving ? 'Salvando configuracao...' : preview ? 'Testar fluxo' : 'Entrar no painel'}
                 {!saving && <ArrowRight className="h-4 w-4" />}
               </button>
             </div>

@@ -19,26 +19,30 @@ import { getTodayLocal, formatDateToLocaleString, createDateFromString } from '@
 
 const summaryCardClass = 'app-panel min-w-0 rounded-[1.5rem] p-4 sm:p-5';
 const summaryValueClass =
-  'max-w-full text-[clamp(1.45rem,7vw,1.875rem)] font-bold leading-tight text-white tabular-nums [overflow-wrap:anywhere]';
+  'max-w-full text-[clamp(1.45rem,7vw,1.875rem)] font-bold leading-tight text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]';
 const inlineAmountClass =
-  'max-w-full text-xl font-bold leading-tight text-white tabular-nums [overflow-wrap:anywhere]';
+  'max-w-full text-xl font-bold leading-tight text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]';
 const neutralBadgeClass =
-  'inline-flex items-center rounded-full border border-white/10 bg-white/[0.04] px-2.5 py-1 text-xs font-medium text-[var(--app-text-muted)]';
+  'inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-2.5 py-1 text-xs font-medium text-[var(--app-text-muted)]';
 const recurringBadgeClass =
   'inline-flex items-center rounded-full border border-[rgba(133,55,253,0.28)] bg-[rgba(133,55,253,0.14)] px-2.5 py-1 text-xs font-medium text-[var(--app-accent)]';
 const iconButtonClass =
-  'rounded-lg p-2 text-[var(--app-text-muted)] transition-colors hover:bg-white/10 hover:text-white';
-const modalContentClass = 'app-panel-strong max-h-[90vh] overflow-y-auto rounded-[2rem] p-4 text-white sm:p-6';
+  'rounded-lg p-2 text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-surface-hover)] hover:text-[var(--app-text)]';
+const modalContentClass = 'app-panel-strong max-h-[90vh] overflow-y-auto rounded-[2rem] p-4 text-[var(--app-text)] sm:p-6';
 const modalFieldClass =
-  'w-full rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-white focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]';
+  'w-full rounded-xl border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] placeholder:text-[var(--app-field-placeholder)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]';
 const modalActionRowClass = 'mt-6 flex flex-col gap-3 sm:flex-row';
-const checkboxClass = 'h-5 w-5 rounded border-white/20 bg-white/5 text-[var(--app-accent)] focus:ring-[var(--app-accent)]';
+const checkboxClass = 'h-5 w-5 rounded border-[var(--app-field-border)] bg-[var(--app-field-bg)] text-[var(--app-accent)] focus:ring-[var(--app-accent)]';
+const sectionHeaderClass = 'border-b border-[var(--app-border)] bg-[var(--app-surface-soft)] px-4 py-4 sm:px-6';
+const listRowClass = 'px-4 py-4 transition-colors hover:bg-[var(--app-surface-soft)] sm:px-6';
+const secondaryButtonClass =
+  'app-button-secondary flex-1 rounded-xl px-4 py-3 transition-colors';
 
 const getToolbarButtonClass = (isActive: boolean) =>
   `rounded-full border px-3 py-2 text-sm font-medium transition-colors ${
     isActive
-      ? 'border-white/20 bg-white/10 text-white'
-      : 'border-white/10 bg-white/[0.03] text-[var(--app-text-muted)] hover:bg-white/[0.06] hover:text-white'
+      ? 'border-[var(--app-border-strong)] bg-[var(--app-surface-hover)] text-[var(--app-text)]'
+      : 'border-[var(--app-border)] bg-[var(--app-surface-soft)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-hover)] hover:text-[var(--app-text)]'
   }`;
 
 export function IncomesView() {
@@ -113,7 +117,7 @@ export function IncomesView() {
       <div className="flex min-h-[400px] items-center justify-center">
         <div className="text-center">
           <div className="mx-auto mb-4 h-12 w-12 animate-spin rounded-full border-4 border-[var(--app-accent)] border-t-transparent" />
-          <p className="text-[#9CA3AF]">Carregando entradas...</p>
+          <p className="text-[var(--app-text)]">Carregando entradas...</p>
         </div>
       </div>
     );
@@ -305,22 +309,22 @@ export function IncomesView() {
         <div className="flex items-center gap-2 sm:gap-3">
           <button
             onClick={navigateToPreviousMonth}
-            className="app-pill rounded-2xl p-2 transition-colors hover:bg-white/10"
+            className="app-pill rounded-2xl p-2 transition-colors hover:bg-[var(--app-surface-hover)]"
             aria-label="Mês anterior"
           >
-            <ChevronLeft className="h-5 w-5 text-white" />
+            <ChevronLeft className="h-5 w-5 text-[var(--app-text)]" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
-              <button className="app-pill flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 transition-colors hover:bg-white/10 sm:px-4">
-                <span className="max-w-[10.5rem] truncate text-sm font-medium text-white sm:max-w-none sm:text-lg">
+              <button className="app-pill flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 transition-colors hover:bg-[var(--app-surface-hover)] sm:px-4">
+                <span className="max-w-[10.5rem] truncate text-sm font-medium text-[var(--app-text)] sm:max-w-none sm:text-lg">
                   {formatMonthYear(selectedDate)}
                 </span>
-                <CalendarIcon className="h-4 w-4 text-white/80" />
+                <CalendarIcon className="h-4 w-4 text-[var(--app-text-muted)]" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="app-panel-strong w-auto border-white/20 p-0">
+            <PopoverContent className="app-panel-strong w-auto border-[var(--app-field-border)] p-0">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -332,10 +336,10 @@ export function IncomesView() {
 
           <button
             onClick={navigateToNextMonth}
-            className="app-pill rounded-2xl p-2 transition-colors hover:bg-white/10"
+            className="app-pill rounded-2xl p-2 transition-colors hover:bg-[var(--app-surface-hover)]"
             aria-label="Próximo mês"
           >
-            <ChevronRight className="h-5 w-5 text-white" />
+            <ChevronRight className="h-5 w-5 text-[var(--app-text)]" />
           </button>
         </div>
       </div>
@@ -348,9 +352,9 @@ export function IncomesView() {
         </div>
 
         <div className={summaryCardClass}>
-          <p className="mb-2 text-sm text-[#AFFD37]">Recebidos</p>
+          <p className="mb-2 text-sm text-[var(--app-success)]">Recebidos</p>
           <p className={summaryValueClass}>{totalReceived.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-          <p className="mt-1 text-xs text-[#AFFD37]">{received.length} itens</p>
+          <p className="mt-1 text-xs text-[var(--app-success)]">{received.length} itens</p>
         </div>
 
         <div className={summaryCardClass}>
@@ -360,9 +364,9 @@ export function IncomesView() {
         </div>
 
         <div className={summaryCardClass}>
-          <p className="mb-2 text-sm text-[#f1d5d1]">Atrasados</p>
+          <p className="mb-2 text-sm text-[var(--app-overdue)]">Atrasados</p>
           <p className={summaryValueClass}>{overdue.length > 0 ? overdue.length : '0'}</p>
-          <p className="mt-1 text-xs text-[#f1d5d1]">
+          <p className="mt-1 text-xs text-[var(--app-overdue)]">
             {overdue.length > 0 ? 'Necessita atenção' : 'Tudo em dia'}
           </p>
         </div>
@@ -393,12 +397,12 @@ export function IncomesView() {
       </div>
 
       {overdue.length > 0 && (
-        <div className="app-panel rounded-[1.75rem] border border-[#C27C75]/30 p-4 sm:p-6">
+        <div className="app-panel rounded-[1.75rem] border border-[var(--app-overdue-border)] p-4 sm:p-6">
           <div className="mb-4 flex items-start gap-3">
-            <AlertCircle className="mt-0.5 h-5 w-5 text-[#f1d5d1]" />
+            <AlertCircle className="mt-0.5 h-5 w-5 text-[var(--app-overdue)]" />
             <div>
-              <h3 className="text-lg font-semibold text-white">Entradas Atrasadas</h3>
-              <p className="mt-1 text-sm text-[#f1d5d1]">
+              <h3 className="text-lg font-semibold text-[var(--app-text)]">Entradas Atrasadas</h3>
+              <p className="mt-1 text-sm text-[var(--app-overdue)]">
                 Você tem {overdue.length} entrada(s) pendente(s) com data anterior a hoje.
               </p>
             </div>
@@ -408,15 +412,15 @@ export function IncomesView() {
             {overdue.map((income) => (
               <div
                 key={income.id}
-                className="flex flex-col gap-3 rounded-xl border border-white/10 bg-white/[0.03] p-4 sm:flex-row sm:items-center sm:justify-between"
+                className="flex flex-col gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="min-w-0 flex-1">
-                  <p className="font-medium text-white [overflow-wrap:anywhere]">{income.description}</p>
+                  <p className="font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">{income.description}</p>
                   <div className="mt-2 flex flex-wrap items-center gap-2">
                     <span className={neutralBadgeClass}>{income.category}</span>
                     {income.recurring && <span className={recurringBadgeClass}>Recorrente</span>}
                   </div>
-                  <p className="mt-2 text-sm text-[#f1d5d1]">
+                  <p className="mt-2 text-sm text-[var(--app-overdue)]">
                     Previsto para {formatDateToLocaleString(income.date)}
                   </p>
                 </div>
@@ -426,7 +430,7 @@ export function IncomesView() {
                     <p className={inlineAmountClass}>{income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                     <button
                       onClick={() => handleTogglePaid(income.id, income.paid)}
-                      className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-3 py-2 text-sm font-medium text-white transition-opacity hover:opacity-90 sm:w-auto"
+                      className="mt-2 inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-3 py-2 text-sm font-medium text-[var(--app-accent-foreground)] transition-opacity hover:opacity-90 sm:w-auto"
                     >
                       Marcar como Recebido
                     </button>
@@ -452,30 +456,30 @@ export function IncomesView() {
       )}
 
       <div className="app-panel overflow-hidden rounded-[1.75rem]">
-        <div className="border-b border-white/10 bg-white/[0.03] px-4 py-4 sm:px-6">
+        <div className={sectionHeaderClass}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-white">A Receber</h3>
+              <h3 className="text-lg font-semibold text-[var(--app-text)]">A Receber</h3>
               <p className="mt-1 text-sm text-[var(--app-text-faint)]">{upcomingPending.length} entradas previstas</p>
             </div>
-            <span className="max-w-full text-lg font-semibold text-white tabular-nums [overflow-wrap:anywhere]">
+            <span className="max-w-full text-lg font-semibold text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">
               {upcomingPendingTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
         </div>
 
-        <div className="divide-y divide-white/10">
+        <div className="divide-y divide-[var(--app-border)]">
           {upcomingPending.map((income) => (
-            <div key={income.id} className="px-4 py-4 transition-colors hover:bg-white/[0.03] sm:px-6">
+            <div key={income.id} className={listRowClass}>
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-white/10 bg-white/[0.04]">
-                    <DollarSign className="h-5 w-5 text-white/75" />
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-soft)]">
+                    <DollarSign className="h-5 w-5 text-[var(--app-text-muted)]" />
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-base font-medium text-white [overflow-wrap:anywhere]">{income.description}</h4>
+                      <h4 className="text-base font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">{income.description}</h4>
                       <span className={neutralBadgeClass}>{income.category}</span>
                       {income.recurring && <span className={recurringBadgeClass}>Recorrente</span>}
                     </div>
@@ -508,7 +512,7 @@ export function IncomesView() {
 
                     <button
                       onClick={() => handleTogglePaid(income.id, income.paid)}
-                      className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-medium text-white transition-opacity hover:opacity-90 sm:w-auto"
+                      className="inline-flex w-full items-center justify-center rounded-xl bg-[var(--app-accent)] px-4 py-2.5 text-sm font-medium text-[var(--app-accent-foreground)] transition-opacity hover:opacity-90 sm:w-auto"
                     >
                       Marcar como Recebido
                     </button>
@@ -520,37 +524,37 @@ export function IncomesView() {
 
           {upcomingPending.length === 0 && (
             <div className="px-6 py-8 text-center">
-              <p className="text-[#9CA3AF]">Nenhuma entrada pendente</p>
+              <p className="text-[var(--app-text-muted)]">Nenhuma entrada pendente</p>
             </div>
           )}
         </div>
       </div>
 
       <div className="app-panel overflow-hidden rounded-[1.75rem]">
-        <div className="border-b border-white/10 bg-white/[0.03] px-4 py-4 sm:px-6">
+        <div className={sectionHeaderClass}>
           <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <h3 className="text-lg font-semibold text-white">Recebidos</h3>
+              <h3 className="text-lg font-semibold text-[var(--app-text)]">Recebidos</h3>
               <p className="mt-1 text-sm text-[var(--app-text-faint)]">{received.length} entradas recebidas</p>
             </div>
-            <span className="max-w-full text-lg font-semibold text-white tabular-nums [overflow-wrap:anywhere]">
+            <span className="max-w-full text-lg font-semibold text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">
               {totalReceived.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
             </span>
           </div>
         </div>
 
-        <div className="divide-y divide-white/10">
+        <div className="divide-y divide-[var(--app-border)]">
           {received.map((income) => (
-            <div key={income.id} className="px-4 py-4 transition-colors hover:bg-white/[0.03] sm:px-6">
+            <div key={income.id} className={listRowClass}>
               <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
                 <div className="flex min-w-0 items-start gap-3 sm:gap-4">
-                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[#AFFD37]/25 bg-[#AFFD37]/10">
-                    <Check className="h-6 w-6 text-[#AFFD37]" />
+                  <div className="mt-0.5 flex h-11 w-11 shrink-0 items-center justify-center rounded-2xl border border-[var(--app-success-border)] bg-[var(--app-success-surface)]">
+                    <Check className="h-6 w-6 text-[var(--app-success)]" />
                   </div>
 
                   <div className="min-w-0 flex-1">
                     <div className="flex flex-wrap items-center gap-2">
-                      <h4 className="text-base font-medium text-white [overflow-wrap:anywhere]">{income.description}</h4>
+                      <h4 className="text-base font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">{income.description}</h4>
                       <span className={neutralBadgeClass}>{income.category}</span>
                       {income.recurring && <span className={recurringBadgeClass}>Recorrente</span>}
                     </div>
@@ -564,7 +568,7 @@ export function IncomesView() {
                 <div className="flex flex-col gap-3 lg:items-end">
                   <div className="text-left lg:text-right">
                     <p className={inlineAmountClass}>{income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
-                    <span className="mt-2 inline-flex items-center rounded-full border border-[#AFFD37]/25 bg-[#AFFD37]/10 px-2.5 py-1 text-xs font-medium text-[#AFFD37]">
+                    <span className="mt-2 inline-flex items-center rounded-full border border-[var(--app-success-border)] bg-[var(--app-success-surface)] px-2.5 py-1 text-xs font-medium text-[var(--app-success)]">
                       Recebido
                     </span>
                   </div>
@@ -589,14 +593,14 @@ export function IncomesView() {
 
           {received.length === 0 && (
             <div className="px-6 py-8 text-center">
-              <p className="text-[#9CA3AF]">Nenhuma entrada recebida</p>
+              <p className="text-[var(--app-text-muted)]">Nenhuma entrada recebida</p>
             </div>
           )}
         </div>
       </div>
 
       <div className="app-panel rounded-[1.75rem] p-4 sm:p-6">
-        <h3 className="mb-4 text-lg font-semibold text-white">Timeline de Entradas</h3>
+        <h3 className="mb-4 text-lg font-semibold text-[var(--app-text)]">Timeline de Entradas</h3>
 
         <div className="space-y-4">
           {incomes.map((income, index) => {
@@ -605,34 +609,34 @@ export function IncomesView() {
             const isToday = income.date === todayStr;
 
             return (
-              <div key={income.id} className="flex items-start gap-3 rounded-[1.25rem] border border-white/10 bg-white/[0.03] p-4">
+              <div key={income.id} className="flex items-start gap-3 rounded-[1.25rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
                 <div className="flex flex-col items-center">
                   <div
                     className={`h-3 w-3 rounded-full ${
-                      income.paid ? 'bg-[#AFFD37]' : isPast ? 'bg-[#C27C75]' : isToday ? 'bg-[#8537FD]' : 'bg-gray-300'
+                      income.paid ? 'bg-[var(--app-success)]' : isPast ? 'bg-[var(--app-overdue)]' : isToday ? 'bg-[var(--app-accent)]' : 'bg-[var(--app-text-faint)]'
                     }`}
                   />
-                  {index < incomes.length - 1 && <div className="h-12 w-0.5 bg-gray-200" />}
+                  {index < incomes.length - 1 && <div className="h-12 w-0.5 bg-[var(--app-border)]" />}
                 </div>
 
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
                     <div className="min-w-0">
-                      <p className="text-sm font-medium text-white">
+                      <p className="text-sm font-medium text-[var(--app-text)]">
                         {incomeDate.toLocaleDateString('pt-BR', {
                           day: '2-digit',
                           month: 'long'
                         })}
                       </p>
                       <p className="mt-1 text-sm text-[var(--app-text-muted)] [overflow-wrap:anywhere]">{income.description}</p>
-                      <p className="mt-2 max-w-full text-sm font-semibold text-white tabular-nums [overflow-wrap:anywhere]">
+                      <p className="mt-2 max-w-full text-sm font-semibold text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">
                         {income.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                       </p>
                       <div className="mt-2 flex flex-wrap items-center gap-2">
                         <span className={neutralBadgeClass}>{income.category}</span>
                         {income.recurring && <span className={recurringBadgeClass}>Recorrente</span>}
                       </div>
-                      {income.paid && <span className="mt-2 inline-flex items-center text-xs text-[#AFFD37]">✓ Recebido</span>}
+                      {income.paid && <span className="mt-2 inline-flex items-center text-xs text-[var(--app-success)]">✓ Recebido</span>}
                     </div>
 
                     <div className="flex items-center gap-2 self-end sm:self-auto">
@@ -648,7 +652,7 @@ export function IncomesView() {
                       </button>
                       <button
                         onClick={() => handleTogglePaid(income.id, income.paid || false)}
-                        className={`${iconButtonClass} ${income.paid ? 'text-[#AFFD37]' : 'text-[#9CA3AF]'}`}
+                        className={`${iconButtonClass} ${income.paid ? 'text-[var(--app-success)]' : 'text-[var(--app-text-muted)]'}`}
                         title={income.paid ? 'Marcar como não recebido' : 'Marcar como recebido'}
                       >
                         <Check className="h-4 w-4" />
@@ -661,7 +665,7 @@ export function IncomesView() {
           })}
 
           {incomes.length === 0 && (
-            <p className="text-sm text-[#9CA3AF]">Nenhuma entrada cadastrada neste mês.</p>
+            <p className="text-sm text-[var(--app-text-muted)]">Nenhuma entrada cadastrada neste mês.</p>
           )}
         </div>
       </div>
@@ -669,7 +673,7 @@ export function IncomesView() {
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
         <DialogContent className={`${modalContentClass} max-w-lg`}>
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-white sm:text-2xl">Adicionar Entrada</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-[var(--app-text)] sm:text-2xl">Adicionar Entrada</DialogTitle>
             <DialogDescription className="text-[var(--app-text-muted)]">
               Cadastre entradas recorrentes ou outras receitas planejadas
             </DialogDescription>
@@ -677,7 +681,7 @@ export function IncomesView() {
 
           <div className="mt-4 space-y-4">
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Descrição *</label>
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Descrição *</label>
               <input
                 type="text"
                 placeholder="Ex: Salário, Freelance, Bônus"
@@ -688,7 +692,7 @@ export function IncomesView() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Categoria *</label>
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Categoria *</label>
               <input
                 type="text"
                 placeholder="Ex: Salário, Trabalho Autônomo, Investimentos"
@@ -699,7 +703,7 @@ export function IncomesView() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Valor *</label>
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Valor *</label>
               <input
                 type="number"
                 step="0.01"
@@ -712,7 +716,7 @@ export function IncomesView() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Data de Recebimento *</label>
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Data de Recebimento *</label>
               <input
                 type="date"
                 value={incomeForm.date}
@@ -736,7 +740,7 @@ export function IncomesView() {
                   }
                   className={checkboxClass}
                 />
-                <label htmlFor="recurring" className="text-sm font-medium text-[#9CA3AF]">
+                <label htmlFor="recurring" className="text-sm font-medium text-[var(--app-text-muted)]">
                   Entrada recorrente (repete todo mês)
                 </label>
               </div>
@@ -750,7 +754,7 @@ export function IncomesView() {
                     onChange={(e) => setIncomeForm({ ...incomeForm, generateNextMonths: e.target.checked })}
                     className={checkboxClass}
                   />
-                  <label htmlFor="generateNextMonths" className="text-sm font-medium text-[#9CA3AF]">
+                  <label htmlFor="generateNextMonths" className="text-sm font-medium text-[var(--app-text-muted)]">
                     Criar também para os próximos 2 meses (total de 3)
                   </label>
                 </div>
@@ -761,14 +765,14 @@ export function IncomesView() {
           <div className={modalActionRowClass}>
             <button
               onClick={() => setIsAddModalOpen(false)}
-              className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/10"
+              className={secondaryButtonClass}
             >
               Cancelar
             </button>
             <button
               onClick={handleSaveIncome}
               disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date || saving}
-              className="flex-1 rounded-xl bg-[var(--app-accent)] px-4 py-3 font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-xl bg-[var(--app-accent)] px-4 py-3 font-semibold text-[var(--app-accent-foreground)] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? 'Salvando...' : 'Salvar Entrada'}
             </button>
@@ -779,7 +783,7 @@ export function IncomesView() {
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className={`${modalContentClass} max-w-lg`}>
           <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-white sm:text-2xl">Editar Entrada</DialogTitle>
+            <DialogTitle className="text-xl font-bold text-[var(--app-text)] sm:text-2xl">Editar Entrada</DialogTitle>
             <DialogDescription className="text-[var(--app-text-muted)]">
               Atualize as informações da entrada
             </DialogDescription>
@@ -787,7 +791,7 @@ export function IncomesView() {
 
           <div className="mt-4 space-y-4">
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Descrição *</label>
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Descrição *</label>
               <input
                 type="text"
                 placeholder="Ex: Salário, Freelance, Bônus"
@@ -798,7 +802,7 @@ export function IncomesView() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Categoria *</label>
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Categoria *</label>
               <input
                 type="text"
                 placeholder="Ex: Salário, Trabalho Autônomo, Investimentos"
@@ -809,7 +813,7 @@ export function IncomesView() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Valor *</label>
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Valor *</label>
               <input
                 type="number"
                 step="0.01"
@@ -822,7 +826,7 @@ export function IncomesView() {
             </div>
 
             <div>
-              <label className="mb-2 block text-sm font-medium text-[#9CA3AF]">Data de Recebimento *</label>
+              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Data de Recebimento *</label>
               <input
                 type="date"
                 value={incomeForm.date}
@@ -839,7 +843,7 @@ export function IncomesView() {
                 onChange={(e) => setIncomeForm({ ...incomeForm, recurring: e.target.checked })}
                 className={checkboxClass}
               />
-              <label htmlFor="recurring-edit" className="text-sm font-medium text-[#9CA3AF]">
+              <label htmlFor="recurring-edit" className="text-sm font-medium text-[var(--app-text-muted)]">
                 Entrada recorrente (repete todo mês)
               </label>
             </div>
@@ -848,14 +852,14 @@ export function IncomesView() {
           <div className={modalActionRowClass}>
             <button
               onClick={() => setIsEditModalOpen(false)}
-              className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/10"
+              className={secondaryButtonClass}
             >
               Cancelar
             </button>
             <button
               onClick={handleSaveEdit}
               disabled={!incomeForm.description || !incomeForm.category || !incomeForm.amount || !incomeForm.date || saving}
-              className="flex-1 rounded-xl bg-[var(--app-accent)] px-4 py-3 font-semibold text-white transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-xl bg-[var(--app-accent)] px-4 py-3 font-semibold text-[var(--app-accent-foreground)] transition-colors hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? 'Salvando...' : 'Salvar Alterações'}
             </button>
@@ -866,7 +870,7 @@ export function IncomesView() {
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <DialogContent className={`${modalContentClass} max-w-md`}>
           <DialogHeader>
-            <DialogTitle className="flex items-center gap-3 text-xl font-bold text-white sm:text-2xl">
+            <DialogTitle className="flex items-center gap-3 text-xl font-bold text-[var(--app-text)] sm:text-2xl">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-500/30 bg-red-500/10">
                 <Trash2 className="h-6 w-6 text-red-400" />
               </div>
@@ -877,23 +881,23 @@ export function IncomesView() {
             </DialogDescription>
           </DialogHeader>
 
-          <div className="mt-4 rounded-xl border border-white/10 bg-white/5 p-4">
-            <p className="mb-1 text-sm text-[#9CA3AF]">Entrada:</p>
-            <p className="font-medium text-white">{deletingDescription}</p>
+          <div className="mt-4 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
+            <p className="mb-1 text-sm text-[var(--app-text-muted)]">Entrada:</p>
+            <p className="font-medium text-[var(--app-text)]">{deletingDescription}</p>
           </div>
 
           <div className={modalActionRowClass}>
             <button
               onClick={() => setIsDeleteModalOpen(false)}
               disabled={saving}
-              className="flex-1 rounded-xl border border-white/20 bg-white/5 px-4 py-3 text-[var(--app-text-muted)] transition-colors hover:bg-white/10 disabled:cursor-not-allowed disabled:opacity-50"
+              className={`${secondaryButtonClass} disabled:cursor-not-allowed disabled:opacity-50`}
             >
               Cancelar
             </button>
             <button
               onClick={handleDeleteIncome}
               disabled={saving}
-              className="flex-1 rounded-xl bg-red-500 px-4 py-3 font-semibold text-white transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
+              className="flex-1 rounded-xl bg-red-500 px-4 py-3 font-semibold text-[var(--app-accent-foreground)] transition-colors hover:bg-red-600 disabled:cursor-not-allowed disabled:opacity-50"
             >
               {saving ? 'Deletando...' : 'Deletar Entrada'}
             </button>

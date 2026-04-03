@@ -70,7 +70,7 @@ export function StatsView() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <div className="animate-spin rounded-full h-12 w-12 border-b-2 border-[var(--app-accent)] mx-auto mb-4"></div>
-          <p className="text-white/70">Carregando análises...</p>
+          <p className="text-[var(--app-text-muted)]">Carregando análises...</p>
         </div>
       </div>
     );
@@ -81,7 +81,7 @@ export function StatsView() {
       <div className="flex items-center justify-center min-h-screen">
         <div className="text-center">
           <AlertCircle className="w-12 h-12 text-red-500 mx-auto mb-4" />
-          <p className="text-white/70">Erro ao carregar dados: {error.message}</p>
+          <p className="text-[var(--app-text-muted)]">Erro ao carregar dados: {error.message}</p>
         </div>
       </div>
     );
@@ -326,7 +326,19 @@ export function StatsView() {
     .sort((a, b) => b.value - a.value);
 
   // Dados para gráfico de pizza
-  const pieColors = ['#8537FD', '#E837FD', '#AFFD37', '#FDE837', '#FFFFFF', '#8537FD', '#E837FD', '#AFFD37'];
+  const pieColors = ['var(--app-accent)', 'var(--app-danger)', 'var(--app-success)', 'var(--app-warning)', 'var(--app-text)', 'var(--app-accent)', 'var(--app-danger)', 'var(--app-success)'];
+  const chartGridColor = 'color-mix(in srgb, var(--app-text) 12%, transparent)';
+  const chartAxisColor = 'var(--app-text-muted)';
+  const chartTooltipStyle = {
+    backgroundColor: 'var(--app-surface-strong)',
+    border: '1px solid var(--app-border)',
+    borderRadius: '12px',
+    color: 'var(--app-text)',
+  } as const;
+  const chartLegendStyle = {
+    color: 'var(--app-text-muted)',
+    fontSize: '12px',
+  } as const;
 
   // Dados da curva diária de saldo (apenas para visualização mensal)
   const dailyBalanceData = [];
@@ -395,7 +407,7 @@ export function StatsView() {
               onClick={() => setViewMode('month')}
               className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
                 viewMode === 'month'
-                  ? 'bg-[var(--app-accent)] text-white'
+                  ? 'bg-[var(--app-accent)] text-[var(--app-accent-foreground)]'
                   : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
               }`}
             >
@@ -405,7 +417,7 @@ export function StatsView() {
               onClick={() => setViewMode('year')}
               className={`rounded-xl px-4 py-2 text-sm font-medium transition-colors ${
                 viewMode === 'year'
-                  ? 'bg-[var(--app-accent)] text-white'
+                  ? 'bg-[var(--app-accent)] text-[var(--app-accent-foreground)]'
                   : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
               }`}
             >
@@ -418,22 +430,22 @@ export function StatsView() {
         <div className="flex flex-wrap items-center gap-2 sm:gap-3">
           <button
             onClick={navigatePrevious}
-            className="app-pill rounded-2xl p-2 text-white/80 transition-colors hover:text-white"
+            className="app-pill rounded-2xl p-2 text-[var(--app-text-muted)] transition-colors hover:text-[var(--app-text)]"
             aria-label="Período anterior"
           >
-            <ChevronLeft className="h-5 w-5 text-white" />
+            <ChevronLeft className="h-5 w-5 text-[var(--app-text)]" />
           </button>
 
           <Popover>
             <PopoverTrigger asChild>
               <button className="app-pill flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 transition-colors sm:px-4">
-                <span className="max-w-[10.5rem] truncate text-sm font-medium text-white sm:max-w-none sm:text-lg">
+                <span className="max-w-[10.5rem] truncate text-sm font-medium text-[var(--app-text)] sm:max-w-none sm:text-lg">
                   {formatPeriod(selectedDate)}
                 </span>
-                <CalendarIcon className="h-4 w-4 text-white/80" />
+                <CalendarIcon className="h-4 w-4 text-[var(--app-text-muted)]" />
               </button>
             </PopoverTrigger>
-            <PopoverContent className="w-auto p-0 bg-[#181818] border-white/20">
+            <PopoverContent className="app-panel-strong w-auto border-[var(--app-field-border)] p-0">
               <Calendar
                 mode="single"
                 selected={selectedDate}
@@ -445,45 +457,45 @@ export function StatsView() {
 
           <button
             onClick={navigateNext}
-            className="app-pill rounded-2xl p-2 text-white/80 transition-colors hover:text-white"
+            className="app-pill rounded-2xl p-2 text-[var(--app-text-muted)] transition-colors hover:text-[var(--app-text)]"
             aria-label="Próximo período"
           >
-            <ChevronRight className="h-5 w-5 text-white" />
+            <ChevronRight className="h-5 w-5 text-[var(--app-text)]" />
           </button>
         </div>
       </div>
 
       {/* Visão Geral */}
       <div className="app-panel rounded-[2rem] p-6">
-        <h3 className="text-xl font-semibold text-white mb-6">Visão Geral</h3>
+        <h3 className="mb-6 text-xl font-semibold text-[var(--app-text)]">Visão Geral</h3>
 
         <div className="grid grid-cols-1 gap-4 md:grid-cols-2 xl:grid-cols-4 xl:gap-6">
           <div className="text-center">
-            <p className="text-[#9CA3AF] text-sm mb-1">Total de Entradas</p>
-            <p className="text-3xl font-bold text-[var(--app-success)] mb-1">R$ {formatCurrency(totalIncome)}</p>
-            <p className="text-xs text-[#9CA3AF]">Receitas do período</p>
+            <p className="mb-1 text-sm text-[var(--app-text-faint)]">Total de Entradas</p>
+            <p className="mb-1 text-3xl font-bold text-[var(--app-success)]">R$ {formatCurrency(totalIncome)}</p>
+            <p className="text-xs text-[var(--app-text-faint)]">Receitas do período</p>
           </div>
 
-          <div className="text-center border-x border-white/10">
-            <p className="text-[#9CA3AF] text-sm mb-1">Total de Gastos</p>
-            <p className="text-3xl font-bold text-[var(--app-danger)] mb-1">R$ {formatCurrency(totalExpenses)}</p>
-            <p className="text-xs text-[#9CA3AF]">Todas as despesas</p>
+          <div className="border-x border-[var(--app-border)] text-center">
+            <p className="mb-1 text-sm text-[var(--app-text-faint)]">Total de Gastos</p>
+            <p className="mb-1 text-3xl font-bold text-[var(--app-danger)]">R$ {formatCurrency(totalExpenses)}</p>
+            <p className="text-xs text-[var(--app-text-faint)]">Todas as despesas</p>
           </div>
 
-          <div className="text-center border-r border-white/10">
-            <p className="text-[#9CA3AF] text-sm mb-1">Variação do Saldo</p>
+          <div className="border-r border-[var(--app-border)] text-center">
+            <p className="mb-1 text-sm text-[var(--app-text-faint)]">Variação do Saldo</p>
             <p className={`text-3xl font-bold mb-1 ${periodBalanceChange >= 0 ? 'text-[var(--app-success)]' : 'text-[var(--app-danger)]'}`}>
               {periodBalanceChange >= 0 ? '+' : ''}R$ {formatCurrency(Math.abs(periodBalanceChange))}
             </p>
-            <p className="text-xs text-[#9CA3AF]">Saldo final - Saldo inicial</p>
+            <p className="text-xs text-[var(--app-text-faint)]">Saldo final - Saldo inicial</p>
           </div>
 
           <div className="text-center">
-            <p className="text-[#9CA3AF] text-sm mb-1">Taxa de Poupança</p>
+            <p className="mb-1 text-sm text-[var(--app-text-faint)]">Taxa de Poupança</p>
             <p className={`text-3xl font-bold mb-1 ${savingsRate >= 20 ? 'text-[var(--app-success)]' : savingsRate >= 10 ? 'text-[var(--app-warning)]' : 'text-[var(--app-danger)]'}`}>
               {savingsRate.toFixed(0)}%
             </p>
-            <p className="text-xs text-[#9CA3AF]">da renda total</p>
+            <p className="text-xs text-[var(--app-text-faint)]">da renda total</p>
           </div>
         </div>
       </div>
@@ -491,39 +503,35 @@ export function StatsView() {
       {/* Gráfico de Saldo Diário (apenas modo mês) */}
       {viewMode === 'month' && dailyBalanceData.length > 0 && (
         <div className="app-panel rounded-[2rem] p-6">
-          <h3 className="text-xl font-semibold text-white mb-2">Curva de Saldo Diário</h3>
-          <p className="text-sm text-white/50 mb-6">
+          <h3 className="mb-2 text-xl font-semibold text-[var(--app-text)]">Curva de Saldo Diário</h3>
+          <p className="mb-6 text-sm text-[var(--app-text-faint)]">
             Evolução do saldo ao longo do mês, usando gastos reais quando existirem e o planejado como fallback.
           </p>
 
           <ResponsiveContainer width="100%" height={300}>
             <AreaChart data={dailyBalanceData}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
               <XAxis
                 dataKey="dia"
-                stroke="#9CA3AF"
-                style={{ fontSize: '12px' }}
-                label={{ value: 'Dia do mês', position: 'insideBottom', offset: -5, fill: '#9CA3AF' }}
+                stroke={chartAxisColor}
+                tick={{ fill: chartAxisColor, fontSize: 12 }}
+                label={{ value: 'Dia do mês', position: 'insideBottom', offset: -5, fill: chartAxisColor }}
               />
               <YAxis
-                stroke="#9CA3AF"
-                style={{ fontSize: '12px' }}
+                stroke={chartAxisColor}
+                tick={{ fill: chartAxisColor, fontSize: 12 }}
                 tickFormatter={(value) => `R$ ${value}`}
               />
               <Tooltip
-              contentStyle={{
-                backgroundColor: '#181818',
-                border: '1px solid #ffffff20',
-                borderRadius: '8px'
-              }}
+                contentStyle={chartTooltipStyle}
                 formatter={(value: any) => `R$ ${formatCurrency(value)}`}
               />
-              <Legend />
+              <Legend wrapperStyle={chartLegendStyle} />
               <Area
                 type="monotone"
                 dataKey="saldo"
-                stroke="#8537FD"
-                fill="#8537FD"
+                stroke="var(--app-accent)"
+                fill="var(--app-accent)"
                 fillOpacity={0.3}
                 name="Saldo diário"
               />
@@ -534,32 +542,28 @@ export function StatsView() {
 
       {/* Gráfico: Entradas vs Saídas */}
       <div className="app-panel rounded-[2rem] p-6">
-        <h3 className="text-xl font-semibold text-white mb-6">Entradas vs Saídas</h3>
+        <h3 className="mb-6 text-xl font-semibold text-[var(--app-text)]">Entradas vs Saídas</h3>
 
         <ResponsiveContainer width="100%" height={300}>
           <BarChart data={incomeVsExpenses}>
-            <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+            <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
             <XAxis
               dataKey="label"
-              stroke="#9CA3AF"
-              style={{ fontSize: '12px' }}
+              stroke={chartAxisColor}
+              tick={{ fill: chartAxisColor, fontSize: 12 }}
             />
             <YAxis
-              stroke="#9CA3AF"
-              style={{ fontSize: '12px' }}
+              stroke={chartAxisColor}
+              tick={{ fill: chartAxisColor, fontSize: 12 }}
               tickFormatter={(value) => `R$ ${value}`}
             />
             <Tooltip
-              contentStyle={{
-                backgroundColor: '#181818',
-                border: '1px solid #ffffff20',
-                borderRadius: '8px'
-              }}
+              contentStyle={chartTooltipStyle}
               formatter={(value: any) => `R$ ${formatCurrency(value)}`}
             />
-            <Legend />
-            <Bar dataKey="entradas" fill="#AFFD37" name="Entradas" radius={[8, 8, 0, 0]} />
-            <Bar dataKey="saidas" fill="#E837FD" name="Saídas" radius={[8, 8, 0, 0]} />
+            <Legend wrapperStyle={chartLegendStyle} />
+            <Bar dataKey="entradas" fill="var(--app-success)" name="Entradas" radius={[8, 8, 0, 0]} />
+            <Bar dataKey="saidas" fill="var(--app-danger)" name="Saídas" radius={[8, 8, 0, 0]} />
           </BarChart>
         </ResponsiveContainer>
       </div>
@@ -568,30 +572,26 @@ export function StatsView() {
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
         {/* Gráfico: Gastos por Categoria (Barras) */}
         <div className="app-panel rounded-[2rem] p-6">
-          <h3 className="text-xl font-semibold text-white mb-6">Gastos por Categoria</h3>
+          <h3 className="mb-6 text-xl font-semibold text-[var(--app-text)]">Gastos por Categoria</h3>
 
           <ResponsiveContainer width="100%" height={300}>
             <BarChart data={categoryChartData.slice(0, 5)} layout="vertical">
-              <CartesianGrid strokeDasharray="3 3" stroke="#ffffff20" />
+              <CartesianGrid strokeDasharray="3 3" stroke={chartGridColor} />
               <XAxis
                 type="number"
-                stroke="#9CA3AF"
-                style={{ fontSize: '12px' }}
+                stroke={chartAxisColor}
+                tick={{ fill: chartAxisColor, fontSize: 12 }}
                 tickFormatter={(value) => `R$ ${value}`}
               />
               <YAxis
                 type="category"
                 dataKey="name"
-                stroke="#9CA3AF"
-                style={{ fontSize: '12px' }}
+                stroke={chartAxisColor}
+                tick={{ fill: chartAxisColor, fontSize: 12 }}
                 width={100}
               />
               <Tooltip
-              contentStyle={{
-                backgroundColor: '#181818',
-                border: '1px solid #ffffff20',
-                borderRadius: '8px'
-              }}
+                contentStyle={chartTooltipStyle}
                 formatter={(value: any, name: any, props: any) => [
                   `R$ ${formatCurrency(value)} (${props.payload.percentage}%)`,
                   'Valor'
@@ -608,7 +608,7 @@ export function StatsView() {
 
         {/* Gráfico: Distribuição de Gastos (Pizza) */}
         <div className="app-panel rounded-[2rem] p-6">
-          <h3 className="text-xl font-semibold text-white mb-6">Distribuição de Gastos</h3>
+          <h3 className="mb-6 text-xl font-semibold text-[var(--app-text)]">Distribuição de Gastos</h3>
 
           <ResponsiveContainer width="100%" height={300}>
             <PieChart>
@@ -627,11 +627,7 @@ export function StatsView() {
                 ))}
               </Pie>
               <Tooltip
-              contentStyle={{
-                backgroundColor: '#181818',
-                border: '1px solid #ffffff20',
-                borderRadius: '8px'
-              }}
+                contentStyle={chartTooltipStyle}
                 formatter={(value: any) => `R$ ${formatCurrency(value)}`}
               />
             </PieChart>
@@ -641,44 +637,44 @@ export function StatsView() {
 
       {/* Resumo de Tipos de Gasto */}
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-2">
-        <div className="rounded-[2rem] border border-[#8537FD]/20 bg-[#8537FD]/10 p-6">
+        <div className="rounded-[2rem] border border-[color:var(--app-border-strong)] bg-[var(--app-accent-soft)] p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-[#8537FD]/20 rounded-xl flex items-center justify-center">
-              <BarChart3 className="w-6 h-6 text-[#8537FD]" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--app-accent-soft)]">
+              <BarChart3 className="w-6 h-6 text-[var(--app-accent)]" />
             </div>
             <div>
-              <p className="text-sm text-[#8537FD]">Gastos Variáveis</p>
-              <p className="text-2xl font-bold text-white">R$ {formatCurrency(variableExpenses)}</p>
+              <p className="text-sm text-[var(--app-accent)]">Gastos Variáveis</p>
+              <p className="text-2xl font-bold text-[var(--app-text)]">R$ {formatCurrency(variableExpenses)}</p>
             </div>
           </div>
-          <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
+          <div className="h-3 w-full overflow-hidden rounded-full bg-[var(--app-surface-hover)]">
             <div
-              className="h-full bg-[#8537FD]"
+              className="h-full bg-[var(--app-accent)]"
               style={{ width: `${variableExpenseShare}%` }}
             />
           </div>
-          <p className="text-xs text-white/50 mt-2">
+          <p className="mt-2 text-xs text-[var(--app-text-faint)]">
             {variableExpenseShare.toFixed(0)}% do total de gastos
           </p>
         </div>
 
-        <div className="rounded-[2rem] border border-[#FDE837]/20 bg-[#FDE837]/10 p-6">
+        <div className="rounded-[2rem] border border-[var(--app-warning-border)] bg-[var(--app-warning-surface)] p-6">
           <div className="flex items-center gap-3 mb-4">
-            <div className="w-12 h-12 bg-[#FDE837]/20 rounded-xl flex items-center justify-center">
-              <CalendarIcon className="w-6 h-6 text-[#FDE837]" />
+            <div className="flex h-12 w-12 items-center justify-center rounded-xl bg-[var(--app-warning-surface)]">
+              <CalendarIcon className="w-6 h-6 text-[var(--app-warning)]" />
             </div>
             <div>
-              <p className="text-sm text-[#FDE837]">Gastos Fixos</p>
-              <p className="text-2xl font-bold text-white">R$ {formatCurrency(fixedExpenses)}</p>
+              <p className="text-sm text-[var(--app-warning)]">Gastos Fixos</p>
+              <p className="text-2xl font-bold text-[var(--app-text)]">R$ {formatCurrency(fixedExpenses)}</p>
             </div>
           </div>
-          <div className="w-full bg-white/10 rounded-full h-3 overflow-hidden">
+          <div className="h-3 w-full overflow-hidden rounded-full bg-[var(--app-surface-hover)]">
             <div
-              className="h-full bg-[#FDE837]"
+              className="h-full bg-[var(--app-warning)]"
               style={{ width: `${fixedExpenseShare}%` }}
             />
           </div>
-          <p className="text-xs text-white/50 mt-2">
+          <p className="mt-2 text-xs text-[var(--app-text-faint)]">
             {fixedExpenseShare.toFixed(0)}% do total de gastos
           </p>
         </div>
@@ -686,14 +682,14 @@ export function StatsView() {
 
       {/* Insights Automáticos */}
       <div className="app-panel rounded-[2rem] p-6">
-        <h3 className="text-xl font-semibold text-white mb-6">Insights Automáticos</h3>
+        <h3 className="mb-6 text-xl font-semibold text-[var(--app-text)]">Insights Automáticos</h3>
 
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           {insights.map((insight, index) => {
             const Icon = insight.icon;
-            const bgColor = insight.type === 'positive' ? 'bg-[#AFFD37]/10' : insight.type === 'warning' ? 'bg-[#FDE837]/10' : 'bg-[#8537FD]/10';
-            const borderColor = insight.type === 'positive' ? 'border-[#AFFD37]/30' : insight.type === 'warning' ? 'border-[#FDE837]/30' : 'border-[#8537FD]/30';
-            const iconColor = insight.type === 'positive' ? 'text-[#AFFD37]' : insight.type === 'warning' ? 'text-[#FDE837]' : 'text-[#8537FD]';
+            const bgColor = insight.type === 'positive' ? 'bg-[var(--app-success-surface)]' : insight.type === 'warning' ? 'bg-[var(--app-warning-surface)]' : 'bg-[var(--app-accent-soft)]';
+            const borderColor = insight.type === 'positive' ? 'border-[var(--app-success-border)]' : insight.type === 'warning' ? 'border-[var(--app-warning-border)]' : 'border-[var(--app-border-strong)]';
+            const iconColor = insight.type === 'positive' ? 'text-[var(--app-success)]' : insight.type === 'warning' ? 'text-[var(--app-warning)]' : 'text-[var(--app-accent)]';
 
             return (
               <div
@@ -703,7 +699,7 @@ export function StatsView() {
                 <Icon className={`w-6 h-6 ${iconColor} mt-0.5 flex-shrink-0`} />
                 <div>
                   <h4 className={`font-semibold ${iconColor} mb-1`}>{insight.title}</h4>
-                  <p className="text-sm text-white/70">{insight.description}</p>
+                  <p className="text-sm text-[var(--app-text-muted)]">{insight.description}</p>
                 </div>
               </div>
             );
