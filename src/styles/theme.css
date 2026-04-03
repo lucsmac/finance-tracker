@@ -313,6 +313,35 @@
     line-height: 1.5;
   }
 
+  /* Custom scrollbars */
+  ::-webkit-scrollbar {
+    width: 6px;
+    height: 6px;
+  }
+
+  ::-webkit-scrollbar-track {
+    background: transparent;
+  }
+
+  ::-webkit-scrollbar-thumb {
+    background: var(--app-border-strong);
+    border-radius: 999px;
+    transition: background 180ms ease;
+  }
+
+  ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--app-accent) 48%, transparent);
+  }
+
+  ::-webkit-scrollbar-corner {
+    background: transparent;
+  }
+
+  * {
+    scrollbar-width: thin;
+    scrollbar-color: var(--app-border-strong) transparent;
+  }
+
   /* Remove spinners (arrows) from number inputs */
   input[type="number"]::-webkit-inner-spin-button,
   input[type="number"]::-webkit-outer-spin-button {
@@ -486,6 +515,17 @@
     color: var(--app-text-muted);
     background: var(--app-surface-soft);
     border: 1px solid var(--app-field-border);
+  }
+
+  /* Scrollbar inside modals/popovers */
+  [data-slot="dialog-content"] ::-webkit-scrollbar-thumb,
+  [data-slot="popover-content"] ::-webkit-scrollbar-thumb {
+    background: color-mix(in srgb, var(--app-accent) 28%, var(--app-border));
+  }
+
+  [data-slot="dialog-content"] ::-webkit-scrollbar-thumb:hover,
+  [data-slot="popover-content"] ::-webkit-scrollbar-thumb:hover {
+    background: color-mix(in srgb, var(--app-accent) 54%, transparent);
   }
 
   [data-slot="dialog-overlay"] {
