@@ -2,6 +2,13 @@ import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import type { User } from '@supabase/supabase-js'
 
+export type ThemePreference = 'light' | 'dark'
+
+export const getUserThemePreference = (user: User | null | undefined): ThemePreference | null => {
+  const rawPreference = user?.user_metadata?.themePreference ?? user?.user_metadata?.theme_preference
+  return rawPreference === 'light' || rawPreference === 'dark' ? rawPreference : null
+}
+
 export function useAuth() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -45,11 +52,28 @@ export function useAuth() {
     if (error) throw error
   }
 
+  const updateThemePreference = async (themePreference: ThemePreference) => {
+    const { data, error } = await supabase.auth.updateUser({
+      data: {
+        themePreference,
+      },
+    })
+
+    if (error) throw error
+
+    if (data.user) {
+      setUser(data.user)
+    }
+
+    return data.user
+  }
+
   return {
     user,
     loading,
     signIn,
     signUp,
-    signOut
+    signOut,
+    updateThemePreference
   }
 }

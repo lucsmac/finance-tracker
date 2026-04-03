@@ -6,7 +6,7 @@ import { StatsView } from './components/StatsView';
 import { GoalsView } from './components/GoalsView';
 import { Auth } from './components/Auth';
 import { FirstAccessSetup } from './components/FirstAccessSetup';
-import { useAuth } from '@/lib/hooks/useAuth';
+import { getUserThemePreference, type ThemePreference, useAuth } from '@/lib/hooks/useAuth';
 import { useTransactions } from '@/lib/hooks/useTransactions';
 import { useEstimates } from '@/lib/hooks/useEstimates';
 import { useInvestments } from '@/lib/hooks/useInvestments';
@@ -57,7 +57,7 @@ export default function App() {
     return getViewFromPath(window.location.pathname) ?? 'dashboard';
   });
   const [selectedMonth, setSelectedMonth] = useState<Date>(() => createDateFromString(getTodayLocal()));
-  const { user, loading, signOut } = useAuth();
+  const { user, loading, signOut, updateThemePreference } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isEditingSetupOpen, setIsEditingSetupOpen] = useState(false);
@@ -66,6 +66,7 @@ export default function App() {
   const [savingSetupEdit, setSavingSetupEdit] = useState(false);
   const [savingFirstAccess, setSavingFirstAccess] = useState(false);
   const [savingPreview, setSavingPreview] = useState(false);
+  const [pendingThemePreference, setPendingThemePreference] = useState<ThemePreference | null>(null);
   const profileMenuRef = useRef<HTMLDivElement>(null);
   const pathname = typeof window !== 'undefined' ? window.location.pathname : '/';
   const searchParams = typeof window !== 'undefined' ? new URLSearchParams(window.location.search) : null;
@@ -83,7 +84,9 @@ export default function App() {
   const { config, loading: configLoading, createConfig, updateConfig } = useConfig(user?.id);
   const { dailyExpenses, deleteDailyExpense: deleteDailyExpenseFn } = useDailyExpenses(user?.id);
   const userName = user?.email?.split('@')[0] || 'Usuário';
-  const isDarkTheme = (resolvedTheme ?? 'dark') === 'dark';
+  const userThemePreference = getUserThemePreference(user);
+  const effectiveThemePreference = pendingThemePreference ?? userThemePreference ?? 'light';
+  const isDarkTheme = effectiveThemePreference === 'dark';
   const activeNavItemClass = 'bg-[var(--app-nav-active-bg)] text-[var(--app-text)] shadow-[var(--app-nav-active-shadow)]';
   const inactiveNavItemClass = 'text-[var(--app-text-muted)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-text)]';
 
@@ -137,6 +140,34 @@ export default function App() {
     if (currentPath === expectedPath) return;
     window.history.replaceState({ view: currentView }, '', expectedPath);
   }, [config, currentView, isEditingSetupOpen, isFirstAccessPreview, loading, user]);
+
+  useEffect(() => {
+    if (loading) return;
+    if (resolvedTheme === effectiveThemePreference) return;
+    setTheme(effectiveThemePreference);
+  }, [effectiveThemePreference, loading, resolvedTheme, setTheme]);
+
+  const handleThemeChange = async (nextTheme: ThemePreference) => {
+    const previousTheme = userThemePreference ?? 'light';
+
+    setPendingThemePreference(nextTheme);
+    setTheme(nextTheme);
+
+    if (!user) {
+      setPendingThemePreference(null);
+      return;
+    }
+
+    try {
+      await updateThemePreference(nextTheme);
+    } catch (error) {
+      console.error('Error saving theme preference:', error);
+      setTheme(previousTheme);
+      toast.error('Nao foi possivel salvar sua preferencia de tema.');
+    } finally {
+      setPendingThemePreference(null);
+    }
+  };
 
   const handleFirstAccessSubmit = async (initialConfig: {
     initialBalance: number;
@@ -376,7 +407,7 @@ export default function App() {
                 <div className="app-pill flex items-center justify-between gap-2 rounded-full px-3 py-2.5">
                   <button
                     type="button"
-                    onClick={() => setTheme('light')}
+                    onClick={() => void handleThemeChange('light')}
                     aria-label="Ativar tema claro"
                     className={`rounded-full p-2 transition-colors ${!isDarkTheme ? 'bg-[var(--app-nav-active-bg)] text-[var(--app-warning)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-warning)]'}`}
                   >
@@ -384,12 +415,12 @@ export default function App() {
                   </button>
                   <Switch
                     checked={isDarkTheme}
-                    onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                    onCheckedChange={(checked) => void handleThemeChange(checked ? 'dark' : 'light')}
                     aria-label="Alternar tema"
                   />
                   <button
                     type="button"
-                    onClick={() => setTheme('dark')}
+                    onClick={() => void handleThemeChange('dark')}
                     aria-label="Ativar tema escuro"
                     className={`rounded-full p-2 transition-colors ${isDarkTheme ? 'bg-[var(--app-nav-active-bg)] text-[var(--app-accent)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-accent)]'}`}
                   >

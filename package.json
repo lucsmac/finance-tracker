@@ -8,6 +8,7 @@
     "dev": "vite",
     "db:push": "supabase db push",
     "db:reset": "supabase db reset",
+    "demo:account": "tsx scripts/createSharedTestAccount.ts",
     "supabase:start": "supabase start",
     "supabase:stop": "supabase stop"
   },
