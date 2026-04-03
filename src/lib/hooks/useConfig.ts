@@ -51,12 +51,18 @@ export function useConfig(userId: string | undefined) {
 
   const createConfig = async (configData: Omit<UserConfig, 'id' | 'userId'>) => {
     if (!userId) throw new Error('No user ID')
-    return configApi.create(userId, configData)
+    const createdConfig = await configApi.create(userId, configData)
+    setConfig(createdConfig)
+    setError(null)
+    return createdConfig
   }
 
   const updateConfig = async (updates: Partial<Omit<UserConfig, 'id' | 'userId'>>) => {
     if (!userId) throw new Error('No user ID')
-    return configApi.update(userId, updates)
+    const updatedConfig = await configApi.update(userId, updates)
+    setConfig(updatedConfig)
+    setError(null)
+    return updatedConfig
   }
 
   return {

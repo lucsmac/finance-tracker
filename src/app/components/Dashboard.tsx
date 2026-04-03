@@ -78,7 +78,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const { user } = useAuth();
   const { estimates, loading: loadingEstimates } = useEstimates(user?.id);
   const { transactions, loading: loadingTransactions, cancelFutureRecurring, updateTransaction } = useTransactions(user?.id);
-  const { config, loading: loadingConfig, createConfig } = useConfig(user?.id);
+  const { config, loading: loadingConfig } = useConfig(user?.id);
   const { loading: loadingPlans, upsertDailyPlan, getPlannedForDate, refresh: refreshDailyPlans } = useDailyPlans(user?.id);
   const {
     dailyExpenses,
@@ -92,26 +92,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
   const [savingPlanned, setSavingPlanned] = useState(false);
   const [savingDailyExpense, setSavingDailyExpense] = useState(false);
   const [deletingDailyExpenseId, setDeletingDailyExpenseId] = useState<string | null>(null);
-  const [configCreationAttempted, setConfigCreationAttempted] = useState(false);
-
-  // Auto-create default config if user doesn't have one
-  useEffect(() => {
-    if (!loadingConfig && !config && user?.id && !configCreationAttempted) {
-      setConfigCreationAttempted(true);
-      createConfig({
-        initialBalance: 0,
-        monthStartDay: 1,
-        mainIncomeDay: 5,
-        mainIncomeAmount: 0,
-        dailyStandard: 0,
-        balanceStartDate: getTodayLocal()
-      }).catch((err: any) => {
-        // Silently ignore errors - if config exists, that's fine
-        // The config will be loaded by the useConfig hook
-        console.log('Config creation skipped (may already exist)');
-      });
-    }
-  }, [config, loadingConfig, user?.id, createConfig, configCreationAttempted]);
 
   // Estados do modal unificado com abas
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);

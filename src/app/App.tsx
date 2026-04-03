@@ -5,6 +5,7 @@ import { IncomesView } from './components/IncomesView';
 import { StatsView } from './components/StatsView';
 import { GoalsView } from './components/GoalsView';
 import { Auth } from './components/Auth';
+import { FirstAccessSetup } from './components/FirstAccessSetup';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTransactions } from '@/lib/hooks/useTransactions';
 import { useEstimates } from '@/lib/hooks/useEstimates';
@@ -24,6 +25,7 @@ export default function App() {
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [savingConfig, setSavingConfig] = useState(false);
+  const [savingFirstAccess, setSavingFirstAccess] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
 
   // Config form state
@@ -41,16 +43,9 @@ export default function App() {
   const { estimates, deleteEstimate: deleteEstimateFn } = useEstimates(user?.id);
   const { investments, deleteInvestment: deleteInvestmentFn } = useInvestments(user?.id);
   const { goals, deleteGoal: deleteGoalFn } = useGoals(user?.id);
-  const { config, updateConfig } = useConfig(user?.id);
+  const { config, loading: configLoading, createConfig, updateConfig } = useConfig(user?.id);
   const { dailyExpenses, deleteDailyExpense: deleteDailyExpenseFn } = useDailyExpenses(user?.id);
   const userName = user?.email?.split('@')[0] || 'Usuário';
-  const currentViewLabel = {
-    dashboard: 'Visão geral',
-    commitments: 'Compromissos',
-    incomes: 'Entradas',
-    stats: 'Análise',
-    goals: 'Metas'
-  }[currentView];
   const activeNavItemClass = 'bg-white/10 text-white shadow-[inset_0_1px_0_rgba(255,255,255,0.05)]';
   const inactiveNavItemClass = 'text-[var(--app-text-muted)] hover:bg-white/5 hover:text-[var(--app-text)]';
 
@@ -99,6 +94,24 @@ export default function App() {
       alert('Erro ao salvar configurações. Tente novamente.');
     } finally {
       setSavingConfig(false);
+    }
+  };
+
+  const handleFirstAccessSubmit = async (initialConfig: {
+    initialBalance: number;
+    monthStartDay: number;
+    mainIncomeDay: number;
+    mainIncomeAmount: number;
+    dailyStandard: number;
+    balanceStartDate: string;
+  }) => {
+    if (!user?.id) return;
+
+    try {
+      setSavingFirstAccess(true);
+      await createConfig(initialConfig);
+    } finally {
+      setSavingFirstAccess(false);
     }
   };
 
@@ -151,7 +164,7 @@ export default function App() {
   };
 
   // Show loading state while checking auth
-  if (loading) {
+  if (loading || (user && configLoading)) {
     return (
       <div className="app-shell flex items-center justify-center px-4">
         <div className="app-panel rounded-[2rem] px-8 py-6 text-center">
@@ -165,6 +178,17 @@ export default function App() {
   // Show auth screen if not logged in
   if (!user) {
     return <Auth />;
+  }
+
+  if (!config) {
+    return (
+      <FirstAccessSetup
+        userEmail={user.email}
+        saving={savingFirstAccess}
+        onSubmit={handleFirstAccessSubmit}
+        onSignOut={signOut}
+      />
+    );
   }
 
   return (
@@ -357,6 +381,40 @@ export default function App() {
                     />
                   </div>
                   <p className="mt-1 text-xs text-[var(--app-text-faint)]">O saldo inicial da sua conta</p>
+                </div>
+
+                {/* Dia da renda principal */}
+                <div>
+                  <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Dia da renda principal</label>
+                  <input
+                    type="number"
+                    min="1"
+                    max="31"
+                    value={configForm.mainIncomeDay}
+                    onChange={(e) => setConfigForm({ ...configForm, mainIncomeDay: e.target.value })}
+                    onWheel={(e) => e.currentTarget.blur()}
+                    className="w-full rounded-2xl px-4 py-3"
+                    placeholder="5"
+                  />
+                  <p className="mt-1 text-xs text-[var(--app-text-faint)]">Usado para projetar quando a proxima entrada principal acontece.</p>
+                </div>
+
+                {/* Valor da renda principal */}
+                <div>
+                  <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Valor da renda principal</label>
+                  <div className="relative">
+                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-text-muted)]">R$</span>
+                    <input
+                      type="number"
+                      step="0.01"
+                      value={configForm.mainIncomeAmount}
+                      onChange={(e) => setConfigForm({ ...configForm, mainIncomeAmount: e.target.value })}
+                      onWheel={(e) => e.currentTarget.blur()}
+                      className="w-full rounded-2xl py-3 pl-10 pr-4"
+                      placeholder="0.00"
+                    />
+                  </div>
+                  <p className="mt-1 text-xs text-[var(--app-text-faint)]">Serve como referencia para as projecoes, mesmo antes de voce lancar a entrada do mes.</p>
                 </div>
 
                 {/* Valor Diário Padrão */}
