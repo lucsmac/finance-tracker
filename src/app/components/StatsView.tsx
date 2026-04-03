@@ -40,6 +40,11 @@ import { formatDateLocal } from '@/lib/utils/dateHelpers';
 
 type ViewMode = 'month' | 'year';
 
+interface StatsViewProps {
+  selectedMonth: Date;
+  onSelectedMonthChange: (date: Date) => void;
+}
+
 // Função para formatar valores em Real brasileiro
 const formatCurrency = (value: number): string => {
   return value.toLocaleString('pt-BR', {
@@ -48,8 +53,8 @@ const formatCurrency = (value: number): string => {
   });
 };
 
-export function StatsView() {
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date());
+export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewProps) {
+  const selectedDate = selectedMonth;
   const [viewMode, setViewMode] = useState<ViewMode>('month');
 
   // Get authenticated user
@@ -142,21 +147,21 @@ export function StatsView() {
   const navigatePrevious = () => {
     const newDate = new Date(selectedDate);
     if (viewMode === 'month') {
-      newDate.setMonth(newDate.getMonth() - 1);
+      onSelectedMonthChange(new Date(newDate.getFullYear(), newDate.getMonth() - 1, 1));
     } else {
       newDate.setFullYear(newDate.getFullYear() - 1);
+      onSelectedMonthChange(new Date(newDate.getFullYear(), newDate.getMonth(), 1));
     }
-    setSelectedDate(newDate);
   };
 
   const navigateNext = () => {
     const newDate = new Date(selectedDate);
     if (viewMode === 'month') {
-      newDate.setMonth(newDate.getMonth() + 1);
+      onSelectedMonthChange(new Date(newDate.getFullYear(), newDate.getMonth() + 1, 1));
     } else {
       newDate.setFullYear(newDate.getFullYear() + 1);
+      onSelectedMonthChange(new Date(newDate.getFullYear(), newDate.getMonth(), 1));
     }
-    setSelectedDate(newDate);
   };
 
   const formatPeriod = (date: Date) => {
@@ -449,7 +454,7 @@ export function StatsView() {
               <Calendar
                 mode="single"
                 selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
+                onSelect={(date) => date && onSelectedMonthChange(date)}
                 initialFocus
               />
             </PopoverContent>

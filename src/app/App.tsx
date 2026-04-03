@@ -16,11 +16,12 @@ import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
 import { Calendar, TrendingUp, Target, ClipboardList, DollarSign, LogOut, Settings, User, Trash2, ChevronDown, Moon, Sun } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './components/ui/dialog';
 import { Switch } from './components/ui/switch';
-import { getTodayLocal } from '@/lib/utils/dateHelpers';
+import { createDateFromString, getTodayLocal } from '@/lib/utils/dateHelpers';
 import { useTheme } from 'next-themes';
 
 export default function App() {
   const [currentView, setCurrentView] = useState<'dashboard' | 'commitments' | 'incomes' | 'stats' | 'goals'>('dashboard');
+  const [selectedMonth, setSelectedMonth] = useState<Date>(() => createDateFromString(getTodayLocal()));
   const { user, loading, signOut } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
@@ -57,6 +58,10 @@ export default function App() {
   const isDarkTheme = (resolvedTheme ?? 'dark') === 'dark';
   const activeNavItemClass = 'bg-[var(--app-nav-active-bg)] text-[var(--app-text)] shadow-[var(--app-nav-active-shadow)]';
   const inactiveNavItemClass = 'text-[var(--app-text-muted)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-text)]';
+
+  const handleSelectedMonthChange = (date: Date) => {
+    setSelectedMonth(new Date(date.getFullYear(), date.getMonth(), 1));
+  };
 
   // Close profile menu when clicking outside
   useEffect(() => {
@@ -310,10 +315,30 @@ export default function App() {
 
       {/* Main Content */}
       <div className="app-content mx-auto max-w-7xl px-4 pb-40 pt-24 sm:px-6">
-        {currentView === 'dashboard' && <Dashboard />}
-        {currentView === 'commitments' && <CommitmentsView />}
-        {currentView === 'incomes' && <IncomesView />}
-        {currentView === 'stats' && <StatsView />}
+        {currentView === 'dashboard' && (
+          <Dashboard
+            selectedMonth={selectedMonth}
+            onSelectedMonthChange={handleSelectedMonthChange}
+          />
+        )}
+        {currentView === 'commitments' && (
+          <CommitmentsView
+            selectedMonth={selectedMonth}
+            onSelectedMonthChange={handleSelectedMonthChange}
+          />
+        )}
+        {currentView === 'incomes' && (
+          <IncomesView
+            selectedMonth={selectedMonth}
+            onSelectedMonthChange={handleSelectedMonthChange}
+          />
+        )}
+        {currentView === 'stats' && (
+          <StatsView
+            selectedMonth={selectedMonth}
+            onSelectedMonthChange={handleSelectedMonthChange}
+          />
+        )}
         {currentView === 'goals' && <GoalsView />}
       </div>
 

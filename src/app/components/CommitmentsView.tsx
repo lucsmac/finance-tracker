@@ -35,11 +35,16 @@ const getToolbarButtonClass = (isActive: boolean) =>
       : 'border-[var(--app-border)] bg-[var(--app-surface-soft)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-hover)] hover:text-[var(--app-text)]'
   }`;
 
-export function CommitmentsView() {
+interface CommitmentsViewProps {
+  selectedMonth: Date;
+  onSelectedMonthChange: (date: Date) => void;
+}
+
+export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: CommitmentsViewProps) {
   const { user } = useAuth();
   const { transactions, loading, error, createTransaction, createInstallments, updateTransaction, deleteTransaction, refresh } = useTransactions(user?.id);
   const todayStr = getTodayLocal();
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Mês atual
+  const selectedDate = selectedMonth;
   const [saving, setSaving] = useState(false);
   const [sortBy, setSortBy] = useState<'date' | 'amount' | 'description' | 'type'>('amount');
   const [sortOrder, setSortOrder] = useState<'asc' | 'desc'>('desc');
@@ -107,15 +112,11 @@ export function CommitmentsView() {
 
   // Funções de navegação de mês
   const navigateToPreviousMonth = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() - 1);
-    setSelectedDate(newDate);
+    onSelectedMonthChange(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1));
   };
 
   const navigateToNextMonth = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() + 1);
-    setSelectedDate(newDate);
+    onSelectedMonthChange(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1));
   };
 
   const formatMonthYear = (date: Date) => {
@@ -558,7 +559,7 @@ export function CommitmentsView() {
               <Calendar
                 mode="single"
                 selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
+                onSelect={(date) => date && onSelectedMonthChange(date)}
                 initialFocus
               />
             </PopoverContent>

@@ -28,6 +28,8 @@ import {
 
 interface DashboardProps {
   onNavigate?: (view: string) => void;
+  selectedMonth: Date;
+  onSelectedMonthChange: (date: Date) => void;
 }
 
 type DayStatus = 'neutral' | 'comfortable' | 'good' | 'warning' | 'critical';
@@ -84,7 +86,7 @@ const fieldInputWithPrefixClass =
 const secondaryButtonClass =
   'app-button-secondary flex-1 rounded-xl px-4 py-3 transition-colors';
 
-export function Dashboard({ onNavigate }: DashboardProps) {
+export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: DashboardProps) {
   const { user } = useAuth();
   const { estimates, loading: loadingEstimates } = useEstimates(user?.id);
   const { transactions, loading: loadingTransactions, cancelFutureRecurring, updateTransaction } = useTransactions(user?.id);
@@ -98,7 +100,6 @@ export function Dashboard({ onNavigate }: DashboardProps) {
     getExpensesForDate,
     refresh: refreshDailyExpenses
   } = useDailyExpenses(user?.id);
-  const [selectedDate, setSelectedDate] = useState<Date>(new Date()); // Data atual
   const [savingPlanned, setSavingPlanned] = useState(false);
   const [savingDailyExpense, setSavingDailyExpense] = useState(false);
   const [deletingDailyExpenseId, setDeletingDailyExpenseId] = useState<string | null>(null);
@@ -128,6 +129,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   // Loading state
   const loading = loadingEstimates || loadingTransactions || loadingConfig || loadingPlans || loadingDailyExpenses;
+  const selectedDate = selectedMonth;
 
   // Calcular valores baseados na data selecionada
   const dailyStandard = config?.dailyStandard || 0;
@@ -352,15 +354,11 @@ export function Dashboard({ onNavigate }: DashboardProps) {
 
   // Funções de navegação de mês
   const navigateToPreviousMonth = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() - 1);
-    setSelectedDate(newDate);
+    onSelectedMonthChange(new Date(selectedDate.getFullYear(), selectedDate.getMonth() - 1, 1));
   };
 
   const navigateToNextMonth = () => {
-    const newDate = new Date(selectedDate);
-    newDate.setMonth(newDate.getMonth() + 1);
-    setSelectedDate(newDate);
+    onSelectedMonthChange(new Date(selectedDate.getFullYear(), selectedDate.getMonth() + 1, 1));
   };
 
   const formatMonthYear = (date: Date) => {
@@ -688,7 +686,7 @@ export function Dashboard({ onNavigate }: DashboardProps) {
               <Calendar
                 mode="single"
                 selected={selectedDate}
-                onSelect={(date) => date && setSelectedDate(date)}
+                onSelect={(date) => date && onSelectedMonthChange(date)}
                 initialFocus
               />
             </PopoverContent>
