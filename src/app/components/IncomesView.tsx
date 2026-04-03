@@ -16,6 +16,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { getTodayLocal, formatDateToLocaleString, createDateFromString } from '@/lib/utils/dateHelpers';
+import { toast } from 'sonner';
 
 const summaryCardClass = 'app-panel min-w-0 rounded-[1.5rem] p-4 sm:p-5';
 const summaryValueClass =
@@ -283,7 +284,7 @@ export function IncomesView({ selectedMonth, onSelectedMonthChange }: IncomesVie
       setDeletingDescription('');
     } catch (err) {
       console.error('Error deleting income:', err);
-      alert('Erro ao deletar entrada. Tente novamente.');
+      toast.error('Erro ao deletar entrada. Tente novamente.');
     } finally {
       setSaving(false);
     }

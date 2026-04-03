@@ -25,6 +25,7 @@ import {
   getRecordedVariableExpensesTotalForDate,
   getVariableExpenseEntriesForDate
 } from '@/lib/utils/dailyExpenses';
+import { toast } from 'sonner';
 
 interface DashboardProps {
   onNavigate?: (view: string) => void;
@@ -91,14 +92,13 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
   const { estimates, loading: loadingEstimates } = useEstimates(user?.id);
   const { transactions, loading: loadingTransactions, cancelFutureRecurring, updateTransaction } = useTransactions(user?.id);
   const { config, loading: loadingConfig } = useConfig(user?.id);
-  const { loading: loadingPlans, upsertDailyPlan, getPlannedForDate, refresh: refreshDailyPlans } = useDailyPlans(user?.id);
+  const { loading: loadingPlans, upsertDailyPlan, getPlannedForDate } = useDailyPlans(user?.id);
   const {
     dailyExpenses,
     loading: loadingDailyExpenses,
     createDailyExpense,
     deleteDailyExpense,
     getExpensesForDate,
-    refresh: refreshDailyExpenses
   } = useDailyExpenses(user?.id);
   const [savingPlanned, setSavingPlanned] = useState(false);
   const [savingDailyExpense, setSavingDailyExpense] = useState(false);
@@ -403,13 +403,13 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
     if (!selectedDay) return;
 
     if (!dailyExpenseForm.title || !dailyExpenseForm.category || !dailyExpenseForm.amount) {
-      alert('Preencha título, categoria e valor do gasto.');
+      toast.error('Preencha titulo, categoria e valor do gasto.');
       return;
     }
 
     const amount = parseFloat(dailyExpenseForm.amount);
     if (isNaN(amount) || amount <= 0) {
-      alert('Informe um valor válido maior que zero.');
+      toast.error('Informe um valor valido maior que zero.');
       return;
     }
 
@@ -421,15 +421,15 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
         category: dailyExpenseForm.category,
         amount
       });
-      await refreshDailyExpenses();
       setDailyExpenseForm({
         title: '',
         category: '',
         amount: ''
       });
+      toast.success('Gasto diario adicionado.');
     } catch (err) {
       console.error('Error creating daily expense:', err);
-      alert('Erro ao adicionar gasto diário. Tente novamente.');
+      toast.error('Erro ao adicionar gasto diario. Tente novamente.');
     } finally {
       setSavingDailyExpense(false);
     }
@@ -442,10 +442,10 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
     try {
       setDeletingDailyExpenseId(id);
       await deleteDailyExpense(id);
-      await refreshDailyExpenses();
+      toast.success('Lancamento diario removido.');
     } catch (err) {
       console.error('Error deleting daily expense:', err);
-      alert('Erro ao remover gasto diário. Tente novamente.');
+      toast.error('Erro ao remover gasto diario. Tente novamente.');
     } finally {
       setDeletingDailyExpenseId(null);
     }
@@ -453,27 +453,35 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
   const handleSavePlanned = async () => {
     if (plannedForm.plannedAmount === '') {
-      alert('Preencha o valor planejado');
+      toast.error('Preencha o valor planejado.');
       return;
     }
 
     const value = parseFloat(plannedForm.plannedAmount);
     if (isNaN(value) || value < 0) {
-      alert('Valor inválido. Digite um número válido.');
+      toast.error('Valor invalido. Digite um numero valido.');
       return;
     }
 
     try {
       setSavingPlanned(true);
       await upsertDailyPlan(selectedDay, value);
-      await refreshDailyPlans(); // Reload data after saving
-      alert('Planejamento salvo com sucesso!');
+      toast.success('Planejamento salvo com sucesso.');
     } catch (err: any) {
       console.error('Error saving planned:', err);
       const errorMessage = err?.message || err?.error?.message || JSON.stringify(err);
-      alert(`Erro ao salvar planejamento: ${errorMessage}`);
+      toast.error(`Erro ao salvar planejamento: ${errorMessage}`);
     } finally {
       setSavingPlanned(false);
+    }
+  };
+
+  const handleToggleTransactionPaid = async (transactionId: string, currentPaid: boolean, label: 'pago' | 'recebido') => {
+    try {
+      await updateTransaction(transactionId, { paid: !currentPaid });
+    } catch (error) {
+      console.error('Error toggling transaction paid status:', error);
+      toast.error(`Erro ao atualizar status de ${label}.`);
     }
   };
 
@@ -646,10 +654,10 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
     try {
       await cancelFutureRecurring(transactionId);
-      alert('Recorrências futuras canceladas com sucesso!');
+      toast.success('Recorrencias futuras canceladas com sucesso.');
     } catch (error) {
       console.error('Error canceling recurring transactions:', error);
-      alert('Erro ao cancelar recorrências. Tente novamente.');
+      toast.error('Erro ao cancelar recorrencias. Tente novamente.');
     }
   };
 
@@ -1314,7 +1322,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                                       <p className={`${listAmountClass} text-[#AFFD37]`}>+{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                                         <button
-                                          onClick={() => updateTransaction(t.id, { paid: !t.paid })}
+                                          onClick={() => void handleToggleTransactionPaid(t.id, Boolean(t.paid), 'recebido')}
                                           className={`text-xs px-2 py-0.5 rounded transition-colors ${t.paid ? 'bg-[#AFFD37]/20 text-[#AFFD37] hover:bg-red-500/20 hover:text-red-400' : 'bg-[var(--app-surface-soft)] text-[var(--app-text-muted)] hover:bg-[#AFFD37]/20 hover:text-[#AFFD37]'}`}
                                           title={t.paid ? 'Desmarcar como recebido' : 'Marcar como recebido'}
                                         >
@@ -1376,7 +1384,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                                       <p className={`${listAmountClass} text-[var(--app-text)]`}>{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                                         <button
-                                          onClick={() => updateTransaction(t.id, { paid: !t.paid })}
+                                          onClick={() => void handleToggleTransactionPaid(t.id, Boolean(t.paid), 'pago')}
                                           className={`text-xs px-2 py-0.5 rounded transition-colors ${t.paid ? 'bg-[#AFFD37]/20 text-[#AFFD37] hover:bg-red-500/20 hover:text-red-400' : 'bg-[var(--app-surface-soft)] text-[var(--app-text-muted)] hover:bg-[#AFFD37]/20 hover:text-[#AFFD37]'}`}
                                           title={t.paid ? 'Desmarcar como pago' : 'Marcar como pago'}
                                         >

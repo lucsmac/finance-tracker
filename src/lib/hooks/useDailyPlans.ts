@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { dailyPlansApi, type DailyPlan } from '../api/dailyPlans'
 import { supabase } from '../supabase'
+import { emitDataSync, subscribeDataSync } from '../utils/dataSync'
 
 export function useDailyPlans(userId: string | undefined) {
   const [dailyPlans, setDailyPlans] = useState<DailyPlan[]>([])
@@ -28,8 +29,13 @@ export function useDailyPlans(userId: string | undefined) {
       })
       .subscribe()
 
+    const unsubscribeDataSync = subscribeDataSync('daily_plans', () => {
+      void loadDailyPlans()
+    })
+
     return () => {
       subscription.unsubscribe()
+      unsubscribeDataSync()
     }
   }, [userId])
 
@@ -51,12 +57,26 @@ export function useDailyPlans(userId: string | undefined) {
 
   const upsertDailyPlan = async (date: string, plannedAmount: number) => {
     if (!userId) throw new Error('No user ID')
-    return dailyPlansApi.upsert(userId, date, plannedAmount)
+    const updatedPlan = await dailyPlansApi.upsert(userId, date, plannedAmount)
+    setDailyPlans((current) => {
+      const existingIndex = current.findIndex((plan) => plan.date === date)
+      if (existingIndex === -1) {
+        return [...current, updatedPlan]
+      }
+
+      return current.map((plan) => (plan.date === date ? updatedPlan : plan))
+    })
+    setError(null)
+    emitDataSync('daily_plans')
+    return updatedPlan
   }
 
   const deleteDailyPlan = async (date: string) => {
     if (!userId) throw new Error('No user ID')
-    return dailyPlansApi.delete(userId, date)
+    await dailyPlansApi.delete(userId, date)
+    setDailyPlans((current) => current.filter((plan) => plan.date !== date))
+    setError(null)
+    emitDataSync('daily_plans')
   }
 
   const getPlannedForDate = (date: string): number | null => {

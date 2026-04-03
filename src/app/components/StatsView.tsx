@@ -7,7 +7,12 @@ import {
   ChevronLeft,
   ChevronRight,
   PieChart as PieChartIcon,
-  BarChart3
+  BarChart3,
+  Download,
+  Copy,
+  Share2,
+  LoaderCircle,
+  Image as ImageIcon
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -37,8 +42,22 @@ import {
   getRecordedVariableExpensesTotalForDate
 } from '@/lib/utils/dailyExpenses';
 import { formatDateLocal } from '@/lib/utils/dateHelpers';
+import {
+  buildReportFilename,
+  copyBlobAsImage,
+  downloadBlobAsFile,
+  renderReportShareImage,
+  shareBlobAsImage,
+  type ReportSharePayload,
+} from '@/lib/utils/reportShare';
 
 type ViewMode = 'month' | 'year';
+type ReportAction = 'download' | 'copy' | 'share';
+
+interface ReportFeedback {
+  tone: 'success' | 'error' | 'info';
+  message: string;
+}
 
 interface StatsViewProps {
   selectedMonth: Date;
@@ -56,6 +75,8 @@ const formatCurrency = (value: number): string => {
 export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewProps) {
   const selectedDate = selectedMonth;
   const [viewMode, setViewMode] = useState<ViewMode>('month');
+  const [reportAction, setReportAction] = useState<ReportAction | null>(null);
+  const [reportFeedback, setReportFeedback] = useState<ReportFeedback | null>(null);
 
   // Get authenticated user
   const { user } = useAuth();
@@ -393,6 +414,93 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
     });
   }
 
+  const canCopyReport = typeof navigator !== 'undefined' && Boolean(navigator.clipboard?.write) && typeof ClipboardItem !== 'undefined';
+  const canNativeShareReport = typeof navigator !== 'undefined' && typeof navigator.share === 'function';
+
+  const reportPayload: ReportSharePayload = {
+    periodMode: viewMode,
+    periodLabel: formatPeriod(selectedDate),
+    generatedAtLabel: new Intl.DateTimeFormat('pt-BR', {
+      dateStyle: 'medium',
+      timeStyle: 'short',
+    }).format(new Date()),
+    openingBalance: balanceBeforePeriod,
+    closingBalance: balanceAfterPeriod,
+    totalIncome,
+    totalExpenses,
+    variableExpenses,
+    fixedExpenses,
+    balanceChange: periodBalanceChange,
+    savingsRate,
+    dailyStandard,
+    activeEstimates: estimates.filter((estimate) => estimate.active).length,
+    transactionCount: transactionsInPeriod.length + dailyExpensesInPeriod.length,
+    topCategories: categoryChartData.slice(0, 5).map((category) => ({
+      name: category.name,
+      value: category.value,
+      percentage: Number.parseFloat(category.percentage),
+    })),
+  };
+
+  const handleReportAction = async (action: ReportAction) => {
+    setReportAction(action);
+    setReportFeedback({
+      tone: 'info',
+      message: 'Gerando a imagem do relatorio no seu navegador...',
+    });
+
+    try {
+      const blob = await renderReportShareImage(reportPayload);
+      const filename = buildReportFilename(viewMode, selectedDate);
+      const reportTitle = `Relatório ${viewMode === 'month' ? 'mensal' : 'anual'} • ${reportPayload.periodLabel}`;
+      const reportText = 'Resumo financeiro gerado localmente no AutoMoney.';
+
+      if (action === 'download') {
+        downloadBlobAsFile(blob, filename);
+        setReportFeedback({
+          tone: 'success',
+          message: 'Imagem pronta e baixada no seu dispositivo.',
+        });
+        return;
+      }
+
+      if (action === 'copy') {
+        await copyBlobAsImage(blob);
+        setReportFeedback({
+          tone: 'success',
+          message: 'Imagem copiada. Agora você pode colar onde quiser.',
+        });
+        return;
+      }
+
+      await shareBlobAsImage(blob, filename, reportTitle, reportText);
+      setReportFeedback({
+        tone: 'success',
+        message: 'Relatório enviado para o menu de compartilhamento do seu dispositivo.',
+      });
+    } catch (reportError) {
+      if (reportError instanceof DOMException && reportError.name === 'AbortError') {
+        setReportFeedback({
+          tone: 'info',
+          message: 'Compartilhamento cancelado.',
+        });
+        return;
+      }
+
+      console.error('Error generating shared report:', reportError);
+      const errorMessage = reportError instanceof Error
+        ? reportError.message
+        : 'Nao foi possivel gerar o relatorio agora.'
+
+      setReportFeedback({
+        tone: 'error',
+        message: errorMessage,
+      });
+    } finally {
+      setReportAction(null);
+    }
+  };
+
   return (
     <div className="space-y-6 pb-32">
       {/* Header */}
@@ -468,6 +576,7 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
             <ChevronRight className="h-5 w-5 text-[var(--app-text)]" />
           </button>
         </div>
+
       </div>
 
       {/* Visão Geral */}
@@ -710,6 +819,73 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
             );
           })}
         </div>
+      </div>
+
+      <div className="app-panel rounded-[2rem] p-5 sm:p-6">
+        <div className="flex flex-col gap-4 lg:flex-row lg:items-center lg:justify-between">
+          <div className="max-w-2xl">
+            <div className="mb-3 inline-flex items-center gap-2 rounded-full border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-3 py-1.5 text-xs font-medium uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
+              <ImageIcon className="h-3.5 w-3.5" />
+              Relatorio compartilhavel
+            </div>
+            <h3 className="text-lg font-semibold text-[var(--app-text)] sm:text-xl">
+              Gere uma imagem do {viewMode === 'month' ? 'mês' : 'ano'} em tempo real
+            </h3>
+            <p className="mt-2 text-sm text-[var(--app-text-muted)]">
+              O arquivo é montado localmente na hora, pronto para baixar, copiar ou compartilhar. Nada fica salvo no servidor.
+            </p>
+          </div>
+
+          <div className="flex flex-wrap gap-3">
+            <button
+              type="button"
+              onClick={() => handleReportAction('download')}
+              disabled={reportAction !== null}
+              className="app-button-primary inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-semibold disabled:cursor-not-allowed disabled:opacity-50"
+            >
+              {reportAction === 'download' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Download className="h-4 w-4" />}
+              Baixar imagem
+            </button>
+
+            {canCopyReport && (
+              <button
+                type="button"
+                onClick={() => handleReportAction('copy')}
+                disabled={reportAction !== null}
+                className="app-button-secondary inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {reportAction === 'copy' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Copy className="h-4 w-4" />}
+                Copiar imagem
+              </button>
+            )}
+
+            {canNativeShareReport && (
+              <button
+                type="button"
+                onClick={() => handleReportAction('share')}
+                disabled={reportAction !== null}
+                className="app-button-secondary inline-flex items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium disabled:cursor-not-allowed disabled:opacity-50"
+              >
+                {reportAction === 'share' ? <LoaderCircle className="h-4 w-4 animate-spin" /> : <Share2 className="h-4 w-4" />}
+                Compartilhar
+              </button>
+            )}
+          </div>
+        </div>
+
+        {reportFeedback && (
+          <div
+            className={`mt-4 rounded-2xl p-4 text-sm ${
+              reportFeedback.tone === 'success'
+                ? 'app-note-success'
+                : reportFeedback.tone === 'error'
+                  ? 'app-note-danger'
+                  : 'app-note'
+            }`}
+          >
+            {reportFeedback.message}
+          </div>
+        )}
       </div>
     </div>
   );

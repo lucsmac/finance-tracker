@@ -6,6 +6,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { getTodayLocal, formatDateToLocaleString, createDateFromString } from '@/lib/utils/dateHelpers';
+import { toast } from 'sonner';
 
 type CommitmentType = 'expense_fixed' | 'expense_variable' | 'installment';
 
@@ -155,7 +156,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
   // Função para salvar compromisso
   const handleSaveCommitment = async () => {
     if (!commitmentForm.description || !commitmentForm.amount || !commitmentForm.date) {
-      alert('Preencha todos os campos obrigatórios');
+      toast.error('Preencha todos os campos obrigatorios.');
       return;
     }
 
@@ -165,17 +166,17 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       const totalInstallments = parseInt(commitmentForm.totalInstallments);
 
       if (!commitmentForm.totalInstallments || totalInstallments < 1) {
-        alert('Informe o número total de parcelas');
+        toast.error('Informe o numero total de parcelas.');
         return;
       }
 
       if (currentInstallment < 1) {
-        alert('A parcela atual deve ser pelo menos 1');
+        toast.error('A parcela atual deve ser pelo menos 1.');
         return;
       }
 
       if (currentInstallment > totalInstallments) {
-        alert('A parcela atual não pode ser maior que o total de parcelas');
+        toast.error('A parcela atual nao pode ser maior que o total de parcelas.');
         return;
       }
     }
@@ -275,7 +276,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       });
     } catch (err) {
       console.error('Error saving commitment:', err);
-      alert('Erro ao salvar compromisso. Tente novamente.');
+      toast.error('Erro ao salvar compromisso. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -323,7 +324,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
   // Função para salvar edição
   const handleSaveEdit = async () => {
     if (!editingId || !commitmentForm.description || !commitmentForm.amount || !commitmentForm.date) {
-      alert('Preencha todos os campos obrigatórios');
+      toast.error('Preencha todos os campos obrigatorios.');
       return;
     }
 
@@ -358,7 +359,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       });
     } catch (err) {
       console.error('Error editing commitment:', err);
-      alert('Erro ao editar compromisso. Tente novamente.');
+      toast.error('Erro ao editar compromisso. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -367,7 +368,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
   // Função para salvar duplicação (usa a mesma lógica do handleSaveCommitment)
   const handleSaveDuplicate = async () => {
     if (!commitmentForm.description || !commitmentForm.amount || !commitmentForm.date) {
-      alert('Preencha todos os campos obrigatórios');
+      toast.error('Preencha todos os campos obrigatorios.');
       return;
     }
 
@@ -377,17 +378,17 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       const totalInstallments = parseInt(commitmentForm.totalInstallments);
 
       if (!commitmentForm.totalInstallments || totalInstallments < 1) {
-        alert('Informe o número total de parcelas');
+        toast.error('Informe o numero total de parcelas.');
         return;
       }
 
       if (currentInstallment < 1) {
-        alert('A parcela atual deve ser pelo menos 1');
+        toast.error('A parcela atual deve ser pelo menos 1.');
         return;
       }
 
       if (currentInstallment > totalInstallments) {
-        alert('A parcela atual não pode ser maior que o total de parcelas');
+        toast.error('A parcela atual nao pode ser maior que o total de parcelas.');
         return;
       }
     }
@@ -439,7 +440,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       });
     } catch (err) {
       console.error('Error duplicating commitment:', err);
-      alert('Erro ao duplicar compromisso. Tente novamente.');
+      toast.error('Erro ao duplicar compromisso. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -453,7 +454,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       await refresh();
     } catch (err) {
       console.error('Error toggling paid status:', err);
-      alert('Erro ao atualizar status. Tente novamente.');
+      toast.error('Erro ao atualizar status. Tente novamente.');
     }
   };
 
@@ -478,7 +479,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       setDeletingDescription('');
     } catch (err) {
       console.error('Error deleting commitment:', err);
-      alert('Erro ao deletar compromisso. Tente novamente.');
+      toast.error('Erro ao deletar compromisso. Tente novamente.');
     } finally {
       setSaving(false);
     }

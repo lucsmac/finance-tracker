@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { estimatesApi } from '../api/estimates'
 import { supabase } from '../supabase'
 import type { Estimate } from '@/app/data/mockData'
+import { emitDataSync, subscribeDataSync } from '../utils/dataSync'
 
 export function useEstimates(userId: string | undefined) {
   const [estimates, setEstimates] = useState<Estimate[]>([])
@@ -29,8 +30,13 @@ export function useEstimates(userId: string | undefined) {
       })
       .subscribe()
 
+    const unsubscribeDataSync = subscribeDataSync('estimates', () => {
+      void loadEstimates()
+    })
+
     return () => {
       subscription.unsubscribe()
+      unsubscribeDataSync()
     }
   }, [userId])
 
@@ -52,15 +58,28 @@ export function useEstimates(userId: string | undefined) {
 
   const createEstimate = async (estimate: Omit<Estimate, 'id'>) => {
     if (!userId) throw new Error('No user ID')
-    return estimatesApi.create(userId, estimate)
+    const createdEstimate = await estimatesApi.create(userId, estimate)
+    setEstimates((current) => [...current, createdEstimate])
+    setError(null)
+    emitDataSync('estimates')
+    return createdEstimate
   }
 
   const updateEstimate = async (id: string, updates: Partial<Estimate>) => {
-    return estimatesApi.update(id, updates)
+    const updatedEstimate = await estimatesApi.update(id, updates)
+    setEstimates((current) => current.map((estimate) => (
+      estimate.id === id ? updatedEstimate : estimate
+    )))
+    setError(null)
+    emitDataSync('estimates')
+    return updatedEstimate
   }
 
   const deleteEstimate = async (id: string) => {
-    return estimatesApi.delete(id)
+    await estimatesApi.delete(id)
+    setEstimates((current) => current.filter((estimate) => estimate.id !== id))
+    setError(null)
+    emitDataSync('estimates')
   }
 
   return {

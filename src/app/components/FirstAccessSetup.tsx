@@ -1,5 +1,6 @@
 import { useMemo, useState } from 'react'
 import {
+  ArrowLeft,
   ArrowRight,
   Calculator,
   CalendarDays,
@@ -37,14 +38,25 @@ interface FirstAccessSetupProps {
   saving: boolean
   onSubmit: (data: FirstAccessSetupData) => Promise<void>
   onSignOut?: () => Promise<void> | void
+  onBack?: () => void
   preview?: boolean
   initialValues?: FirstAccessSetupInitialValues
+  mode?: 'create' | 'edit'
 }
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
   currency: 'BRL',
 })
+
+const setupInputClass =
+  'w-full rounded-2xl border border-[var(--app-field-border)] bg-[var(--app-field-bg-strong)] px-4 py-3.5 text-[var(--app-text)] placeholder:text-[var(--app-text-faint)] focus:border-[var(--app-border-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--app-accent-soft)]'
+const setupInputWithPrefixClass =
+  'w-full rounded-2xl border border-[var(--app-field-border)] bg-[var(--app-field-bg-strong)] py-3.5 pl-12 pr-4 text-[var(--app-text)] placeholder:text-[var(--app-text-faint)] focus:border-[var(--app-border-strong)] focus:outline-none focus:ring-2 focus:ring-[var(--app-accent-soft)]'
+const setupSoftCardClass =
+  'rounded-[1.5rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)]'
+const setupStrongCardClass =
+  'rounded-[1.5rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)]'
 
 const calculatorFields: Array<{
   key: keyof DailyBudgetCalculatorValues
@@ -94,9 +106,12 @@ export function FirstAccessSetup({
   saving,
   onSubmit,
   onSignOut,
+  onBack,
   preview = false,
   initialValues,
+  mode = 'create',
 }: FirstAccessSetupProps) {
+  const isEditMode = mode === 'edit'
   const [form, setForm] = useState(() => ({
     initialBalance: initialValues?.form?.initialBalance ?? '',
     balanceStartDate: initialValues?.form?.balanceStartDate ?? getTodayLocal(),
@@ -130,12 +145,34 @@ export function FirstAccessSetup({
   )
 
   const hasCalculatorInput = Object.values(parsedCalculatorValues).some((value) => value > 0)
+  const hasSecondaryAction = Boolean(onBack || onSignOut)
+  const secondaryActionLabel = onBack ? 'Voltar ao painel' : preview ? 'Voltar' : 'Sair'
+  const submitLabel = saving
+    ? isEditMode
+      ? 'Salvando alteracoes...'
+      : 'Salvando configuracao...'
+    : preview
+      ? 'Testar fluxo'
+      : isEditMode
+        ? 'Salvar e voltar ao painel'
+        : 'Entrar no painel'
 
   const handleApplySuggestion = () => {
     setForm((current) => ({
       ...current,
       dailyStandard: suggestion.dailySuggestion.toFixed(2),
     }))
+  }
+
+  const handleSecondaryAction = () => {
+    if (onBack) {
+      onBack()
+      return
+    }
+
+    if (onSignOut) {
+      void onSignOut()
+    }
   }
 
   const handleSubmit = async (event: React.FormEvent) => {
@@ -165,8 +202,12 @@ export function FirstAccessSetup({
         balanceStartDate: form.balanceStartDate,
       })
     } catch (submitError) {
-      console.error('Error creating first access config:', submitError)
-      setError('Não foi possível salvar sua configuração inicial. Tente novamente.')
+      console.error('Error saving setup config:', submitError)
+      setError(
+        isEditMode
+          ? 'Nao foi possivel salvar sua configuracao. Tente novamente.'
+          : 'Nao foi possivel salvar sua configuracao inicial. Tente novamente.',
+      )
     }
   }
 
@@ -185,13 +226,14 @@ export function FirstAccessSetup({
       <div className="relative z-10 mx-auto flex min-h-[calc(100vh-4rem)] max-w-6xl flex-col justify-center">
         <div className="mb-8 flex items-start justify-between gap-4">
           <div>
-            <p className="app-kicker mb-3">Primeiro acesso</p>
+            <p className="app-kicker mb-3">{isEditMode ? 'Configuracao' : 'Primeiro acesso'}</p>
             <h1 className="app-page-title max-w-3xl text-4xl sm:text-5xl">
-              Vamos montar seu ponto de partida financeiro
+              {isEditMode ? 'Ajuste a base que alimenta sua previsao' : 'Vamos montar seu ponto de partida financeiro'}
             </h1>
             <p className="mt-4 max-w-2xl text-base text-[var(--app-text-muted)] sm:text-lg">
-              Antes de abrir o painel, precisamos do saldo inicial, da data em que o controle comeca
-              e de um gasto diario sugerido para as despesas variaveis.
+              {isEditMode
+                ? 'Atualize o saldo inicial, a data em que o controle passa a valer e o gasto diario planejado. A calculadora continua aqui para recalibrar sua previsao sempre que precisar.'
+                : 'Antes de abrir o painel, precisamos do saldo inicial, da data em que o controle comeca e de um gasto diario sugerido para as despesas variaveis.'}
             </p>
             {preview && (
               <div className="mt-4 inline-flex rounded-full border border-[rgba(175,253,55,0.22)] bg-[rgba(175,253,55,0.08)] px-4 py-2 text-xs font-medium uppercase tracking-[0.18em] text-[#d8ff92]">
@@ -200,16 +242,14 @@ export function FirstAccessSetup({
             )}
           </div>
 
-          {onSignOut && (
+          {hasSecondaryAction && (
             <button
               type="button"
-              onClick={() => {
-                void onSignOut()
-              }}
+              onClick={handleSecondaryAction}
               className="app-button-secondary hidden rounded-2xl px-4 py-3 text-sm sm:inline-flex sm:items-center sm:gap-2"
             >
-              <LogOut className="h-4 w-4" />
-              {preview ? 'Voltar' : 'Sair'}
+              {onBack ? <ArrowLeft className="h-4 w-4" /> : <LogOut className="h-4 w-4" />}
+              {secondaryActionLabel}
             </button>
           )}
         </div>
@@ -221,9 +261,17 @@ export function FirstAccessSetup({
                 <Wallet className="h-7 w-7" />
               </div>
               <div>
-                <h2 className="text-2xl font-semibold text-[var(--app-text)]">Configuracao inicial</h2>
+                <h2 className="text-2xl font-semibold text-[var(--app-text)]">
+                  {isEditMode ? 'Editar configuracao financeira' : 'Configuracao inicial'}
+                </h2>
                 <p className="mt-2 text-sm text-[var(--app-text-muted)]">
-                  {userEmail ? `Conta conectada: ${userEmail}` : 'Defina os valores iniciais do seu planejamento.'}
+                  {isEditMode
+                    ? userEmail
+                      ? `Conta conectada: ${userEmail}`
+                      : 'Revise os valores que o painel usa como referencia.'
+                    : userEmail
+                      ? `Conta conectada: ${userEmail}`
+                      : 'Defina os valores iniciais do seu planejamento.'}
                 </p>
               </div>
             </div>
@@ -245,7 +293,7 @@ export function FirstAccessSetup({
                     value={form.initialBalance}
                     onChange={(event) => setForm((current) => ({ ...current, initialBalance: event.target.value }))}
                     onWheel={(event) => event.currentTarget.blur()}
-                    className="w-full rounded-2xl border border-white/10 bg-white/[0.04] py-3.5 pl-12 pr-4 text-[var(--app-text)] placeholder:text-[var(--app-text-faint)] focus:border-[rgba(133,55,253,0.4)] focus:outline-none focus:ring-2 focus:ring-[rgba(133,55,253,0.16)]"
+                    className={setupInputWithPrefixClass}
                     placeholder="0,00"
                   />
                 </div>
@@ -263,14 +311,14 @@ export function FirstAccessSetup({
                   type="date"
                   value={form.balanceStartDate}
                   onChange={(event) => setForm((current) => ({ ...current, balanceStartDate: event.target.value }))}
-                  className="w-full rounded-2xl border border-white/10 bg-white/[0.04] px-4 py-3.5 text-[var(--app-text)] focus:border-[rgba(133,55,253,0.4)] focus:outline-none focus:ring-2 focus:ring-[rgba(133,55,253,0.16)]"
+                  className={setupInputClass}
                 />
                 <p className="mt-2 text-xs text-[var(--app-text-faint)]">
                   Ja deixei o dia de hoje como padrao para marcar quando esse controle passa a valer.
                 </p>
               </div>
 
-              <div className="rounded-[1.5rem] border border-[rgba(133,55,253,0.18)] bg-[rgba(133,55,253,0.08)] p-4">
+              <div className="app-note-accent rounded-[1.5rem] p-4">
                 <div className="mb-3 flex items-center justify-between gap-3">
                   <div>
                     <p className="text-sm font-semibold text-[var(--app-text)]">Gasto diario planejado</p>
@@ -301,13 +349,13 @@ export function FirstAccessSetup({
                     value={form.dailyStandard}
                     onChange={(event) => setForm((current) => ({ ...current, dailyStandard: event.target.value }))}
                     onWheel={(event) => event.currentTarget.blur()}
-                    className="w-full rounded-2xl border border-white/10 bg-[var(--app-field-bg-strong)] py-3.5 pl-12 pr-4 text-[var(--app-text)] placeholder:text-[var(--app-text-faint)] focus:border-[rgba(133,55,253,0.4)] focus:outline-none focus:ring-2 focus:ring-[rgba(133,55,253,0.16)]"
+                    className={setupInputWithPrefixClass}
                     placeholder="0,00"
                   />
                 </div>
 
                 {hasCalculatorInput ? (
-                  <div className="mt-4 grid gap-3 rounded-2xl border border-white/10 bg-black/20 p-4 sm:grid-cols-3">
+                  <div className={`mt-4 grid gap-3 rounded-2xl p-4 sm:grid-cols-3 ${setupStrongCardClass}`}>
                     <div>
                       <p className="text-xs uppercase tracking-[0.22em] text-[var(--app-text-faint)]">
                         Total semanal
@@ -328,7 +376,7 @@ export function FirstAccessSetup({
                       <p className="text-xs uppercase tracking-[0.22em] text-[var(--app-text-faint)]">
                         Sugestao diaria
                       </p>
-                      <p className="mt-1 text-lg font-semibold text-[#AFFD37]">
+                      <p className="mt-1 text-lg font-semibold text-[var(--app-success)]">
                         {currencyFormatter.format(suggestion.dailySuggestion)}
                       </p>
                     </div>
@@ -342,21 +390,19 @@ export function FirstAccessSetup({
             </div>
 
             {error && (
-              <div className="mt-6 rounded-2xl border border-[rgba(194,124,117,0.24)] bg-[rgba(194,124,117,0.14)] p-4 text-sm text-[#f1d5d1]">
+              <div className="app-note-danger mt-6 rounded-2xl p-4 text-sm">
                 {error}
               </div>
             )}
 
             <div className="mt-8 flex flex-col gap-3 sm:flex-row">
-              {onSignOut && (
+              {hasSecondaryAction && (
                 <button
                   type="button"
-                  onClick={() => {
-                    void onSignOut()
-                  }}
+                  onClick={handleSecondaryAction}
                   className="app-button-secondary rounded-2xl px-4 py-4 sm:hidden"
                 >
-                  {preview ? 'Voltar' : 'Sair'}
+                  {secondaryActionLabel}
                 </button>
               )}
               <button
@@ -364,7 +410,7 @@ export function FirstAccessSetup({
                 disabled={saving}
                 className="app-button-primary inline-flex items-center justify-center gap-2 rounded-2xl px-5 py-4 font-semibold disabled:cursor-not-allowed disabled:opacity-50"
               >
-                {saving ? 'Salvando configuracao...' : preview ? 'Testar fluxo' : 'Entrar no painel'}
+                {submitLabel}
                 {!saving && <ArrowRight className="h-4 w-4" />}
               </button>
             </div>
@@ -372,7 +418,7 @@ export function FirstAccessSetup({
 
           <section className="app-panel rounded-[2rem] p-6 sm:p-8">
             <div className="mb-8 flex items-start gap-4">
-              <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-white/10 bg-white/[0.05] text-[#AFFD37]">
+              <div className="flex h-14 w-14 items-center justify-center rounded-[1.25rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)] text-[var(--app-success)]">
                 <Calculator className="h-7 w-7" />
               </div>
               <div>
@@ -385,7 +431,7 @@ export function FirstAccessSetup({
 
             <div className="space-y-4">
               {calculatorFields.map((field) => (
-                <div key={field.key} className="rounded-[1.5rem] border border-white/10 bg-white/[0.03] p-4">
+                <div key={field.key} className={`${setupSoftCardClass} p-4`}>
                   <label className="block text-sm font-medium text-[var(--app-text)]">
                     {field.label}
                   </label>
@@ -406,7 +452,7 @@ export function FirstAccessSetup({
                         }))
                       }
                       onWheel={(event) => event.currentTarget.blur()}
-                      className="w-full rounded-2xl border border-white/10 bg-black/20 py-3 pl-12 pr-4 text-[var(--app-text)] placeholder:text-[var(--app-text-faint)] focus:border-[rgba(133,55,253,0.4)] focus:outline-none focus:ring-2 focus:ring-[rgba(133,55,253,0.16)]"
+                      className={setupInputWithPrefixClass}
                       placeholder="0,00"
                     />
                   </div>
@@ -414,7 +460,7 @@ export function FirstAccessSetup({
               ))}
             </div>
 
-            <div className="mt-6 rounded-[1.5rem] border border-[rgba(255,255,255,0.08)] bg-black/20 p-5">
+            <div className={`mt-6 p-5 ${setupSoftCardClass}`}>
               <p className="text-sm font-medium text-[var(--app-text)]">Como a sugestao e calculada</p>
               <p className="mt-2 text-sm text-[var(--app-text-muted)]">
                 Somamos seus gastos semanais, transformamos isso em uma estimativa mensal e dividimos por 30 dias.

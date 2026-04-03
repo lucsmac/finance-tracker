@@ -3,11 +3,14 @@ import { Edit2, Check, X, Plus, ToggleLeft, ToggleRight, Trash2 } from 'lucide-r
 import { calculateDailyStandard, Estimate } from '../data/mockData';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useEstimates } from '@/lib/hooks/useEstimates';
+import { useConfig } from '@/lib/hooks/useConfig';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { toast } from 'sonner';
 
 export function EstimatesManager() {
   const { user } = useAuth();
   const { estimates, loading, error, updateEstimate, deleteEstimate, refresh } = useEstimates(user?.id);
+  const { updateConfig } = useConfig(user?.id);
   const [editingId, setEditingId] = useState<string | null>(null);
   const [editValue, setEditValue] = useState('');
   const [saving, setSaving] = useState(false);
@@ -27,16 +30,29 @@ export function EstimatesManager() {
     setEditValue(estimate.monthlyAmount.toString());
   };
 
+  const syncDailyStandard = async (updatedEstimates: Estimate[]) => {
+    await updateConfig({
+      dailyStandard: calculateDailyStandard(updatedEstimates),
+    });
+  };
+
   const handleSave = async (id: string) => {
     try {
       setSaving(true);
-      await updateEstimate(id, { monthlyAmount: parseFloat(editValue) || 0 });
+      const nextMonthlyAmount = parseFloat(editValue) || 0;
+      await updateEstimate(id, { monthlyAmount: nextMonthlyAmount });
+      await syncDailyStandard(
+        estimates.map((estimate) =>
+          estimate.id === id ? { ...estimate, monthlyAmount: nextMonthlyAmount } : estimate,
+        ),
+      );
       await refresh();
       setEditingId(null);
       setEditValue('');
+      toast.success('Estimativa atualizada e valor diario recalculado.');
     } catch (err) {
       console.error('Error saving estimate:', err);
-      alert('Erro ao salvar estimativa. Tente novamente.');
+      toast.error('Erro ao salvar estimativa. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -53,10 +69,16 @@ export function EstimatesManager() {
 
     try {
       await updateEstimate(id, { active: !estimate.active });
+      await syncDailyStandard(
+        estimates.map((currentEstimate) =>
+          currentEstimate.id === id ? { ...currentEstimate, active: !estimate.active } : currentEstimate,
+        ),
+      );
       await refresh();
+      toast.success('Estimativa atualizada e valor diario recalculado.');
     } catch (err) {
       console.error('Error toggling estimate:', err);
-      alert('Erro ao atualizar estimativa. Tente novamente.');
+      toast.error('Erro ao atualizar estimativa. Tente novamente.');
     }
   };
 
@@ -74,13 +96,15 @@ export function EstimatesManager() {
     try {
       setSaving(true);
       await deleteEstimate(deletingId);
+      await syncDailyStandard(estimates.filter((estimate) => estimate.id !== deletingId));
       await refresh();
       setIsDeleteModalOpen(false);
       setDeletingId('');
       setDeletingCategory('');
+      toast.success('Estimativa removida e valor diario recalculado.');
     } catch (err) {
       console.error('Error deleting estimate:', err);
-      alert('Erro ao deletar estimativa. Tente novamente.');
+      toast.error('Erro ao deletar estimativa. Tente novamente.');
     } finally {
       setSaving(false);
     }

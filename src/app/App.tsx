@@ -18,17 +18,52 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Switch } from './components/ui/switch';
 import { createDateFromString, getTodayLocal } from '@/lib/utils/dateHelpers';
 import { useTheme } from 'next-themes';
+import { toast } from 'sonner';
+
+type AppView = 'dashboard' | 'commitments' | 'incomes' | 'stats' | 'goals';
+
+const VIEW_PATHS: Record<AppView, string> = {
+  dashboard: '/',
+  commitments: '/compromissos',
+  incomes: '/entradas',
+  stats: '/analise',
+  goals: '/metas',
+};
+
+const VIEW_ALIASES: Record<AppView, string[]> = {
+  dashboard: ['/', '/inicio', '/dashboard'],
+  commitments: ['/compromissos', '/commitments'],
+  incomes: ['/entradas', '/incomes'],
+  stats: ['/analise', '/analysis', '/stats'],
+  goals: ['/metas', '/goals'],
+};
+
+const normalizePathname = (pathname: string) => {
+  if (!pathname) return '/';
+  const normalized = pathname.endsWith('/') && pathname !== '/' ? pathname.slice(0, -1) : pathname;
+  return normalized || '/';
+};
+
+const getViewFromPath = (pathname: string): AppView | null => {
+  const normalizedPath = normalizePathname(pathname);
+
+  const matchedEntry = Object.entries(VIEW_ALIASES).find(([, paths]) => paths.includes(normalizedPath));
+  return (matchedEntry?.[0] as AppView | undefined) ?? null;
+};
 
 export default function App() {
-  const [currentView, setCurrentView] = useState<'dashboard' | 'commitments' | 'incomes' | 'stats' | 'goals'>('dashboard');
+  const [currentView, setCurrentView] = useState<AppView>(() => {
+    if (typeof window === 'undefined') return 'dashboard';
+    return getViewFromPath(window.location.pathname) ?? 'dashboard';
+  });
   const [selectedMonth, setSelectedMonth] = useState<Date>(() => createDateFromString(getTodayLocal()));
   const { user, loading, signOut } = useAuth();
   const { resolvedTheme, setTheme } = useTheme();
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
-  const [isSettingsModalOpen, setIsSettingsModalOpen] = useState(false);
+  const [isEditingSetupOpen, setIsEditingSetupOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
-  const [savingConfig, setSavingConfig] = useState(false);
+  const [savingSetupEdit, setSavingSetupEdit] = useState(false);
   const [savingFirstAccess, setSavingFirstAccess] = useState(false);
   const [savingPreview, setSavingPreview] = useState(false);
   const profileMenuRef = useRef<HTMLDivElement>(null);
@@ -39,13 +74,6 @@ export default function App() {
     pathname === '/preview/first-access' ||
     searchParams?.get('preview') === 'primeiro-acesso' ||
     searchParams?.get('preview') === 'first-access';
-
-  // Config form state
-  const [configForm, setConfigForm] = useState({
-    initialBalance: '',
-    dailyStandard: '',
-    balanceStartDate: ''
-  });
 
   // Hooks para deletar dados
   const { transactions, deleteTransaction: deleteTransactionFn } = useTransactions(user?.id);
@@ -63,6 +91,19 @@ export default function App() {
     setSelectedMonth(new Date(date.getFullYear(), date.getMonth(), 1));
   };
 
+  const navigateToView = (view: AppView) => {
+    setCurrentView(view);
+
+    if (typeof window === 'undefined') return;
+
+    const nextPath = VIEW_PATHS[view];
+    const currentPath = normalizePathname(window.location.pathname);
+
+    if (currentPath !== nextPath) {
+      window.history.pushState({ view }, '', nextPath);
+    }
+  };
+
   // Close profile menu when clicking outside
   useEffect(() => {
     function handleClickOutside(event: MouseEvent) {
@@ -74,36 +115,28 @@ export default function App() {
     return () => document.removeEventListener('mousedown', handleClickOutside);
   }, []);
 
-  // Load config into form when it changes
   useEffect(() => {
-    if (config) {
-      setConfigForm({
-        initialBalance: config.initialBalance.toString(),
-        dailyStandard: config.dailyStandard.toString(),
-        balanceStartDate: config.balanceStartDate || getTodayLocal()
-      });
-    }
-  }, [config]);
+    if (typeof window === 'undefined') return;
 
-  // Function to save config changes
-  const handleSaveConfig = async () => {
-    if (!user?.id) return;
+    const handlePopState = () => {
+      const viewFromUrl = getViewFromPath(window.location.pathname) ?? 'dashboard';
+      setCurrentView(viewFromUrl);
+    };
 
-    try {
-      setSavingConfig(true);
-      await updateConfig({
-        initialBalance: parseFloat(configForm.initialBalance) || 0,
-        dailyStandard: parseFloat(configForm.dailyStandard) || 0,
-        balanceStartDate: configForm.balanceStartDate
-      });
-      alert('Configurações salvas com sucesso!');
-    } catch (err) {
-      console.error('Error saving config:', err);
-      alert('Erro ao salvar configurações. Tente novamente.');
-    } finally {
-      setSavingConfig(false);
-    }
-  };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return;
+    if (loading || !user || !config || isFirstAccessPreview || isEditingSetupOpen) return;
+
+    const currentPath = normalizePathname(window.location.pathname);
+    const expectedPath = VIEW_PATHS[currentView];
+
+    if (currentPath === expectedPath) return;
+    window.history.replaceState({ view: currentView }, '', expectedPath);
+  }, [config, currentView, isEditingSetupOpen, isFirstAccessPreview, loading, user]);
 
   const handleFirstAccessSubmit = async (initialConfig: {
     initialBalance: number;
@@ -123,11 +156,38 @@ export default function App() {
     }
   };
 
+  const handleEditSetupSubmit = async (updatedConfig: {
+    initialBalance: number;
+    monthStartDay: number;
+    mainIncomeDay: number;
+    mainIncomeAmount: number;
+    dailyStandard: number;
+    balanceStartDate: string;
+  }) => {
+    if (!user?.id) return;
+
+    try {
+      setSavingSetupEdit(true);
+      await updateConfig({
+        initialBalance: updatedConfig.initialBalance,
+        dailyStandard: updatedConfig.dailyStandard,
+        balanceStartDate: updatedConfig.balanceStartDate
+      });
+      setIsEditingSetupOpen(false);
+      toast.success('Configurações salvas com sucesso.');
+    } catch (error) {
+      console.error('Error updating config:', error);
+      toast.error('Erro ao salvar configurações. Tente novamente.');
+    } finally {
+      setSavingSetupEdit(false);
+    }
+  };
+
   const handlePreviewSubmit = async () => {
     try {
       setSavingPreview(true);
       await new Promise((resolve) => window.setTimeout(resolve, 700));
-      alert('Preview apenas: essa rota serve para visualizar a tela de primeiro acesso sem salvar nada.')
+      toast.info('Preview apenas: essa rota serve para visualizar a tela de primeiro acesso sem salvar nada.')
     } finally {
       setSavingPreview(false);
     }
@@ -171,11 +231,11 @@ export default function App() {
       }
 
       setIsResetModalOpen(false);
-      alert('Todos os dados foram resetados com sucesso!');
+      toast.success('Todos os dados foram resetados com sucesso.');
       window.location.reload();
     } catch (err) {
       console.error('Error resetting data:', err);
-      alert('Erro ao resetar dados. Tente novamente.');
+      toast.error('Erro ao resetar dados. Tente novamente.');
     } finally {
       setResetting(false);
     }
@@ -235,6 +295,25 @@ export default function App() {
     );
   }
 
+  if (isEditingSetupOpen) {
+    return (
+      <FirstAccessSetup
+        mode="edit"
+        userEmail={user.email}
+        saving={savingSetupEdit}
+        onSubmit={handleEditSetupSubmit}
+        onBack={() => setIsEditingSetupOpen(false)}
+        initialValues={{
+          form: {
+            initialBalance: config.initialBalance.toString(),
+            balanceStartDate: config.balanceStartDate || getTodayLocal(),
+            dailyStandard: config.dailyStandard.toString(),
+          },
+        }}
+      />
+    );
+  }
+
   return (
     <div className="app-shell">
       {/* Top Controls */}
@@ -243,10 +322,10 @@ export default function App() {
           type="button"
           onClick={() => {
             setIsProfileMenuOpen(false);
-            setIsSettingsModalOpen(true);
+            setIsEditingSetupOpen(true);
           }}
           className="app-pill flex h-12 w-12 items-center justify-center rounded-full text-[var(--app-text-muted)] transition-all hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-text)]"
-          aria-label="Abrir configurações"
+          aria-label="Editar configuracao financeira"
         >
           <Settings className="h-5 w-5" />
         </button>
@@ -288,6 +367,39 @@ export default function App() {
 
             {/* Menu Items */}
             <div className="px-2 py-2">
+              <div className="rounded-2xl px-4 py-3">
+                <div className="mb-3">
+                  <p className="text-sm font-medium text-[var(--app-text)]">Aparencia</p>
+                  <p className="mt-1 text-xs text-[var(--app-text-faint)]">Troque entre tema claro e escuro.</p>
+                </div>
+
+                <div className="app-pill flex items-center justify-between gap-2 rounded-full px-3 py-2.5">
+                  <button
+                    type="button"
+                    onClick={() => setTheme('light')}
+                    aria-label="Ativar tema claro"
+                    className={`rounded-full p-2 transition-colors ${!isDarkTheme ? 'bg-[var(--app-nav-active-bg)] text-[var(--app-warning)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-warning)]'}`}
+                  >
+                    <Sun className="h-4 w-4" />
+                  </button>
+                  <Switch
+                    checked={isDarkTheme}
+                    onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
+                    aria-label="Alternar tema"
+                  />
+                  <button
+                    type="button"
+                    onClick={() => setTheme('dark')}
+                    aria-label="Ativar tema escuro"
+                    className={`rounded-full p-2 transition-colors ${isDarkTheme ? 'bg-[var(--app-nav-active-bg)] text-[var(--app-accent)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-accent)]'}`}
+                  >
+                    <Moon className="h-4 w-4" />
+                  </button>
+                </div>
+              </div>
+
+              <div className="my-2 border-t border-[var(--app-border)]" />
+
               <button
                 onClick={() => {
                   setIsProfileMenuOpen(false);
@@ -317,6 +429,11 @@ export default function App() {
       <div className="app-content mx-auto max-w-7xl px-4 pb-40 pt-24 sm:px-6">
         {currentView === 'dashboard' && (
           <Dashboard
+            onNavigate={(view) => {
+              if (view === 'dashboard' || view === 'commitments' || view === 'incomes' || view === 'stats' || view === 'goals') {
+                navigateToView(view);
+              }
+            }}
             selectedMonth={selectedMonth}
             onSelectedMonthChange={handleSelectedMonthChange}
           />
@@ -346,7 +463,7 @@ export default function App() {
       <nav className="app-panel app-content fixed bottom-5 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-4xl -translate-x-1/2 rounded-[2rem] px-3 py-3 sm:w-auto sm:px-4">
         <div className="flex items-center justify-between gap-2 sm:gap-3">
           <button
-            onClick={() => setCurrentView('dashboard')}
+            onClick={() => navigateToView('dashboard')}
             className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'dashboard'
               ? activeNavItemClass
               : inactiveNavItemClass
@@ -357,7 +474,7 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setCurrentView('commitments')}
+            onClick={() => navigateToView('commitments')}
             className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'commitments'
               ? activeNavItemClass
               : inactiveNavItemClass
@@ -368,7 +485,7 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setCurrentView('incomes')}
+            onClick={() => navigateToView('incomes')}
             className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'incomes'
               ? activeNavItemClass
               : inactiveNavItemClass
@@ -379,7 +496,7 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setCurrentView('stats')}
+            onClick={() => navigateToView('stats')}
             className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'stats'
               ? activeNavItemClass
               : inactiveNavItemClass
@@ -390,7 +507,7 @@ export default function App() {
           </button>
 
           <button
-            onClick={() => setCurrentView('goals')}
+            onClick={() => navigateToView('goals')}
             className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'goals'
               ? activeNavItemClass
               : inactiveNavItemClass
@@ -401,182 +518,6 @@ export default function App() {
           </button>
         </div>
       </nav>
-
-      {/* Settings Modal */}
-      <Dialog open={isSettingsModalOpen} onOpenChange={setIsSettingsModalOpen}>
-        <DialogContent className="max-h-[90vh] max-w-2xl overflow-y-auto rounded-[2rem] app-panel-strong">
-          <DialogHeader>
-            <DialogTitle className="flex items-center gap-4 text-2xl font-semibold text-[var(--app-text)]">
-              <div className="flex h-12 w-12 items-center justify-center rounded-2xl bg-[var(--app-accent-soft)] text-[var(--app-accent)]">
-                <Settings className="w-5 h-5" />
-              </div>
-              Configurações
-            </DialogTitle>
-            <DialogDescription className="mt-4 text-[var(--app-text-muted)]">
-              Gerencie suas preferências e dados do aplicativo
-            </DialogDescription>
-          </DialogHeader>
-
-          <div className="mt-6 space-y-4">
-            {/* User Info Section */}
-            <div className="app-panel rounded-[1.5rem] p-4">
-              <h3 className="mb-3 text-sm font-semibold text-[var(--app-text)]">Informações da conta</h3>
-              <div className="space-y-2">
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-[var(--app-text-muted)]">Email:</span>
-                  <span className="text-sm text-[var(--app-text)]">{user?.email}</span>
-                </div>
-                <div className="flex justify-between items-center">
-                  <span className="text-sm text-[var(--app-text-muted)]">Usuário:</span>
-                  <span className="text-sm text-[var(--app-text)]">{userName}</span>
-                </div>
-              </div>
-            </div>
-
-            {/* Appearance Section */}
-            <div className="app-panel rounded-[1.5rem] p-4">
-              <div className="flex items-start justify-between gap-4">
-                <div>
-                  <h3 className="mb-1 text-sm font-semibold text-[var(--app-text)]">Aparência</h3>
-                  <p className="text-xs text-[var(--app-text-faint)]">Escolha entre tema claro e escuro.</p>
-                </div>
-
-                <div className="app-pill flex items-center gap-2 rounded-full px-3 py-2.5">
-                  <button
-                    type="button"
-                    onClick={() => setTheme('light')}
-                    aria-label="Ativar tema claro"
-                    className={`rounded-full p-2 transition-colors ${!isDarkTheme ? 'bg-[var(--app-nav-active-bg)] text-[var(--app-warning)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-warning)]'}`}
-                  >
-                    <Sun className="h-4 w-4" />
-                  </button>
-                  <Switch
-                    checked={isDarkTheme}
-                    onCheckedChange={(checked) => setTheme(checked ? 'dark' : 'light')}
-                    aria-label="Alternar tema"
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setTheme('dark')}
-                    aria-label="Ativar tema escuro"
-                    className={`rounded-full p-2 transition-colors ${isDarkTheme ? 'bg-[var(--app-nav-active-bg)] text-[var(--app-accent)]' : 'text-[var(--app-text-faint)] hover:text-[var(--app-accent)]'}`}
-                  >
-                    <Moon className="h-4 w-4" />
-                  </button>
-                </div>
-              </div>
-            </div>
-
-            {/* Financial Configuration Section */}
-            <div className="app-panel rounded-[1.5rem] p-4">
-              <h3 className="mb-3 text-sm font-semibold text-[var(--app-text)]">Configurações financeiras</h3>
-              <div className="space-y-4">
-                {/* Saldo Inicial */}
-                <div>
-                  <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Saldo inicial</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-text-muted)]">R$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={configForm.initialBalance}
-                      onChange={(e) => setConfigForm({ ...configForm, initialBalance: e.target.value })}
-                      className="w-full rounded-2xl py-3 pl-10 pr-4"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-[var(--app-text-faint)]">O saldo inicial da sua conta</p>
-                </div>
-
-                {/* Valor Diário Padrão */}
-                <div>
-                  <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Valor diário padrão</label>
-                  <div className="relative">
-                    <span className="absolute left-3 top-1/2 -translate-y-1/2 text-[var(--app-text-muted)]">R$</span>
-                    <input
-                      type="number"
-                      step="0.01"
-                      value={configForm.dailyStandard}
-                      onChange={(e) => setConfigForm({ ...configForm, dailyStandard: e.target.value })}
-                      className="w-full rounded-2xl py-3 pl-10 pr-4"
-                      placeholder="0.00"
-                    />
-                  </div>
-                  <p className="mt-1 text-xs text-[var(--app-text-faint)]">Quanto você planeja gastar por dia (gastos variáveis)</p>
-                </div>
-
-                {/* Data de Início do Saldo */}
-                <div>
-                  <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Data de início do saldo</label>
-                  <input
-                    type="date"
-                    value={configForm.balanceStartDate}
-                    onChange={(e) => setConfigForm({ ...configForm, balanceStartDate: e.target.value })}
-                    className="w-full rounded-2xl px-4 py-3"
-                  />
-                  <p className="mt-1 text-xs text-[var(--app-text-faint)]">A partir desta data, o sistema começará a descontar os gastos diários do seu saldo</p>
-                </div>
-
-                {/* Info Box */}
-                <div className="app-note-accent rounded-2xl p-3">
-                  <p className="text-xs">
-                    <strong className="text-[var(--app-accent)]">Importante:</strong> Alterar a data de início do saldo
-                    recalculará todos os valores do calendário a partir dessa nova data.
-                  </p>
-                </div>
-
-                {/* Save Button */}
-                <button
-                  onClick={handleSaveConfig}
-                  disabled={savingConfig}
-                  className="app-button-primary w-full rounded-2xl px-4 py-3 font-medium disabled:cursor-not-allowed disabled:opacity-50"
-                >
-                  {savingConfig ? 'Salvando...' : 'Salvar configurações'}
-                </button>
-              </div>
-            </div>
-
-            {/* Data Management Section */}
-            <div className="app-panel rounded-[1.5rem] p-4">
-              <h3 className="mb-2 text-sm font-semibold text-[var(--app-text)]">Gerenciamento de dados</h3>
-              <div className="space-y-2 text-sm text-[var(--app-text-muted)]">
-                <p>• {transactions.length} transações registradas</p>
-                <p>• {estimates.length} categorias de estimativas</p>
-                <p>• {investments.length} investimentos</p>
-                <p>• {goals.length} metas</p>
-                <p>• Saldo inicial: R$ {config?.initialBalance.toFixed(2) || '0.00'}</p>
-              </div>
-            </div>
-
-            {/* Danger Zone */}
-            <div className="app-note-danger rounded-[1.5rem] p-4">
-              <h3 className="mb-2 text-sm font-semibold text-[var(--app-danger-text)]">Zona de perigo</h3>
-              <p className="mb-3 text-xs text-[var(--app-danger-muted)]">
-                Esta ação deletará permanentemente todos os seus dados.
-              </p>
-              <button
-                onClick={() => {
-                  setIsSettingsModalOpen(false);
-                  setIsResetModalOpen(true);
-                }}
-                className="app-button-danger flex w-full items-center justify-center gap-2 rounded-2xl px-4 py-3 text-sm font-medium"
-              >
-                <Trash2 className="w-4 h-4" />
-                Resetar todos os dados
-              </button>
-            </div>
-          </div>
-
-          <div className="flex gap-3 mt-6">
-            <button
-              onClick={() => setIsSettingsModalOpen(false)}
-              className="app-button-secondary flex-1 rounded-2xl px-4 py-3"
-            >
-              Fechar
-            </button>
-          </div>
-        </DialogContent>
-      </Dialog>
 
       {/* Reset Data Confirmation Modal */}
       <Dialog open={isResetModalOpen} onOpenChange={setIsResetModalOpen}>

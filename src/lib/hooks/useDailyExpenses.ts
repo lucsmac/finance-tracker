@@ -5,6 +5,14 @@ import {
   type DailyExpense
 } from '../api/dailyExpenses'
 import { supabase } from '../supabase'
+import { emitDataSync, subscribeDataSync } from '../utils/dataSync'
+
+const sortDailyExpenses = (items: DailyExpense[]) =>
+  [...items].sort((left, right) => {
+    const dateComparison = right.date.localeCompare(left.date)
+    if (dateComparison !== 0) return dateComparison
+    return right.createdAt.localeCompare(left.createdAt)
+  })
 
 export function useDailyExpenses(userId: string | undefined) {
   const [dailyExpenses, setDailyExpenses] = useState<DailyExpense[]>([])
@@ -31,8 +39,13 @@ export function useDailyExpenses(userId: string | undefined) {
       })
       .subscribe()
 
+    const unsubscribeDataSync = subscribeDataSync('daily_expenses', () => {
+      void loadDailyExpenses()
+    })
+
     return () => {
       subscription.unsubscribe()
+      unsubscribeDataSync()
     }
   }, [userId])
 
@@ -54,11 +67,18 @@ export function useDailyExpenses(userId: string | undefined) {
 
   const createDailyExpense = async (expense: CreateDailyExpenseInput) => {
     if (!userId) throw new Error('No user ID')
-    return dailyExpensesApi.create(userId, expense)
+    const createdExpense = await dailyExpensesApi.create(userId, expense)
+    setDailyExpenses((current) => sortDailyExpenses([...current, createdExpense]))
+    setError(null)
+    emitDataSync('daily_expenses')
+    return createdExpense
   }
 
   const deleteDailyExpense = async (id: string) => {
-    return dailyExpensesApi.delete(id)
+    await dailyExpensesApi.delete(id)
+    setDailyExpenses((current) => current.filter((expense) => expense.id !== id))
+    setError(null)
+    emitDataSync('daily_expenses')
   }
 
   const getExpensesForDate = (date: string) => {

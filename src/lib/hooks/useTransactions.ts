@@ -2,6 +2,10 @@ import { useState, useEffect } from 'react'
 import { transactionsApi } from '../api/transactions'
 import { supabase } from '../supabase'
 import type { Transaction } from '@/app/data/mockData'
+import { emitDataSync, subscribeDataSync } from '../utils/dataSync'
+
+const sortTransactions = (items: Transaction[]) =>
+  [...items].sort((left, right) => right.date.localeCompare(left.date))
 
 export function useTransactions(userId: string | undefined) {
   const [transactions, setTransactions] = useState<Transaction[]>([])
@@ -29,8 +33,13 @@ export function useTransactions(userId: string | undefined) {
       })
       .subscribe()
 
+    const unsubscribeDataSync = subscribeDataSync('transactions', () => {
+      void loadTransactions()
+    })
+
     return () => {
       subscription.unsubscribe()
+      unsubscribeDataSync()
     }
   }, [userId])
 
@@ -57,25 +66,47 @@ export function useTransactions(userId: string | undefined) {
 
   const createTransaction = async (transaction: Omit<Transaction, 'id'>) => {
     if (!userId) throw new Error('No user ID')
-    return transactionsApi.create(userId, transaction)
+    const createdTransaction = await transactionsApi.create(userId, transaction)
+    setTransactions((current) => sortTransactions([...current, createdTransaction]))
+    setError(null)
+    emitDataSync('transactions')
+    return createdTransaction
   }
 
   const createInstallments = async (firstInstallment: Omit<Transaction, 'id'>) => {
     if (!userId) throw new Error('No user ID')
-    return transactionsApi.createInstallments(userId, firstInstallment)
+    const createdInstallments = await transactionsApi.createInstallments(userId, firstInstallment)
+    setTransactions((current) => sortTransactions([...current, ...createdInstallments]))
+    setError(null)
+    emitDataSync('transactions')
+    return createdInstallments
   }
 
   const cancelFutureRecurring = async (transactionId: string) => {
     if (!userId) throw new Error('No user ID')
-    return transactionsApi.cancelFutureRecurring(transactionId, userId)
+    const result = await transactionsApi.cancelFutureRecurring(transactionId, userId)
+    await loadTransactions()
+    emitDataSync('transactions')
+    return result
   }
 
   const updateTransaction = async (id: string, updates: Partial<Transaction>) => {
-    return transactionsApi.update(id, updates)
+    const updatedTransaction = await transactionsApi.update(id, updates)
+    setTransactions((current) =>
+      sortTransactions(current.map((transaction) => (
+        transaction.id === id ? updatedTransaction : transaction
+      ))),
+    )
+    setError(null)
+    emitDataSync('transactions')
+    return updatedTransaction
   }
 
   const deleteTransaction = async (id: string) => {
-    return transactionsApi.delete(id)
+    await transactionsApi.delete(id)
+    setTransactions((current) => current.filter((transaction) => transaction.id !== id))
+    setError(null)
+    emitDataSync('transactions')
   }
 
   const getByDateRange = async (startDate: string, endDate: string) => {

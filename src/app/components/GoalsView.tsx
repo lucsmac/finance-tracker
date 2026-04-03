@@ -3,6 +3,7 @@ import { Target, Plus, Pencil, Trash2, TrendingUp, TrendingDown, X } from 'lucid
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from './ui/dialog';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useGoals } from '@/lib/hooks/useGoals';
+import { toast } from 'sonner';
 
 type GoalType = 'savings' | 'max_spending' | 'savings_rate' | 'category_reduction';
 type GoalPeriod = 'month' | 'year';
@@ -101,7 +102,7 @@ export function GoalsView() {
       await deleteGoal(goalId);
     } catch (err) {
       console.error('Error deleting goal:', err);
-      alert('Erro ao excluir meta. Tente novamente.');
+      toast.error('Erro ao excluir meta. Tente novamente.');
     }
   };
 
@@ -131,7 +132,7 @@ export function GoalsView() {
 
   const handleSaveGoal = async () => {
     if (!goalForm.name || !goalForm.targetAmount) {
-      alert('Preencha os campos obrigatórios');
+      toast.error('Preencha os campos obrigatorios.');
       return;
     }
 
@@ -166,7 +167,7 @@ export function GoalsView() {
       });
     } catch (err) {
       console.error('Error saving goal:', err);
-      alert('Erro ao salvar meta. Tente novamente.');
+      toast.error('Erro ao salvar meta. Tente novamente.');
     } finally {
       setSaving(false);
     }

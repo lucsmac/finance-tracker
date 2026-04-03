@@ -2,6 +2,7 @@ import { useState, useEffect } from 'react'
 import { investmentsApi } from '../api/investments'
 import { supabase } from '../supabase'
 import type { Investment } from '@/app/data/mockData'
+import { emitDataSync, subscribeDataSync } from '../utils/dataSync'
 
 export function useInvestments(userId: string | undefined) {
   const [investments, setInvestments] = useState<Investment[]>([])
@@ -29,8 +30,13 @@ export function useInvestments(userId: string | undefined) {
       })
       .subscribe()
 
+    const unsubscribeDataSync = subscribeDataSync('investments', () => {
+      void loadInvestments()
+    })
+
     return () => {
       subscription.unsubscribe()
+      unsubscribeDataSync()
     }
   }, [userId])
 
@@ -52,15 +58,28 @@ export function useInvestments(userId: string | undefined) {
 
   const createInvestment = async (investment: Omit<Investment, 'id'>) => {
     if (!userId) throw new Error('No user ID')
-    return investmentsApi.create(userId, investment)
+    const createdInvestment = await investmentsApi.create(userId, investment)
+    setInvestments((current) => [...current, createdInvestment])
+    setError(null)
+    emitDataSync('investments')
+    return createdInvestment
   }
 
   const updateInvestment = async (id: string, updates: Partial<Investment>) => {
-    return investmentsApi.update(id, updates)
+    const updatedInvestment = await investmentsApi.update(id, updates)
+    setInvestments((current) => current.map((investment) => (
+      investment.id === id ? updatedInvestment : investment
+    )))
+    setError(null)
+    emitDataSync('investments')
+    return updatedInvestment
   }
 
   const deleteInvestment = async (id: string) => {
-    return investmentsApi.delete(id)
+    await investmentsApi.delete(id)
+    setInvestments((current) => current.filter((investment) => investment.id !== id))
+    setError(null)
+    emitDataSync('investments')
   }
 
   const getByCategory = async (category: string) => {

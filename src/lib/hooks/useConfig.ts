@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { configApi, type UserConfig } from '../api/config'
 import { supabase } from '../supabase'
+import { emitDataSync, subscribeDataSync } from '../utils/dataSync'
 
 export function useConfig(userId: string | undefined) {
   const [config, setConfig] = useState<UserConfig | null>(null)
@@ -28,8 +29,13 @@ export function useConfig(userId: string | undefined) {
       })
       .subscribe()
 
+    const unsubscribeDataSync = subscribeDataSync('config', () => {
+      void loadConfig()
+    })
+
     return () => {
       subscription.unsubscribe()
+      unsubscribeDataSync()
     }
   }, [userId])
 
@@ -54,6 +60,7 @@ export function useConfig(userId: string | undefined) {
     const createdConfig = await configApi.create(userId, configData)
     setConfig(createdConfig)
     setError(null)
+    emitDataSync('config')
     return createdConfig
   }
 
@@ -62,6 +69,7 @@ export function useConfig(userId: string | undefined) {
     const updatedConfig = await configApi.update(userId, updates)
     setConfig(updatedConfig)
     setError(null)
+    emitDataSync('config')
     return updatedConfig
   }
 

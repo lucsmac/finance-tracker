@@ -4,6 +4,7 @@ import { useAuth } from '@/lib/hooks/useAuth';
 import { useInvestments } from '@/lib/hooks/useInvestments';
 import { useTransactions } from '@/lib/hooks/useTransactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
+import { toast } from 'sonner';
 
 export function InvestmentsView() {
   const { user } = useAuth();
@@ -50,7 +51,7 @@ export function InvestmentsView() {
       setDeletingInvestmentCategory('');
     } catch (err) {
       console.error('Error deleting investment:', err);
-      alert('Erro ao deletar investimento. Tente novamente.');
+      toast.error('Erro ao deletar investimento. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -76,7 +77,7 @@ export function InvestmentsView() {
       setDeletingTransactionDescription('');
     } catch (err) {
       console.error('Error deleting transaction:', err);
-      alert('Erro ao deletar transação. Tente novamente.');
+      toast.error('Erro ao deletar transacao. Tente novamente.');
     } finally {
       setSaving(false);
     }

@@ -3,6 +3,7 @@ import { Settings, Save, Calendar, DollarSign } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useConfig } from '@/lib/hooks/useConfig';
 import { getTodayLocal } from '@/lib/utils/dateHelpers';
+import { toast } from 'sonner';
 
 export function SettingsView() {
   const { user } = useAuth();
@@ -36,10 +37,10 @@ export function SettingsView() {
         mainIncomeAmount: parseFloat(form.mainIncomeAmount) || 0,
         balanceStartDate: form.balanceStartDate
       });
-      alert('Configurações salvas com sucesso!');
+      toast.success('Configuracoes salvas com sucesso.');
     } catch (error) {
       console.error('Error saving settings:', error);
-      alert('Erro ao salvar configurações. Tente novamente.');
+      toast.error('Erro ao salvar configuracoes. Tente novamente.');
     } finally {
       setSaving(false);
     }
