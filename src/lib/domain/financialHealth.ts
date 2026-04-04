@@ -45,6 +45,14 @@ export interface EmergencyFundCalculation {
   }>
 }
 
+export interface EmergencyFundCategoryPreset {
+  id: string
+  label: string
+  amount: number
+  source: 'commitment' | 'estimate' | 'fallback'
+  note: string
+}
+
 export interface EssentialCostBreakdownItem {
   id: string
   label: string
@@ -621,6 +629,74 @@ export const calculateEmergencyFund = ({
       monthlyAmount: shortfall > 0 ? roundCurrency(shortfall / months) : 0,
     })),
   }
+}
+
+export const buildEmergencyFundCategoryPresets = ({
+  config,
+  estimates,
+  today,
+  transactions,
+}: {
+  config: UserConfig | null
+  estimates: Estimate[]
+  today: string
+  transactions: Transaction[]
+}): EmergencyFundCategoryPreset[] => {
+  const presets = new Map<string, EmergencyFundCategoryPreset>()
+  const referenceMandatory = getReferenceMandatoryTransactions(transactions, today)
+
+  referenceMandatory.transactions.forEach((transaction) => {
+    const key = normalizeText(transaction.category) || transaction.id
+    const current = presets.get(key)
+
+    presets.set(key, {
+      id: current?.id || `preset-${key}`,
+      label: current?.label || transaction.category,
+      amount: roundCurrency((current?.amount || 0) + transaction.amount),
+      source: 'commitment',
+      note: referenceMandatory.label,
+    })
+  })
+
+  estimates
+    .filter((estimate) => estimate.active && hasKeyword(estimate.category, essentialCategoryKeywords))
+    .forEach((estimate) => {
+      const key = normalizeText(estimate.category)
+
+      if (!key || presets.has(key)) return
+
+      presets.set(key, {
+        id: `preset-${key}`,
+        label: estimate.category,
+        amount: roundCurrency(estimate.monthlyAmount),
+        source: 'estimate',
+        note: 'estimativa essencial ativa',
+      })
+    })
+
+  const orderedPresets = [...presets.values()].sort(
+    (left, right) => right.amount - left.amount || left.label.localeCompare(right.label),
+  )
+
+  if (orderedPresets.length > 0) {
+    return orderedPresets
+  }
+
+  const profile = buildEssentialCostProfile(estimates, transactions, config, today)
+
+  if (profile.monthlyEssentialCost <= 0) {
+    return []
+  }
+
+  return [
+    {
+      id: 'preset-fallback',
+      label: 'Custo essencial base',
+      amount: profile.monthlyEssentialCost,
+      source: 'fallback',
+      note: 'estimativa automática inicial',
+    },
+  ]
 }
 
 export const calculateFinancialHealthSummary = ({

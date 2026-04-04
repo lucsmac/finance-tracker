@@ -31,10 +31,12 @@ import { toast } from 'sonner'
 import type { Goal } from '@/app/data/mockData'
 import { getTodayLocal } from '@/lib/utils/dateHelpers'
 import {
+  buildEmergencyFundCategoryPresets,
   buildGuidedMissions,
   calculateEmergencyFund,
   calculateFinancialHealthSummary,
   isDebtLikeGoal,
+  type EmergencyFundCategoryPreset,
   type GuidedMission,
 } from '@/lib/domain/financialHealth'
 
@@ -42,6 +44,7 @@ type GoalType = Goal['type']
 type GoalPeriod = 'month' | 'year'
 type IncomeProfile = 'stable' | 'variable' | 'autonomous'
 type GoalsViewNavigateTarget = 'cards'
+type ReserveCategoryFieldSource = EmergencyFundCategoryPreset['source'] | 'manual'
 
 const GOALS_VIEW_MODE_STORAGE_KEY = 'automoney:goals:view-mode'
 
@@ -86,6 +89,37 @@ const getInitialGoalViewMode = (): GoalPeriod => {
 
   const stored = window.localStorage.getItem(GOALS_VIEW_MODE_STORAGE_KEY)
   return stored === 'year' ? 'year' : 'month'
+}
+
+const createReserveCategoryField = ({
+  amount = '',
+  label = '',
+  note,
+  source = 'manual',
+}: {
+  amount?: string
+  label?: string
+  note?: string
+  source?: ReserveCategoryFieldSource
+}) => ({
+  id: `reserve-category-${Date.now()}-${Math.random().toString(36).slice(2, 9)}`,
+  label,
+  amount,
+  note,
+  source,
+})
+
+const getReserveCategorySourceLabel = (source: ReserveCategoryFieldSource) => {
+  switch (source) {
+    case 'commitment':
+      return 'Baseada nos compromissos'
+    case 'estimate':
+      return 'Baseada nas estimativas'
+    case 'fallback':
+      return 'Estimativa inicial'
+    case 'manual':
+      return 'Categoria manual'
+  }
 }
 
 const getGoalTypeLabel = (type: GoalType): string => {
@@ -256,7 +290,13 @@ export function GoalsView({ onNavigate }: GoalsViewProps) {
   const [isReserveDialogOpen, setIsReserveDialogOpen] = useState(false)
   const [isCriteriaOpen, setIsCriteriaOpen] = useState(false)
   const [calculatorForm, setCalculatorForm] = useState({
-    essentialCost: '',
+    categories: [] as Array<{
+      id: string
+      label: string
+      amount: string
+      note?: string
+      source: ReserveCategoryFieldSource
+    }>,
     currentReserve: '',
     incomeProfile: 'stable' as IncomeProfile,
   })
@@ -340,22 +380,74 @@ export function GoalsView({ onNavigate }: GoalsViewProps) {
   const alternateViewMode = viewMode === 'month' ? 'year' : 'month'
   const alternateViewGoalsCount = alternateViewMode === 'month' ? monthGoalsCount : yearGoalsCount
 
+  const reserveCategoryPresets = useMemo(
+    () =>
+      buildEmergencyFundCategoryPresets({
+        config,
+        estimates,
+        today,
+        transactions,
+      }),
+    [config, estimates, today, transactions],
+  )
+
+  const buildSuggestedReserveCategories = () => {
+    if (reserveCategoryPresets.length > 0) {
+      return reserveCategoryPresets.map((preset) =>
+        createReserveCategoryField({
+          label: preset.label,
+          amount: preset.amount > 0 ? preset.amount.toFixed(2) : '',
+          note: preset.note,
+          source: preset.source,
+        }),
+      )
+    }
+
+    if (healthSummary.monthlyEssentialCost > 0) {
+      return [
+        createReserveCategoryField({
+          label: 'Custo essencial base',
+          amount: healthSummary.monthlyEssentialCost.toFixed(2),
+          note: 'Estimativa automática inicial',
+          source: 'fallback',
+        }),
+      ]
+    }
+
+    return [createReserveCategoryField()]
+  }
+
+  const calculatorEssentialCost = useMemo(
+    () =>
+      Number(
+        calculatorForm.categories
+          .reduce((total, category) => total + Math.max(parseNumber(category.amount), 0), 0)
+          .toFixed(2),
+      ),
+    [calculatorForm.categories],
+  )
+
+  const filledCalculatorCategories = useMemo(
+    () =>
+      calculatorForm.categories.filter(
+        (category) => category.label.trim().length > 0 || parseNumber(category.amount) > 0,
+      ),
+    [calculatorForm.categories],
+  )
+
   const calculatorPreview = useMemo(
     () => {
-      const monthlyEssentialCost = calculatorForm.essentialCost.trim()
-        ? parseNumber(calculatorForm.essentialCost)
-        : healthSummary.monthlyEssentialCost
       const currentReserve = calculatorForm.currentReserve.trim()
         ? parseNumber(calculatorForm.currentReserve)
         : healthSummary.currentReserve
 
       return calculateEmergencyFund({
-        monthlyEssentialCost,
+        monthlyEssentialCost: calculatorEssentialCost,
         currentReserve,
         incomeProfile: calculatorForm.incomeProfile,
       })
     },
-    [calculatorForm, healthSummary.currentReserve, healthSummary.monthlyEssentialCost],
+    [calculatorEssentialCost, calculatorForm.currentReserve, calculatorForm.incomeProfile, healthSummary.currentReserve],
   )
   const coverageTone = getCoverageToneClasses(healthSummary.historyCoverageTone)
 
@@ -367,17 +459,47 @@ export function GoalsView({ onNavigate }: GoalsViewProps) {
     window.localStorage.setItem(GOALS_VIEW_MODE_STORAGE_KEY, viewMode)
   }, [viewMode])
 
+  const restoreSuggestedReserveCategories = () => {
+    setCalculatorForm((current) => ({
+      ...current,
+      categories: buildSuggestedReserveCategories(),
+    }))
+  }
+
   const focusGoalsList = () => {
     goalsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
   }
 
   const openReserveCalculator = () => {
     setCalculatorForm({
-      essentialCost: healthSummary.monthlyEssentialCost > 0 ? healthSummary.monthlyEssentialCost.toFixed(2) : '',
+      categories: buildSuggestedReserveCategories(),
       currentReserve: healthSummary.currentReserve > 0 ? healthSummary.currentReserve.toFixed(2) : '',
       incomeProfile: 'stable',
     })
     setIsReserveDialogOpen(true)
+  }
+
+  const updateReserveCategory = (categoryId: string, field: 'label' | 'amount', value: string) => {
+    setCalculatorForm((current) => ({
+      ...current,
+      categories: current.categories.map((category) =>
+        category.id === categoryId ? { ...category, [field]: value } : category,
+      ),
+    }))
+  }
+
+  const addReserveCategory = () => {
+    setCalculatorForm((current) => ({
+      ...current,
+      categories: [...current.categories, createReserveCategoryField()],
+    }))
+  }
+
+  const removeReserveCategory = (categoryId: string) => {
+    setCalculatorForm((current) => ({
+      ...current,
+      categories: current.categories.filter((category) => category.id !== categoryId),
+    }))
   }
 
   const resetGoalForm = () => {
@@ -1490,18 +1612,98 @@ export function GoalsView({ onNavigate }: GoalsViewProps) {
             <div className="mt-4 grid gap-6 lg:grid-cols-[0.95fr,1.05fr]">
               <div className="space-y-4">
                 <div>
-                  <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Custo essencial mensal</label>
-                  <input
-                    type="number"
-                    value={calculatorForm.essentialCost}
-                    onChange={(event) => setCalculatorForm((current) => ({ ...current, essentialCost: event.target.value }))}
-                    placeholder="Ex: 3200"
-                    onWheel={(event) => event.currentTarget.blur()}
-                    className="w-full rounded-lg border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] placeholder:text-[var(--app-field-placeholder)] focus:border-[var(--app-accent)] focus:outline-none"
-                  />
-                  <p className="mt-2 text-xs text-[var(--app-text-faint)]">
-                    Pré-preenchido com uma estimativa baseada em gastos fixos, parcelas e categorias essenciais.
-                  </p>
+                  <div className="mb-3 flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+                    <div>
+                      <label className="block text-sm text-[var(--app-text-muted)]">Custos essenciais por categoria</label>
+                      <p className="mt-2 text-xs text-[var(--app-text-faint)]">
+                        Preenchemos com base nos compromissos salvos. Ajuste os valores, remova o que não entra e adicione categorias para ver o total ideal da reserva.
+                      </p>
+                    </div>
+                    <div className="flex flex-wrap gap-2">
+                      <button
+                        type="button"
+                        onClick={restoreSuggestedReserveCategories}
+                        className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-3 py-2 text-xs font-medium text-[var(--app-text)] transition-colors hover:border-[var(--app-border-strong)]"
+                      >
+                        Restaurar sugestões
+                      </button>
+                      <button
+                        type="button"
+                        onClick={addReserveCategory}
+                        className="inline-flex items-center gap-2 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-3 py-2 text-xs font-medium text-[var(--app-text)] transition-colors hover:border-[var(--app-border-strong)]"
+                      >
+                        <Plus className="h-3.5 w-3.5" />
+                        Adicionar categoria
+                      </button>
+                    </div>
+                  </div>
+
+                  <div className="space-y-3">
+                    {calculatorForm.categories.length === 0 ? (
+                      <div className="rounded-[1.25rem] border border-dashed border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4 text-sm text-[var(--app-text-muted)]">
+                        Nenhuma categoria adicionada ainda. Use o botão acima para começar a montar o custo essencial.
+                      </div>
+                    ) : (
+                      calculatorForm.categories.map((category) => (
+                        <div
+                          key={category.id}
+                          className="rounded-[1.25rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4"
+                        >
+                          <div className="grid gap-3 sm:grid-cols-[minmax(0,1fr),170px,44px] sm:items-start">
+                            <div>
+                              <label className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--app-text-faint)]">
+                                Categoria
+                              </label>
+                              <input
+                                type="text"
+                                value={category.label}
+                                onChange={(event) => updateReserveCategory(category.id, 'label', event.target.value)}
+                                placeholder="Ex: Aluguel"
+                                className="w-full rounded-lg border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] placeholder:text-[var(--app-field-placeholder)] focus:border-[var(--app-accent)] focus:outline-none"
+                              />
+                              <p className="mt-2 text-xs text-[var(--app-text-faint)]">
+                                {category.note || getReserveCategorySourceLabel(category.source)}
+                              </p>
+                            </div>
+
+                            <div>
+                              <label className="mb-2 block text-xs font-medium uppercase tracking-[0.18em] text-[var(--app-text-faint)]">
+                                Valor mensal
+                              </label>
+                              <input
+                                type="number"
+                                value={category.amount}
+                                onChange={(event) => updateReserveCategory(category.id, 'amount', event.target.value)}
+                                placeholder="0,00"
+                                onWheel={(event) => event.currentTarget.blur()}
+                                className="w-full rounded-lg border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] placeholder:text-[var(--app-field-placeholder)] focus:border-[var(--app-accent)] focus:outline-none"
+                              />
+                            </div>
+
+                            <div className="flex sm:justify-end">
+                              <button
+                                type="button"
+                                onClick={() => removeReserveCategory(category.id)}
+                                className="inline-flex h-11 w-11 items-center justify-center rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-strong)] text-[var(--app-text-muted)] transition-colors hover:border-[var(--app-border-strong)] hover:text-[var(--app-danger)]"
+                                aria-label={`Remover categoria ${category.label || 'sem nome'}`}
+                              >
+                                <Trash2 className="h-4 w-4" />
+                              </button>
+                            </div>
+                          </div>
+                        </div>
+                      ))
+                    )}
+                  </div>
+
+                  <div className="mt-3 rounded-[1.25rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
+                    <div className="flex items-center justify-between gap-3">
+                      <span className="text-sm text-[var(--app-text-faint)]">Custo essencial total</span>
+                      <span className="text-lg font-semibold text-[var(--app-text)]">
+                        {formatCurrency(calculatorEssentialCost)}
+                      </span>
+                    </div>
+                  </div>
                 </div>
 
                 <div>
@@ -1621,30 +1823,32 @@ export function GoalsView({ onNavigate }: GoalsViewProps) {
                 <div className="grid gap-4 xl:grid-cols-2">
                   <div className="rounded-[1.5rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
                     <div className="mb-3 flex items-center justify-between gap-3">
-                      <p className="text-sm font-medium text-[var(--app-text)]">Entrou no custo essencial</p>
+                      <p className="text-sm font-medium text-[var(--app-text)]">Categorias consideradas no cálculo</p>
                       <span className="rounded-full bg-[var(--app-success)]/10 px-2.5 py-1 text-xs font-semibold text-[var(--app-success)]">
-                        Essencial
+                        Editável
                       </span>
                     </div>
 
-                    {healthSummary.essentialCostIncludedBreakdown.length === 0 ? (
+                    {filledCalculatorCategories.length === 0 ? (
                       <p className="text-sm text-[var(--app-text-muted)]">
-                        Ainda não há categorias suficientes para detalhar o cálculo.
+                        Adicione pelo menos uma categoria com valor mensal para montar a base da reserva.
                       </p>
                     ) : (
                       <div className="space-y-3">
-                        {healthSummary.essentialCostIncludedBreakdown.map((item) => (
+                        {filledCalculatorCategories.map((category) => (
                           <div
-                            key={item.id}
+                            key={category.id}
                             className="rounded-[1rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-3"
                           >
                             <div className="flex items-start justify-between gap-3">
                               <div>
-                                <p className="text-sm font-medium text-[var(--app-text)]">{item.label}</p>
-                                <p className="mt-1 text-xs text-[var(--app-text-muted)]">{item.reason}</p>
+                                <p className="text-sm font-medium text-[var(--app-text)]">{category.label || 'Categoria sem nome'}</p>
+                                <p className="mt-1 text-xs text-[var(--app-text-muted)]">
+                                  {category.note || getReserveCategorySourceLabel(category.source)}
+                                </p>
                               </div>
                               <span className="shrink-0 text-sm font-semibold text-[var(--app-text)]">
-                                {formatCurrency(item.amount)}
+                                {formatCurrency(parseNumber(category.amount))}
                               </span>
                             </div>
                           </div>
