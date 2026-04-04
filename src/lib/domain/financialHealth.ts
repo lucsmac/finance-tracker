@@ -1,4 +1,6 @@
-import { calculateCurrentBalance, type Estimate, type Goal, type Investment, type Transaction } from '@/app/data/mockData'
+import { type Estimate, type Goal, type Investment, type Transaction } from '@/app/data/mockData'
+import type { DailyExpense } from '@/lib/api/dailyExpenses'
+import { calculateAvailableBalanceUntilDate } from '@/lib/domain/availableBalance'
 import type { UserConfig } from '@/lib/api/config'
 import { createDateFromString, formatDateLocal } from '@/lib/utils/dateHelpers'
 
@@ -9,8 +11,10 @@ type MissionTone = 'neutral' | 'accent' | 'warning' | 'danger' | 'success'
 
 interface FinancialHealthInput {
   config: UserConfig | null
+  dailyExpenses: DailyExpense[]
   estimates: Estimate[]
   goals: Goal[]
+  getPlannedAmountForDate?: (date: string) => number | null | undefined
   investments: Investment[]
   transactions: Transaction[]
   today: string
@@ -508,8 +512,10 @@ export const calculateEmergencyFund = ({
 
 export const calculateFinancialHealthSummary = ({
   config,
+  dailyExpenses,
   estimates,
   goals,
+  getPlannedAmountForDate,
   investments,
   transactions,
   today,
@@ -573,12 +579,15 @@ export const calculateFinancialHealthSummary = ({
     reasons.push(`${reserveCoverageMonths.toFixed(1)} mes(es) de reserva cobertos`)
   }
 
-  const currentBalance = calculateCurrentBalance(
-    config?.initialBalance || 0,
+  const currentBalance = calculateAvailableBalanceUntilDate({
+    initialBalance: config?.initialBalance || 0,
     transactions,
-    config?.balanceStartDate,
-    today,
-  )
+    dailyExpenses,
+    dailyStandard: config?.dailyStandard || 0,
+    balanceStartDate: config?.balanceStartDate,
+    targetDate: today,
+    getPlannedAmountForDate,
+  })
 
   const currentMonthKey = today.slice(0, 7)
   const monthlyVariableBudget = roundCurrency((config?.dailyStandard || 0) * 30)

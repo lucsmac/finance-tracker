@@ -20,6 +20,8 @@ import { Collapsible, CollapsibleContent, CollapsibleTrigger } from './ui/collap
 import { useAuth } from '@/lib/hooks/useAuth'
 import { useGoals } from '@/lib/hooks/useGoals'
 import { useConfig } from '@/lib/hooks/useConfig'
+import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses'
+import { useDailyPlans } from '@/lib/hooks/useDailyPlans'
 import { useTransactions } from '@/lib/hooks/useTransactions'
 import { useInvestments } from '@/lib/hooks/useInvestments'
 import { useEstimates } from '@/lib/hooks/useEstimates'
@@ -187,6 +189,8 @@ export function GoalsView() {
     deleteGoal,
   } = useGoals(user?.id)
   const { config, loading: configLoading, error: configError } = useConfig(user?.id)
+  const { dailyExpenses, loading: dailyExpensesLoading, error: dailyExpensesError } = useDailyExpenses(user?.id)
+  const { dailyPlans, loading: dailyPlansLoading, error: dailyPlansError } = useDailyPlans(user?.id)
   const { transactions, loading: transactionsLoading, error: transactionsError } = useTransactions(user?.id)
   const { investments, loading: investmentsLoading, error: investmentsError } = useInvestments(user?.id)
   const { estimates, loading: estimatesLoading, error: estimatesError } = useEstimates(user?.id)
@@ -224,6 +228,8 @@ export function GoalsView() {
   const loading =
     goalsLoading ||
     configLoading ||
+    dailyExpensesLoading ||
+    dailyPlansLoading ||
     transactionsLoading ||
     investmentsLoading ||
     estimatesLoading
@@ -231,6 +237,8 @@ export function GoalsView() {
   const error =
     goalsError ||
     configError ||
+    dailyExpensesError ||
+    dailyPlansError ||
     transactionsError ||
     investmentsError ||
     estimatesError
@@ -239,13 +247,15 @@ export function GoalsView() {
     () =>
       calculateFinancialHealthSummary({
         config,
+        dailyExpenses,
         estimates,
         goals,
+        getPlannedAmountForDate: (date) => dailyPlans.find((plan) => plan.date === date)?.plannedAmount,
         investments,
         transactions,
         today,
       }),
-    [config, estimates, goals, investments, today, transactions],
+    [config, dailyExpenses, dailyPlans, estimates, goals, investments, today, transactions],
   )
 
   const guidedMissions = useMemo(

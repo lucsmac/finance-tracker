@@ -1,6 +1,7 @@
 import { useState, useRef, useEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { CommitmentsView } from './components/CommitmentsView';
+import { CreditCardsView } from './components/CreditCardsView';
 import { IncomesView } from './components/IncomesView';
 import { InvestmentsView } from './components/InvestmentsView';
 import { StatsView } from './components/StatsView';
@@ -15,18 +16,20 @@ import { useInvestments } from '@/lib/hooks/useInvestments';
 import { useGoals } from '@/lib/hooks/useGoals';
 import { useConfig } from '@/lib/hooks/useConfig';
 import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
-import { Calendar, TrendingUp, Target, ClipboardList, DollarSign, LogOut, Settings, User, Trash2, ChevronDown, Moon, Sun, BookOpen, Wallet } from 'lucide-react';
+import { useCreditCards } from '@/lib/hooks/useCreditCards';
+import { Calendar, TrendingUp, Target, ClipboardList, DollarSign, LogOut, Settings, User, Trash2, ChevronDown, Moon, Sun, BookOpen, Wallet, CreditCard, MoreHorizontal, type LucideIcon } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './components/ui/dialog';
 import { Switch } from './components/ui/switch';
 import { createDateFromString, getTodayLocal } from '@/lib/utils/dateHelpers';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 
-type AppView = 'dashboard' | 'commitments' | 'incomes' | 'investments' | 'stats' | 'goals' | 'guide';
+type AppView = 'dashboard' | 'commitments' | 'cards' | 'incomes' | 'investments' | 'stats' | 'goals' | 'guide';
 
 const VIEW_PATHS: Record<AppView, string> = {
   dashboard: '/',
   commitments: '/compromissos',
+  cards: '/cartoes',
   incomes: '/entradas',
   investments: '/investimentos',
   stats: '/analise',
@@ -37,12 +40,67 @@ const VIEW_PATHS: Record<AppView, string> = {
 const VIEW_ALIASES: Record<AppView, string[]> = {
   dashboard: ['/', '/inicio', '/dashboard'],
   commitments: ['/compromissos', '/commitments'],
+  cards: ['/cartoes', '/cards'],
   incomes: ['/entradas', '/incomes'],
   investments: ['/investimentos', '/investments'],
   stats: ['/analise', '/analysis', '/stats'],
   goals: ['/metas', '/goals'],
   guide: ['/como-usar', '/guia', '/ajuda', '/help'],
 };
+
+interface NavItem {
+  view: AppView;
+  label: string;
+  description: string;
+  icon: LucideIcon;
+}
+
+const NAV_ITEMS: NavItem[] = [
+  {
+    view: 'dashboard',
+    label: 'Início',
+    description: 'Calendário e caixa disponível',
+    icon: Calendar,
+  },
+  {
+    view: 'commitments',
+    label: 'Compromissos',
+    description: 'Contas, parcelas e vencimentos',
+    icon: ClipboardList,
+  },
+  {
+    view: 'incomes',
+    label: 'Entradas',
+    description: 'Salários e outros recebimentos',
+    icon: DollarSign,
+  },
+  {
+    view: 'cards',
+    label: 'Cartões',
+    description: 'Limites, faturas e pagamentos',
+    icon: CreditCard,
+  },
+  {
+    view: 'investments',
+    label: 'Investimentos',
+    description: 'Patrimônio, aportes e resgates',
+    icon: Wallet,
+  },
+  {
+    view: 'stats',
+    label: 'Análise',
+    description: 'Indicadores e tendências',
+    icon: TrendingUp,
+  },
+  {
+    view: 'goals',
+    label: 'Metas',
+    description: 'Plano guiado e missões',
+    icon: Target,
+  },
+];
+
+const MOBILE_PRIMARY_VIEWS: AppView[] = ['dashboard', 'commitments', 'cards', 'goals'];
 
 const normalizePathname = (pathname: string) => {
   if (!pathname) return '/';
@@ -68,6 +126,7 @@ export default function App() {
   const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
   const [isEditingSetupOpen, setIsEditingSetupOpen] = useState(false);
   const [isResetModalOpen, setIsResetModalOpen] = useState(false);
+  const [isMobileNavOpen, setIsMobileNavOpen] = useState(false);
   const [resetting, setResetting] = useState(false);
   const [savingSetupEdit, setSavingSetupEdit] = useState(false);
   const [savingFirstAccess, setSavingFirstAccess] = useState(false);
@@ -87,6 +146,14 @@ export default function App() {
   const { transactions, deleteTransaction: deleteTransactionFn } = useTransactions(user?.id);
   const { estimates, deleteEstimate: deleteEstimateFn } = useEstimates(user?.id);
   const { investments, deleteInvestment: deleteInvestmentFn } = useInvestments(user?.id);
+  const {
+    cards,
+    statements: creditCardStatements,
+    payments: creditCardPayments,
+    deleteCard: deleteCardFn,
+    deleteStatement: deleteCreditCardStatementFn,
+    deletePayment: deleteCreditCardPaymentFn,
+  } = useCreditCards(user?.id);
   const { goals, deleteGoal: deleteGoalFn } = useGoals(user?.id);
   const { config, loading: configLoading, createConfig, updateConfig } = useConfig(user?.id);
   const { dailyExpenses, deleteDailyExpense: deleteDailyExpenseFn } = useDailyExpenses(user?.id);
@@ -96,12 +163,19 @@ export default function App() {
   const isDarkTheme = effectiveThemePreference === 'dark';
   const activeNavItemClass = 'bg-[var(--app-nav-active-bg)] text-[var(--app-text)] shadow-[var(--app-nav-active-shadow)]';
   const inactiveNavItemClass = 'text-[var(--app-text-muted)] hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-text)]';
+  const mobileNavItemBaseClass = 'flex min-w-0 flex-1 flex-col items-center justify-center gap-1 rounded-2xl px-2 py-2 text-[11px] font-medium transition-all';
+  const desktopNavItemBaseClass = 'flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all';
+  const mobilePrimaryNavItems = NAV_ITEMS.filter((item) => MOBILE_PRIMARY_VIEWS.includes(item.view));
+  const mobileOverflowNavItems = NAV_ITEMS.filter((item) => !MOBILE_PRIMARY_VIEWS.includes(item.view));
+  const isOverflowViewActive = mobileOverflowNavItems.some((item) => item.view === currentView);
 
   const handleSelectedMonthChange = (date: Date) => {
     setSelectedMonth(new Date(date.getFullYear(), date.getMonth(), 1));
   };
 
   const navigateToView = (view: AppView) => {
+    setIsMobileNavOpen(false);
+
     if (view !== 'guide') {
       lastNonGuideViewRef.current = view;
     }
@@ -271,6 +345,16 @@ export default function App() {
       // Delete all investments
       const deleteInvestmentPromises = investments.map(i => deleteInvestmentFn(i.id));
       await Promise.all(deleteInvestmentPromises);
+
+      // Delete all credit card payments and statements before cards
+      const deleteCreditCardPaymentPromises = creditCardPayments.map(payment => deleteCreditCardPaymentFn(payment.id));
+      await Promise.all(deleteCreditCardPaymentPromises);
+
+      const deleteCreditCardStatementPromises = creditCardStatements.map(statement => deleteCreditCardStatementFn(statement.id));
+      await Promise.all(deleteCreditCardStatementPromises);
+
+      const deleteCreditCardPromises = cards.map(card => deleteCardFn(card.id));
+      await Promise.all(deleteCreditCardPromises);
 
       // Delete all goals
       const deleteGoalPromises = goals.map(g => deleteGoalFn(g.id));
@@ -509,7 +593,7 @@ export default function App() {
               </button>
             </div>
           </div>
-      )}
+        )}
       </div>
 
       {/* Main Content */}
@@ -520,6 +604,7 @@ export default function App() {
               if (
                 view === 'dashboard' ||
                 view === 'commitments' ||
+                view === 'cards' ||
                 view === 'incomes' ||
                 view === 'investments' ||
                 view === 'stats' ||
@@ -534,6 +619,12 @@ export default function App() {
         )}
         {currentView === 'commitments' && (
           <CommitmentsView
+            selectedMonth={selectedMonth}
+            onSelectedMonthChange={handleSelectedMonthChange}
+          />
+        )}
+        {currentView === 'cards' && (
+          <CreditCardsView
             selectedMonth={selectedMonth}
             onSelectedMonthChange={handleSelectedMonthChange}
           />
@@ -560,75 +651,105 @@ export default function App() {
       </div>
 
       {/* Bottom Navigation */}
-      <nav className="app-panel app-content fixed bottom-5 left-1/2 z-40 w-[calc(100%-1.5rem)] max-w-4xl -translate-x-1/2 rounded-[2rem] px-3 py-3 sm:w-auto sm:px-4">
-        <div className="flex items-center justify-between gap-2 sm:gap-3">
-          <button
-            onClick={() => navigateToView('dashboard')}
-            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'dashboard'
-              ? activeNavItemClass
-              : inactiveNavItemClass
-              }`}
-          >
-            <Calendar className="w-6 h-6" />
-            <span className="hidden text-sm font-medium sm:inline">Início</span>
-          </button>
+      <nav className="app-panel app-content fixed bottom-5 left-1/2 z-40 hidden w-auto max-w-4xl -translate-x-1/2 rounded-[2rem] px-4 py-3 sm:block">
+        <div className="flex items-center gap-3">
+          {NAV_ITEMS.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentView === item.view;
+
+            return (
+              <button
+                key={item.view}
+                onClick={() => navigateToView(item.view)}
+                className={`${desktopNavItemBaseClass} ${isActive ? activeNavItemClass : inactiveNavItemClass}`}
+              >
+                <Icon className="w-6 h-6" />
+                <span className="text-sm font-medium">{item.label}</span>
+              </button>
+            );
+          })}
+        </div>
+      </nav>
+
+      <nav className="app-panel app-content fixed bottom-4 left-1/2 z-40 w-[calc(100%-1rem)] max-w-lg -translate-x-1/2 rounded-[2rem] px-2 py-2 sm:hidden">
+        <div className="flex items-stretch gap-1">
+          {mobilePrimaryNavItems.map((item) => {
+            const Icon = item.icon;
+            const isActive = currentView === item.view;
+
+            return (
+              <button
+                key={item.view}
+                onClick={() => navigateToView(item.view)}
+                className={`${mobileNavItemBaseClass} ${isActive ? activeNavItemClass : inactiveNavItemClass}`}
+              >
+                <Icon className="h-5 w-5" />
+                <span className="truncate">{item.label}</span>
+              </button>
+            );
+          })}
 
           <button
-            onClick={() => navigateToView('commitments')}
-            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'commitments'
-              ? activeNavItemClass
-              : inactiveNavItemClass
-              }`}
+            onClick={() => setIsMobileNavOpen(true)}
+            className={`${mobileNavItemBaseClass} ${isOverflowViewActive || isMobileNavOpen ? activeNavItemClass : inactiveNavItemClass}`}
           >
-            <ClipboardList className="w-6 h-6" />
-            <span className="hidden text-sm font-medium sm:inline">Compromissos</span>
-          </button>
-
-          <button
-            onClick={() => navigateToView('incomes')}
-            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'incomes'
-              ? activeNavItemClass
-              : inactiveNavItemClass
-              }`}
-          >
-            <DollarSign className="w-6 h-6" />
-            <span className="hidden text-sm font-medium sm:inline">Entradas</span>
-          </button>
-
-          <button
-            onClick={() => navigateToView('investments')}
-            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'investments'
-              ? activeNavItemClass
-              : inactiveNavItemClass
-              }`}
-          >
-            <Wallet className="w-6 h-6" />
-            <span className="hidden text-sm font-medium sm:inline">Investimentos</span>
-          </button>
-
-          <button
-            onClick={() => navigateToView('stats')}
-            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'stats'
-              ? activeNavItemClass
-              : inactiveNavItemClass
-              }`}
-          >
-            <TrendingUp className="w-6 h-6" />
-            <span className="hidden text-sm font-medium sm:inline">Análise</span>
-          </button>
-
-          <button
-            onClick={() => navigateToView('goals')}
-            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'goals'
-              ? activeNavItemClass
-              : inactiveNavItemClass
-              }`}
-          >
-            <Target className="w-6 h-6" />
-            <span className="hidden text-sm font-medium sm:inline">Metas</span>
+            <MoreHorizontal className="h-5 w-5" />
+            <span className="truncate">Mais</span>
           </button>
         </div>
       </nav>
+
+      <Dialog open={isMobileNavOpen} onOpenChange={setIsMobileNavOpen}>
+        <DialogContent className="app-panel-strong top-auto bottom-4 left-1/2 w-[calc(100vw-1rem)] max-w-md translate-x-[-50%] translate-y-0 rounded-[2rem] border-[var(--app-field-border)] p-0 sm:hidden">
+          <div className="p-5">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-semibold text-[var(--app-text)]">Mais áreas</DialogTitle>
+              <DialogDescription className="text-[var(--app-text-muted)]">
+                Atalhos extras para o mobile, sem lotar a barra inferior.
+              </DialogDescription>
+            </DialogHeader>
+
+            <div className="mt-5 space-y-2">
+              {mobileOverflowNavItems.map((item) => {
+                const Icon = item.icon;
+                const isActive = currentView === item.view;
+
+                return (
+                  <button
+                    key={item.view}
+                    onClick={() => navigateToView(item.view)}
+                    className={`flex w-full items-center gap-4 rounded-[1.5rem] border px-4 py-4 text-left transition-all ${
+                      isActive
+                        ? 'border-[var(--app-accent)]/30 bg-[var(--app-nav-active-bg)] text-[var(--app-text)]'
+                        : 'border-[var(--app-border)] bg-[var(--app-surface-soft)] text-[var(--app-text-muted)] hover:bg-[var(--app-surface-hover)] hover:text-[var(--app-text)]'
+                    }`}
+                  >
+                    <div className={`flex h-11 w-11 items-center justify-center rounded-2xl ${
+                      isActive ? 'bg-[var(--app-accent)]/12 text-[var(--app-accent)]' : 'bg-[var(--app-surface-strong)] text-[var(--app-text-muted)]'
+                    }`}>
+                      <Icon className="h-5 w-5" />
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-semibold">{item.label}</p>
+                      <p className="mt-1 text-xs text-[var(--app-text-faint)]">{item.description}</p>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div className="mt-4 border-t border-[var(--app-border)] pt-4">
+              <button
+                onClick={() => navigateToView('guide')}
+                className="flex w-full items-center gap-3 rounded-[1.5rem] px-4 py-3 text-sm font-medium text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-text)]"
+              >
+                <BookOpen className="h-5 w-5" />
+                <span>Como usar o app</span>
+              </button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
 
       {/* Reset Data Confirmation Modal */}
       <Dialog open={isResetModalOpen} onOpenChange={setIsResetModalOpen}>
@@ -654,6 +775,9 @@ export default function App() {
                 <li>• {transactions.length} transações</li>
                 <li>• {estimates.length} estimativas</li>
                 <li>• {investments.length} investimentos</li>
+                <li>• {cards.length} cartões</li>
+                <li>• {creditCardStatements.length} faturas de cartão</li>
+                <li>• {creditCardPayments.length} pagamentos de cartão</li>
                 <li>• {goals.length} metas</li>
                 <li>• Saldo inicial será zerado (atual: R$ {config?.initialBalance.toFixed(2) || '0.00'})</li>
               </ul>
