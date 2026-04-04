@@ -22,6 +22,7 @@ import {
 } from '../data/mockData';
 import { formatDateLocal, getTodayLocal, createDateFromString, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
 import {
+  getEffectiveVariableExpensesTotalForDate,
   getRecordedVariableExpensesTotalForDate,
   getVariableExpenseEntriesForDate
 } from '@/lib/utils/dailyExpenses';
@@ -80,6 +81,20 @@ const sectionCardClass =
   'rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4';
 const sectionItemClass =
   'flex flex-col gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-3 sm:flex-row sm:items-center sm:justify-between';
+const sectionInnerCardClass =
+  'rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-3';
+const accentNoteClass =
+  'rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-4';
+const neutralNoteClass =
+  'rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4';
+const neutralBadgeClass =
+  'inline-flex rounded-full border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-2.5 py-1 text-xs font-medium text-[var(--app-text-muted)]';
+const dangerBadgeButtonClass =
+  'rounded-full border border-red-500/20 bg-red-500/10 px-2.5 py-1 text-xs font-medium text-red-700 transition-colors hover:bg-red-500/15 dark:text-red-300';
+const primaryMonoButtonClass =
+  'w-full rounded-xl border border-[var(--app-text)] bg-[var(--app-text)] px-4 py-3 font-semibold text-[var(--app-surface-strong)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50';
+const primaryMonoFlexButtonClass =
+  'flex-1 rounded-xl border border-[var(--app-text)] bg-[var(--app-text)] px-4 py-3 font-semibold text-[var(--app-surface-strong)] transition-opacity hover:opacity-90 disabled:cursor-not-allowed disabled:opacity-50';
 const fieldInputClass =
   'w-full rounded-xl border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] placeholder:text-[var(--app-field-placeholder)] focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)] focus:border-transparent';
 const fieldInputWithPrefixClass =
@@ -148,17 +163,18 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
     return getRecordedVariableExpensesTotalForDate(dateStr, dailyExpenses, transactions);
   };
 
-  const getProjectedVariableExpensesForDate = (dateStr: string) => {
+  const getEffectiveVariableExpensesForDate = (dateStr: string) => {
     const hypotheticalVariableExpenses = hypotheticalTransactions
       .filter(t => t.type === 'expense_variable' && t.date === dateStr)
       .reduce((sum, t) => sum + t.amount, 0);
 
-    return getRecordedVariableExpensesForDate(dateStr) + hypotheticalVariableExpenses;
-  };
-
-  const getEffectiveVariableExpensesForDate = (dateStr: string) => {
-    const projectedVariableExpenses = getProjectedVariableExpensesForDate(dateStr);
-    return projectedVariableExpenses > 0 ? projectedVariableExpenses : getPlannedAmountForDate(dateStr);
+    return getEffectiveVariableExpensesTotalForDate({
+      date: dateStr,
+      plannedAmount: getPlannedAmountForDate(dateStr),
+      dailyExpenses,
+      transactions,
+      additionalVariableExpenses: hypotheticalVariableExpenses,
+    });
   };
 
   const getDayTotals = (dateStr: string, dayTransactions: any[]) => {
@@ -1019,12 +1035,12 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
           </DialogHeader>
 
           <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
-            <TabsList className="grid w-full grid-cols-2">
-              <TabsTrigger value="expenses" className="flex-1 text-[var(--app-text-muted)] data-[state=active]:text-[var(--app-text)] hover:text-[var(--app-text)] transition-colors">
+            <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-1">
+              <TabsTrigger value="expenses" className="flex-1 rounded-[1rem] border border-transparent text-[var(--app-text-muted)] data-[state=active]:border-[var(--app-border)] data-[state=active]:bg-[var(--app-surface-strong)] data-[state=active]:text-[var(--app-text)] data-[state=active]:shadow-none hover:text-[var(--app-text)] transition-colors">
                 <DollarSign className="w-4 h-4 mr-2" />
                 Lançamentos do dia
               </TabsTrigger>
-              <TabsTrigger value="details" className="flex-1 text-[var(--app-text-muted)] data-[state=active]:text-[var(--app-text)] hover:text-[var(--app-text)] transition-colors">
+              <TabsTrigger value="details" className="flex-1 rounded-[1rem] border border-transparent text-[var(--app-text-muted)] data-[state=active]:border-[var(--app-border)] data-[state=active]:bg-[var(--app-surface-strong)] data-[state=active]:text-[var(--app-text)] data-[state=active]:shadow-none hover:text-[var(--app-text)] transition-colors">
                 <Eye className="w-4 h-4 mr-2" />
                 Detalhes
               </TabsTrigger>
@@ -1041,9 +1057,9 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
                 return (
                   <div className="space-y-4">
-                    <div className="rounded-xl border border-[#8537FD]/30 bg-[#8537FD]/10 p-4">
+                    <div className={accentNoteClass}>
                       <p className="text-sm text-[var(--app-text-muted)]">
-                        <strong className="text-[#8537FD]">ℹ️ Como funciona:</strong> cada gasto diário agora é um lançamento com
+                        <strong className="text-[var(--app-text)]">ℹ️ Como funciona:</strong> cada gasto diário agora é um lançamento com
                         título, categoria e valor. O total do dia é a soma desses lançamentos. Se não houver lançamento real,
                         o sistema usa o valor planejado deste dia na projeção.
                       </p>
@@ -1058,7 +1074,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                       </div>
                       <div className={sectionCardClass}>
                         <p className="mb-1 text-xs text-[var(--app-text-faint)]">Planejado do dia</p>
-                        <p className="max-w-full text-2xl font-bold leading-tight text-[#8537FD] tabular-nums [overflow-wrap:anywhere]">
+                        <p className="max-w-full text-2xl font-bold leading-tight text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">
                           {plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
                       </div>
@@ -1122,7 +1138,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                       <button
                         onClick={handleAddDailyExpense}
                         disabled={savingDailyExpense}
-                        className="w-full px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-[var(--app-accent-foreground)] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                        className={primaryMonoButtonClass}
                       >
                         {savingDailyExpense ? 'Salvando lançamento...' : 'Adicionar lançamento'}
                       </button>
@@ -1154,7 +1170,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                               <button
                                 onClick={() => handleDeleteDailyExpense(expense.id)}
                                 disabled={deletingDailyExpenseId === expense.id}
-                                className="shrink-0 rounded-lg bg-red-500/10 p-2 text-red-300 transition-colors hover:bg-red-500/20 disabled:opacity-50"
+                                className="shrink-0 rounded-lg border border-red-500/20 bg-red-500/10 p-2 text-red-700 transition-colors hover:bg-red-500/15 disabled:opacity-50 dark:text-red-300"
                                 title="Remover lançamento"
                               >
                                 <X className="w-4 h-4" />
@@ -1166,7 +1182,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                     </div>
 
                     {legacyVariableEntries.length > 0 && (
-                      <div className="bg-[#8537FD]/10 border border-[#8537FD]/20 rounded-xl p-4 space-y-3">
+                      <div className={`${neutralNoteClass} space-y-3`}>
                         <h4 className="text-sm font-semibold text-[var(--app-text)]">Lançamentos legados</h4>
                         <p className="text-xs text-[var(--app-text-faint)]">
                           Estes gastos vieram do modelo antigo de transações variáveis e continuam contando no total do dia.
@@ -1221,7 +1237,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                         <button
                           onClick={handleSavePlanned}
                           disabled={savingPlanned}
-                          className="flex-1 px-4 py-3 bg-[var(--app-accent)] hover:opacity-90 text-[var(--app-accent-foreground)] rounded-xl font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                          className={primaryMonoFlexButtonClass}
                         >
                           {savingPlanned ? 'Salvando...' : 'Salvar planejamento'}
                         </button>
@@ -1256,17 +1272,17 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                   return (
                     <>
                       <div className="grid grid-cols-1 gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4 sm:grid-cols-3 sm:gap-4">
-                        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-3 text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center">
+                        <div className={`${sectionInnerCardClass} text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center`}>
                           <p className="mb-1 text-xs text-[var(--app-text-faint)]">Entradas</p>
-                          <p className="max-w-full text-lg font-bold leading-tight text-[#AFFD37] tabular-nums [overflow-wrap:anywhere]">{totalIncomes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                          <p className="max-w-full text-lg font-bold leading-tight text-emerald-700 tabular-nums [overflow-wrap:anywhere] dark:text-emerald-400">{totalIncomes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                         </div>
-                        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-3 text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center">
+                        <div className={`${sectionInnerCardClass} text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center`}>
                           <p className="mb-1 text-xs text-[var(--app-text-faint)]">Saídas</p>
-                          <p className="max-w-full text-lg font-bold leading-tight text-[#E837FD] tabular-nums [overflow-wrap:anywhere]">{totalExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                          <p className="max-w-full text-lg font-bold leading-tight text-red-700 tabular-nums [overflow-wrap:anywhere] dark:text-red-400">{totalExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                         </div>
-                        <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-3 text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center">
+                        <div className={`${sectionInnerCardClass} text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center`}>
                           <p className="mb-1 text-xs text-[var(--app-text-faint)]">Saldo do dia</p>
-                          <p className={`max-w-full text-lg font-bold leading-tight tabular-nums [overflow-wrap:anywhere] ${balance >= 0 ? 'text-[#AFFD37]' : 'text-[#E837FD]'}`}>
+                          <p className={`max-w-full text-lg font-bold leading-tight tabular-nums [overflow-wrap:anywhere] ${balance >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
                             {balance >= 0 ? '+' : ''}{balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </p>
                         </div>
@@ -1275,11 +1291,11 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                       <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
                         <h4 className="mb-3 text-sm font-semibold text-[var(--app-text)]">Planejado vs Realizado</h4>
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
-                          <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-3 sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0">
+                          <div className={`${sectionInnerCardClass} sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0`}>
                             <p className="mb-1 text-xs text-[var(--app-text-faint)]">Planejado</p>
-                            <p className="max-w-full text-xl font-bold leading-tight text-[#8537FD] tabular-nums [overflow-wrap:anywhere]">{plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                            <p className="max-w-full text-xl font-bold leading-tight text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">{plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                           </div>
-                          <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-3 text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center">
+                          <div className={`${sectionInnerCardClass} text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center`}>
                             <p className="mb-1 text-xs text-[var(--app-text-faint)]">Realizado</p>
                             <p className={`max-w-full text-xl font-bold leading-tight tabular-nums [overflow-wrap:anywhere] ${hasRealExpenses ? 'text-[var(--app-text)]' : 'text-[var(--app-text-faint)]'}`}>
                               {totalVariableExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
@@ -1288,15 +1304,15 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                               <p className="mt-1 text-xs text-[var(--app-text-faint)]">Sem gastos</p>
                             )}
                           </div>
-                          <div className="rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-3 text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-right">
+                          <div className={`${sectionInnerCardClass} text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-right`}>
                             <p className="mb-1 text-xs text-[var(--app-text-faint)]">Diferença</p>
-                            <p className={`max-w-full text-xl font-bold leading-tight tabular-nums [overflow-wrap:anywhere] ${difference >= 0 ? 'text-[#AFFD37]' : 'text-[#E837FD]'}`}>
+                            <p className={`max-w-full text-xl font-bold leading-tight tabular-nums [overflow-wrap:anywhere] ${difference >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
                               {difference >= 0 ? '+' : ''}{difference.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </p>
                             {difference >= 0 ? (
-                              <p className="text-xs text-[#AFFD37] mt-1">Economizou!</p>
+                              <p className="mt-1 text-xs text-emerald-700 dark:text-emerald-400">Economizou!</p>
                             ) : (
-                              <p className="text-xs text-[#E837FD] mt-1">Excedeu</p>
+                              <p className="mt-1 text-xs text-red-700 dark:text-red-400">Excedeu</p>
                             )}
                           </div>
                         </div>
@@ -1311,31 +1327,31 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                           <>
                             {dayIncomes.length > 0 && (
                               <div>
-                                <h4 className="text-sm font-semibold text-[#AFFD37] mb-2">Entradas</h4>
+                                <h4 className="mb-2 text-sm font-semibold text-[var(--app-text)]">Entradas</h4>
                                 {dayIncomes.map(t => (
-                                  <div key={t.id} className="mb-2 flex flex-col gap-3 rounded-lg border border-[#AFFD37]/30 bg-[#AFFD37]/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <div key={t.id} className={`${sectionItemClass} mb-2`}>
                                     <div className="min-w-0">
                                       <p className="font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">{t.description}</p>
                                       <p className="text-sm text-[var(--app-text-muted)]">{t.category}</p>
                                     </div>
                                     <div className="flex w-full flex-col gap-2 sm:w-auto sm:items-end">
-                                      <p className={`${listAmountClass} text-[#AFFD37]`}>+{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                      <p className={`${listAmountClass} text-emerald-700 dark:text-emerald-400`}>+{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                                         <button
                                           onClick={() => void handleToggleTransactionPaid(t.id, Boolean(t.paid), 'recebido')}
-                                          className={`text-xs px-2 py-0.5 rounded transition-colors ${t.paid ? 'bg-[#AFFD37]/20 text-[#AFFD37] hover:bg-red-500/20 hover:text-red-400' : 'bg-[var(--app-surface-soft)] text-[var(--app-text-muted)] hover:bg-[#AFFD37]/20 hover:text-[#AFFD37]'}`}
+                                          className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${t.paid ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-400' : 'border-[var(--app-border)] bg-[var(--app-surface-strong)] text-[var(--app-text-muted)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]'}`}
                                           title={t.paid ? 'Desmarcar como recebido' : 'Marcar como recebido'}
                                         >
                                           {t.paid ? '✓ Recebido' : 'Marcar recebido'}
                                         </button>
                                         {t.recurring && (
                                           <div className="flex items-center gap-2">
-                                            <span className="inline-block text-xs px-2 py-0.5 bg-[#AFFD37]/20 text-[#AFFD37] rounded">
+                                            <span className={neutralBadgeClass}>
                                               Recorrente
                                             </span>
                                             <button
                                               onClick={() => handleCancelRecurring(t.id, t.description)}
-                                              className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors"
+                                              className={dangerBadgeButtonClass}
                                               title="Cancelar recorrências futuras"
                                             >
                                               Cancelar
@@ -1351,14 +1367,14 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
                             {variableExpenseEntries.length > 0 && (
                               <div>
-                                <h4 className="text-sm font-semibold text-[#8537FD] mb-2">Gastos Diários</h4>
+                                <h4 className="mb-2 text-sm font-semibold text-[var(--app-text)]">Gastos Diários</h4>
                                 {variableExpenseEntries.map(entry => (
                                   <div key={entry.id} className={`${sectionItemClass} mb-2`}>
                                     <div className="min-w-0">
                                       <div className="flex items-center gap-2">
                                         <p className="font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">{entry.title}</p>
                                         {entry.source === 'legacy_transaction' && (
-                                          <span className="inline-block text-xs px-2 py-0.5 bg-[#8537FD]/20 text-[#8537FD] rounded">
+                                          <span className={neutralBadgeClass}>
                                             Legado
                                           </span>
                                         )}
@@ -1373,9 +1389,9 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
                             {fixedExpenses.length > 0 && (
                               <div>
-                                <h4 className="text-sm font-semibold text-[#747C8B] mb-2">Gastos Fixos</h4>
+                                <h4 className="mb-2 text-sm font-semibold text-[var(--app-text)]">Gastos Fixos</h4>
                                 {fixedExpenses.map(t => (
-                                  <div key={t.id} className="mb-2 flex flex-col gap-3 rounded-lg border border-[#747C8B]/30 bg-[#747C8B]/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <div key={t.id} className={`${sectionItemClass} mb-2`}>
                                     <div className="min-w-0">
                                       <p className="font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">{t.description}</p>
                                       <p className="text-sm text-[var(--app-text-muted)]">{t.category}</p>
@@ -1385,19 +1401,19 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                                       <div className="flex flex-wrap items-center gap-2 sm:justify-end">
                                         <button
                                           onClick={() => void handleToggleTransactionPaid(t.id, Boolean(t.paid), 'pago')}
-                                          className={`text-xs px-2 py-0.5 rounded transition-colors ${t.paid ? 'bg-[#AFFD37]/20 text-[#AFFD37] hover:bg-red-500/20 hover:text-red-400' : 'bg-[var(--app-surface-soft)] text-[var(--app-text-muted)] hover:bg-[#AFFD37]/20 hover:text-[#AFFD37]'}`}
+                                          className={`rounded-full border px-2.5 py-1 text-xs font-medium transition-colors ${t.paid ? 'border-emerald-500/20 bg-emerald-500/10 text-emerald-700 hover:bg-emerald-500/15 dark:text-emerald-400' : 'border-[var(--app-border)] bg-[var(--app-surface-strong)] text-[var(--app-text-muted)] hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]'}`}
                                           title={t.paid ? 'Desmarcar como pago' : 'Marcar como pago'}
                                         >
                                           {t.paid ? '✓ Pago' : 'Marcar pago'}
                                         </button>
                                         {t.recurring && (
                                           <div className="flex items-center gap-2">
-                                            <span className="inline-block text-xs px-2 py-0.5 bg-[#747C8B]/20 text-[#747C8B] rounded">
+                                            <span className={neutralBadgeClass}>
                                               Recorrente
                                             </span>
                                             <button
                                               onClick={() => handleCancelRecurring(t.id, t.description)}
-                                              className="text-xs px-2 py-0.5 bg-red-500/20 text-red-400 hover:bg-red-500/30 rounded transition-colors"
+                                              className={dangerBadgeButtonClass}
                                               title="Cancelar recorrências futuras"
                                             >
                                               Cancelar
@@ -1413,9 +1429,9 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
                             {installments.length > 0 && (
                               <div>
-                                <h4 className="text-sm font-semibold text-[#747C8B] mb-2">Parcelas</h4>
+                                <h4 className="mb-2 text-sm font-semibold text-[var(--app-text)]">Parcelas</h4>
                                 {installments.map(t => (
-                                  <div key={t.id} className="mb-2 flex flex-col gap-3 rounded-lg border border-[#747C8B]/30 bg-[#747C8B]/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <div key={t.id} className={`${sectionItemClass} mb-2`}>
                                     <div className="min-w-0">
                                       <p className="font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">{t.description}</p>
                                       <p className="text-sm text-[var(--app-text-muted)]">
@@ -1430,14 +1446,14 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
                             {investments.length > 0 && (
                               <div>
-                                <h4 className="text-sm font-semibold text-[#8537FD] mb-2">Investimentos</h4>
+                                <h4 className="mb-2 text-sm font-semibold text-[var(--app-text)]">Investimentos</h4>
                                 {investments.map(t => (
-                                  <div key={t.id} className="mb-2 flex flex-col gap-3 rounded-lg border border-[#8537FD]/30 bg-[#8537FD]/10 p-3 sm:flex-row sm:items-center sm:justify-between">
+                                  <div key={t.id} className={`${sectionItemClass} mb-2`}>
                                     <div className="min-w-0">
                                       <p className="font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">{t.description}</p>
                                       <p className="text-sm text-[var(--app-text-muted)]">{t.category}</p>
                                     </div>
-                                    <p className={`${listAmountClass} text-[#8537FD]`}>{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                                    <p className={`${listAmountClass} text-[var(--app-text)]`}>{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                                   </div>
                                 ))}
                               </div>

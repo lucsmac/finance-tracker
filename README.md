@@ -17,6 +17,7 @@ Crie o arquivo `.env.local` na raiz do projeto:
 ```env
 VITE_SUPABASE_URL=https://urprwefnujrdrqwkafan.supabase.co
 VITE_SUPABASE_ANON_KEY=sb_publishable_-TbToYSdn7OBRXmKz2mFsA_VnAYWjBm
+VITE_PUBLIC_APP_URL=https://seu-dominio-publico.com
 ```
 
 ### 3. Executar Schema SQL

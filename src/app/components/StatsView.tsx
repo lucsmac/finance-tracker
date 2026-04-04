@@ -39,7 +39,7 @@ import { useConfig } from '../../lib/hooks/useConfig';
 import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
 import { useDailyPlans } from '@/lib/hooks/useDailyPlans';
 import {
-  getRecordedVariableExpensesTotalForDate
+  getEffectiveVariableExpensesTotalForDate
 } from '@/lib/utils/dailyExpenses';
 import { formatDateLocal } from '@/lib/utils/dateHelpers';
 import {
@@ -125,6 +125,15 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
     return customPlanned !== null ? customPlanned : dailyStandard;
   };
 
+  const getEffectiveVariableExpensesForDate = (dateStr: string) => {
+    return getEffectiveVariableExpensesTotalForDate({
+      date: dateStr,
+      plannedAmount: getPlannedAmountForDate(dateStr),
+      dailyExpenses,
+      transactions,
+    });
+  };
+
   const calculateBalanceUntilDate = (targetDateStr: string): number => {
     if (targetDateStr < balanceStartDate) {
       return initialBalance;
@@ -157,8 +166,7 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
         .filter(transaction => transaction.type === 'investment')
         .reduce((sum, transaction) => sum + transaction.amount, 0);
 
-      const recordedVariableExpenses = getRecordedVariableExpensesTotalForDate(dateStr, dailyExpenses, transactions);
-      balance -= recordedVariableExpenses > 0 ? recordedVariableExpenses : getPlannedAmountForDate(dateStr);
+      balance -= getEffectiveVariableExpensesForDate(dateStr);
     }
 
     return balance;

@@ -56,6 +56,33 @@ export const getRecordedVariableExpensesTotalForDate = (
     getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true })
 }
 
+interface EffectiveVariableExpensesParams {
+  date: string
+  plannedAmount: number
+  dailyExpenses: DailyExpense[]
+  transactions: Transaction[]
+  additionalVariableExpenses?: number
+}
+
+export const getEffectiveVariableExpensesTotalForDate = ({
+  date,
+  plannedAmount,
+  dailyExpenses,
+  transactions,
+  additionalVariableExpenses = 0,
+}: EffectiveVariableExpensesParams) => {
+  const recordedDailyExpenses = getDailyExpensesTotalForDate(date, dailyExpenses)
+  const committedVariableExpenses =
+    getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true }) +
+    additionalVariableExpenses
+
+  // The daily fallback is only replaced by explicit daily expenses.
+  // Transaction-based commitments are always added on top of the day's base amount.
+  const fallbackOrDailyExpense = recordedDailyExpenses > 0 ? recordedDailyExpenses : plannedAmount
+
+  return fallbackOrDailyExpense + committedVariableExpenses
+}
+
 export const getVariableExpenseEntriesForDate = (
   date: string,
   dailyExpenses: DailyExpense[],

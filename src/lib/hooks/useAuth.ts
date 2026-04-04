@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react'
 import { supabase } from '../supabase'
 import type { User } from '@supabase/supabase-js'
+import { getAuthRedirectUrl } from '../utils/appUrl'
 
 export type ThemePreference = 'light' | 'dark'
 
@@ -41,7 +42,10 @@ export function useAuth() {
   const signUp = async (email: string, password: string) => {
     const { data, error } = await supabase.auth.signUp({
       email,
-      password
+      password,
+      options: {
+        emailRedirectTo: getAuthRedirectUrl('/'),
+      },
     })
     if (error) throw error
     return data
