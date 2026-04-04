@@ -15,7 +15,8 @@ export const investmentsApi = {
       id: item.id,
       category: item.category,
       amount: parseFloat(item.amount),
-      lastUpdate: item.last_update
+      lastUpdate: item.last_update,
+      countsAsReserve: Boolean(item.counts_as_reserve),
     })) as Investment[]
   },
 
@@ -26,7 +27,8 @@ export const investmentsApi = {
         user_id: userId,
         category: investment.category,
         amount: investment.amount,
-        last_update: investment.lastUpdate
+        last_update: investment.lastUpdate,
+        counts_as_reserve: investment.countsAsReserve || false,
       }])
       .select()
       .single()
@@ -37,7 +39,8 @@ export const investmentsApi = {
       id: data.id,
       category: data.category,
       amount: parseFloat(data.amount),
-      lastUpdate: data.last_update
+      lastUpdate: data.last_update,
+      countsAsReserve: Boolean(data.counts_as_reserve),
     } as Investment
   },
 
@@ -46,6 +49,7 @@ export const investmentsApi = {
     if (updates.category !== undefined) dbUpdates.category = updates.category
     if (updates.amount !== undefined) dbUpdates.amount = updates.amount
     if (updates.lastUpdate !== undefined) dbUpdates.last_update = updates.lastUpdate
+    if (updates.countsAsReserve !== undefined) dbUpdates.counts_as_reserve = updates.countsAsReserve
 
     const { data, error } = await supabase
       .from('investments')
@@ -60,7 +64,8 @@ export const investmentsApi = {
       id: data.id,
       category: data.category,
       amount: parseFloat(data.amount),
-      lastUpdate: data.last_update
+      lastUpdate: data.last_update,
+      countsAsReserve: Boolean(data.counts_as_reserve),
     } as Investment
   },
 
@@ -90,7 +95,8 @@ export const investmentsApi = {
       id: data.id,
       category: data.category,
       amount: parseFloat(data.amount),
-      lastUpdate: data.last_update
+      lastUpdate: data.last_update,
+      countsAsReserve: Boolean(data.counts_as_reserve),
     } as Investment
   }
 }

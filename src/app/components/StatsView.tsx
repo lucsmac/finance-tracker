@@ -31,7 +31,12 @@ import {
   Legend,
   ResponsiveContainer
 } from 'recharts';
-import { type Transaction } from '../data/mockData';
+import {
+  isCashInflowTransactionType,
+  isCashOutflowTransactionType,
+  isExpenseAnalysisTransactionType,
+  type Transaction,
+} from '../data/mockData';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useEstimates } from '../../lib/hooks/useEstimates';
 import { useTransactions } from '../../lib/hooks/useTransactions';
@@ -151,19 +156,11 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
       const dayTransactions = transactions.filter(transaction => transaction.date === dateStr);
 
       balance += dayTransactions
-        .filter(transaction => transaction.type === 'income')
+        .filter(transaction => isCashInflowTransactionType(transaction.type))
         .reduce((sum, transaction) => sum + transaction.amount, 0);
 
       balance -= dayTransactions
-        .filter(transaction => transaction.type === 'expense_fixed')
-        .reduce((sum, transaction) => sum + transaction.amount, 0);
-
-      balance -= dayTransactions
-        .filter(transaction => transaction.type === 'installment')
-        .reduce((sum, transaction) => sum + transaction.amount, 0);
-
-      balance -= dayTransactions
-        .filter(transaction => transaction.type === 'investment')
+        .filter(transaction => isCashOutflowTransactionType(transaction.type) && transaction.type !== 'expense_variable')
         .reduce((sum, transaction) => sum + transaction.amount, 0);
 
       balance -= getEffectiveVariableExpensesForDate(dateStr);
@@ -233,7 +230,7 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalExpenses = transactionsInPeriod
-    .filter(t => t.type !== 'income')
+    .filter(t => isExpenseAnalysisTransactionType(t.type))
     .reduce((sum, t) => sum + t.amount, 0) +
     dailyExpensesInPeriod.reduce((sum, expense) => sum + expense.amount, 0);
 
@@ -250,9 +247,9 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
   const calculateBalanceForAnalysis = (initialBalance: number, transactionsToInclude: Transaction[]): number => {
     let balance = initialBalance;
     transactionsToInclude.forEach(t => {
-      if (t.type === 'income') {
+      if (isCashInflowTransactionType(t.type)) {
         balance += t.amount;
-      } else {
+      } else if (isCashOutflowTransactionType(t.type)) {
         balance -= t.amount;
       }
     });
@@ -292,7 +289,7 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
         .reduce((sum, t) => sum + t.amount, 0);
 
       const dayExpense = transactions
-        .filter(t => t.date === dateStr && t.type !== 'income')
+        .filter(t => t.date === dateStr && isExpenseAnalysisTransactionType(t.type))
         .reduce((sum, t) => sum + t.amount, 0) +
         dailyExpenses.filter(expense => expense.date === dateStr).reduce((sum, expense) => sum + expense.amount, 0);
 
@@ -318,7 +315,7 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
         .reduce((sum, t) => sum + t.amount, 0);
 
       const monthExpense = transactions
-        .filter(t => t.type !== 'income' && t.date >= monthStartStr && t.date <= monthEndStr)
+        .filter(t => isExpenseAnalysisTransactionType(t.type) && t.date >= monthStartStr && t.date <= monthEndStr)
         .reduce((sum, t) => sum + t.amount, 0) +
         dailyExpenses
           .filter(expense => expense.date >= monthStartStr && expense.date <= monthEndStr)
@@ -334,7 +331,7 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
 
   // Dados para gráfico de gastos por categoria
   const expensesByCategory = transactionsInPeriod
-    .filter(t => t.type !== 'income')
+    .filter(t => isExpenseAnalysisTransactionType(t.type))
     .reduce((acc: any, t) => {
       if (!acc[t.category]) {
         acc[t.category] = 0;

@@ -10,10 +10,11 @@ export interface Estimate {
 export interface Transaction {
   id: string;
   date: string;
-  type: 'income' | 'expense_variable' | 'expense_fixed' | 'investment' | 'installment';
+  type: 'income' | 'expense_variable' | 'expense_fixed' | 'investment' | 'investment_redemption' | 'installment';
   category: string;
   description: string;
   amount: number;
+  investmentId?: string;
   installmentGroup?: string;
   installmentNumber?: number;
   totalInstallments?: number;
@@ -26,6 +27,7 @@ export interface Investment {
   category: string;
   amount: number;
   lastUpdate: string;
+  countsAsReserve?: boolean;
 }
 
 export interface Goal {
@@ -46,6 +48,24 @@ export const calculateDailyStandard = (estimates: Estimate[]): number => {
     .reduce((sum, e) => sum + e.monthlyAmount, 0);
   return total / 30;
 };
+
+export const isCashInflowTransactionType = (type: Transaction['type']) =>
+  type === 'income' || type === 'investment_redemption';
+
+export const isCashOutflowTransactionType = (type: Transaction['type']) =>
+  type === 'expense_variable' || type === 'expense_fixed' || type === 'installment' || type === 'investment';
+
+export const isExpenseAnalysisTransactionType = (type: Transaction['type']) =>
+  type === 'expense_variable' || type === 'expense_fixed' || type === 'installment';
+
+export const isInvestmentContributionTransactionType = (type: Transaction['type']) =>
+  type === 'investment';
+
+export const isInvestmentRedemptionTransactionType = (type: Transaction['type']) =>
+  type === 'investment_redemption';
+
+export const isInvestmentMovementTransactionType = (type: Transaction['type']) =>
+  type === 'investment' || type === 'investment_redemption';
 
 // Função para calcular saldo atual
 export const calculateCurrentBalance = (
@@ -68,9 +88,9 @@ export const calculateCurrentBalance = (
     .sort((a, b) => a.date.localeCompare(b.date));
 
   sortedTransactions.forEach(t => {
-    if (t.type === 'income') {
+    if (isCashInflowTransactionType(t.type)) {
       balance += t.amount;
-    } else {
+    } else if (isCashOutflowTransactionType(t.type)) {
       balance -= t.amount;
     }
   });

@@ -1,6 +1,11 @@
 import { useState } from 'react';
-import { Plus, Filter, Search, Calendar, TrendingUp, TrendingDown, DollarSign, Trash2 } from 'lucide-react';
-import { Transaction } from '../data/mockData';
+import { Plus, Filter, Search, Calendar, TrendingUp, TrendingDown, DollarSign, Trash2, ArrowDownLeft, ArrowUpRight } from 'lucide-react';
+import {
+  isCashInflowTransactionType,
+  isCashOutflowTransactionType,
+  isInvestmentMovementTransactionType,
+  Transaction,
+} from '../data/mockData';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTransactions } from '@/lib/hooks/useTransactions';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
@@ -23,7 +28,7 @@ export function TransactionsList() {
       if (filter === 'all') return true;
       if (filter === 'income') return t.type === 'income';
       if (filter === 'expense') return t.type === 'expense_variable' || t.type === 'expense_fixed' || t.type === 'installment';
-      if (filter === 'investment') return t.type === 'investment';
+      if (filter === 'investment') return isInvestmentMovementTransactionType(t.type);
       return true;
     })
     .filter(t =>
@@ -35,7 +40,8 @@ export function TransactionsList() {
   const getTransactionIcon = (type: Transaction['type']) => {
     switch (type) {
       case 'income': return <TrendingUp className="w-5 h-5 text-[#CEF05D]" />;
-      case 'investment': return <DollarSign className="w-5 h-5 text-[#B4B0EE]" />;
+      case 'investment': return <ArrowUpRight className="w-5 h-5 text-[#B4B0EE]" />;
+      case 'investment_redemption': return <ArrowDownLeft className="w-5 h-5 text-emerald-500" />;
       default: return <TrendingDown className="w-5 h-5 text-red-600" />;
     }
   };
@@ -44,6 +50,7 @@ export function TransactionsList() {
     switch (type) {
       case 'income': return 'bg-[#CEF05D]/10 border-[#CEF05D]/30';
       case 'investment': return 'bg-[#B4B0EE]/10 border-[#B4B0EE]/30';
+      case 'investment_redemption': return 'bg-emerald-500/10 border-emerald-500/30';
       default: return 'bg-red-50 border-red-200';
     }
   };
@@ -54,18 +61,19 @@ export function TransactionsList() {
       expense_variable: 'Gasto Variável',
       expense_fixed: 'Gasto Fixo',
       installment: 'Parcela',
-      investment: 'Investimento'
+      investment: 'Aporte',
+      investment_redemption: 'Resgate',
     };
     return labels[type];
   };
 
   // Estatísticas rápidas
   const totalIncome = transactions
-    .filter(t => t.type === 'income' && t.paid)
+    .filter(t => isCashInflowTransactionType(t.type) && t.paid)
     .reduce((sum, t) => sum + t.amount, 0);
 
   const totalExpenses = transactions
-    .filter(t => t.type !== 'income' && t.paid)
+    .filter(t => isCashOutflowTransactionType(t.type) && t.paid)
     .reduce((sum, t) => sum + t.amount, 0);
 
   // Função para abrir modal de confirmação de delete
@@ -270,11 +278,11 @@ export function TransactionsList() {
                 <div className="flex items-center gap-3">
                   <div className="text-right">
                     <p className={`text-xl font-bold ${
-                      transaction.type === 'income'
+                      isCashInflowTransactionType(transaction.type)
                         ? 'text-[#CEF05D]'
                         : 'text-red-600'
                     }`}>
-                      {transaction.type === 'income' ? '+' : '-'}R$ {transaction.amount.toFixed(2)}
+                      {isCashInflowTransactionType(transaction.type) ? '+' : '-'}R$ {transaction.amount.toFixed(2)}
                     </p>
                   </div>
                   <button

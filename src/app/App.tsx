@@ -2,6 +2,7 @@ import { useState, useRef, useEffect } from 'react';
 import { Dashboard } from './components/Dashboard';
 import { CommitmentsView } from './components/CommitmentsView';
 import { IncomesView } from './components/IncomesView';
+import { InvestmentsView } from './components/InvestmentsView';
 import { StatsView } from './components/StatsView';
 import { GoalsView } from './components/GoalsView';
 import { GuideLandingPage } from './components/GuideLandingPage';
@@ -14,19 +15,20 @@ import { useInvestments } from '@/lib/hooks/useInvestments';
 import { useGoals } from '@/lib/hooks/useGoals';
 import { useConfig } from '@/lib/hooks/useConfig';
 import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
-import { Calendar, TrendingUp, Target, ClipboardList, DollarSign, LogOut, Settings, User, Trash2, ChevronDown, Moon, Sun, BookOpen } from 'lucide-react';
+import { Calendar, TrendingUp, Target, ClipboardList, DollarSign, LogOut, Settings, User, Trash2, ChevronDown, Moon, Sun, BookOpen, Wallet } from 'lucide-react';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './components/ui/dialog';
 import { Switch } from './components/ui/switch';
 import { createDateFromString, getTodayLocal } from '@/lib/utils/dateHelpers';
 import { useTheme } from 'next-themes';
 import { toast } from 'sonner';
 
-type AppView = 'dashboard' | 'commitments' | 'incomes' | 'stats' | 'goals' | 'guide';
+type AppView = 'dashboard' | 'commitments' | 'incomes' | 'investments' | 'stats' | 'goals' | 'guide';
 
 const VIEW_PATHS: Record<AppView, string> = {
   dashboard: '/',
   commitments: '/compromissos',
   incomes: '/entradas',
+  investments: '/investimentos',
   stats: '/analise',
   goals: '/metas',
   guide: '/como-usar',
@@ -36,6 +38,7 @@ const VIEW_ALIASES: Record<AppView, string[]> = {
   dashboard: ['/', '/inicio', '/dashboard'],
   commitments: ['/compromissos', '/commitments'],
   incomes: ['/entradas', '/incomes'],
+  investments: ['/investimentos', '/investments'],
   stats: ['/analise', '/analysis', '/stats'],
   goals: ['/metas', '/goals'],
   guide: ['/como-usar', '/guia', '/ajuda', '/help'],
@@ -514,7 +517,14 @@ export default function App() {
         {currentView === 'dashboard' && (
           <Dashboard
             onNavigate={(view) => {
-              if (view === 'dashboard' || view === 'commitments' || view === 'incomes' || view === 'stats' || view === 'goals') {
+              if (
+                view === 'dashboard' ||
+                view === 'commitments' ||
+                view === 'incomes' ||
+                view === 'investments' ||
+                view === 'stats' ||
+                view === 'goals'
+              ) {
                 navigateToView(view);
               }
             }}
@@ -530,6 +540,12 @@ export default function App() {
         )}
         {currentView === 'incomes' && (
           <IncomesView
+            selectedMonth={selectedMonth}
+            onSelectedMonthChange={handleSelectedMonthChange}
+          />
+        )}
+        {currentView === 'investments' && (
+          <InvestmentsView
             selectedMonth={selectedMonth}
             onSelectedMonthChange={handleSelectedMonthChange}
           />
@@ -577,6 +593,17 @@ export default function App() {
           >
             <DollarSign className="w-6 h-6" />
             <span className="hidden text-sm font-medium sm:inline">Entradas</span>
+          </button>
+
+          <button
+            onClick={() => navigateToView('investments')}
+            className={`flex min-w-0 items-center gap-2 rounded-2xl px-3 py-2 text-sm transition-all ${currentView === 'investments'
+              ? activeNavItemClass
+              : inactiveNavItemClass
+              }`}
+          >
+            <Wallet className="w-6 h-6" />
+            <span className="hidden text-sm font-medium sm:inline">Investimentos</span>
           </button>
 
           <button

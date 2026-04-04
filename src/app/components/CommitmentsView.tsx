@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import { Calendar as CalendarIcon, Check, X, Plus, ChevronLeft, ChevronRight, Edit, Trash2, Copy } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTransactions } from '@/lib/hooks/useTransactions';
@@ -6,6 +6,12 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { getTodayLocal, formatDateToLocaleString, createDateFromString } from '@/lib/utils/dateHelpers';
+import {
+  buildCategoryOptions,
+  COMMITMENT_CATEGORY_PRESETS,
+  CUSTOM_CATEGORY_VALUE,
+  isPresetCategory,
+} from '@/lib/utils/categoryOptions';
 import { toast } from 'sonner';
 
 type CommitmentType = 'expense_fixed' | 'expense_variable' | 'installment';
@@ -62,6 +68,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string>('');
   const [deletingDescription, setDeletingDescription] = useState<string>('');
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [commitmentForm, setCommitmentForm] = useState({
     type: 'expense_fixed' as CommitmentType,
     description: '',
@@ -74,6 +81,93 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
     totalInstallments: '',
     installmentNumber: '1'
   });
+
+  const commitmentCategoryOptions = useMemo(
+    () =>
+      buildCategoryOptions(
+        transactions
+          .filter((transaction) =>
+            transaction.type === 'expense_fixed' ||
+            transaction.type === 'expense_variable' ||
+            transaction.type === 'installment',
+          )
+          .map((transaction) => transaction.category),
+        COMMITMENT_CATEGORY_PRESETS,
+      ),
+    [transactions],
+  );
+
+  const resetCommitmentForm = (overrides?: Partial<typeof commitmentForm>) => {
+    setCommitmentForm({
+      type: 'expense_fixed',
+      description: '',
+      category: '',
+      amount: '',
+      date: '',
+      recurring: false,
+      generateNextMonths: false,
+      generateAllInstallments: true,
+      totalInstallments: '',
+      installmentNumber: '1',
+      ...overrides,
+    });
+    setIsCustomCategory(false);
+  };
+
+  const syncCommitmentCategoryMode = (category: string) => {
+    setIsCustomCategory(Boolean(category) && !isPresetCategory(category, commitmentCategoryOptions));
+  };
+
+  const handleCategorySelectChange = (value: string) => {
+    if (value === CUSTOM_CATEGORY_VALUE) {
+      setIsCustomCategory(true);
+      setCommitmentForm((current) => ({
+        ...current,
+        category: isPresetCategory(current.category, commitmentCategoryOptions) ? '' : current.category,
+      }));
+      return;
+    }
+
+    setIsCustomCategory(false);
+    setCommitmentForm((current) => ({ ...current, category: value }));
+  };
+
+  const selectedCommitmentCategoryValue = isCustomCategory
+    ? CUSTOM_CATEGORY_VALUE
+    : isPresetCategory(commitmentForm.category, commitmentCategoryOptions)
+      ? commitmentForm.category
+      : '';
+
+  const renderCommitmentCategoryField = () => (
+    <div>
+      <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
+        Categoria *
+      </label>
+      <select
+        value={selectedCommitmentCategoryValue}
+        onChange={(event) => handleCategorySelectChange(event.target.value)}
+        className={modalFieldClass}
+      >
+        <option value="">Selecione uma categoria</option>
+        {commitmentCategoryOptions.map((category) => (
+          <option key={category} value={category}>
+            {category}
+          </option>
+        ))}
+        <option value={CUSTOM_CATEGORY_VALUE}>Nova categoria...</option>
+      </select>
+
+      {isCustomCategory && (
+        <input
+          type="text"
+          placeholder="Digite a nova categoria"
+          value={commitmentForm.category}
+          onChange={(event) => setCommitmentForm({ ...commitmentForm, category: event.target.value })}
+          className={`${modalFieldClass} mt-3`}
+        />
+      )}
+    </div>
+  );
 
   // Filtrar compromissos do mês selecionado (fixos, variáveis planejados e parcelas)
   const commitments = transactions
@@ -263,18 +357,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       // Force refresh to update the list immediately
       await refresh();
       setIsAddModalOpen(false);
-      setCommitmentForm({
-        type: 'expense_fixed',
-        description: '',
-        category: '',
-        amount: '',
-        date: '',
-        recurring: false,
-        generateNextMonths: false,
-        generateAllInstallments: true,
-        totalInstallments: '',
-        installmentNumber: '1'
-      });
+      resetCommitmentForm();
     } catch (err) {
       console.error('Error saving commitment:', err);
       toast.error('Erro ao salvar compromisso. Tente novamente.');
@@ -288,7 +371,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
     setIsAddModalOpen(true);
     // Definir data padrão como hoje
     const todayStr = getTodayLocal();
-    setCommitmentForm({ ...commitmentForm, date: todayStr });
+    resetCommitmentForm({ date: todayStr });
   };
 
   // Função para abrir modal de edição
@@ -304,6 +387,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       totalInstallments: commitment.totalInstallments?.toString() || '',
       installmentNumber: commitment.installmentNumber?.toString() || ''
     });
+    syncCommitmentCategoryMode(commitment.category || '');
     setIsEditModalOpen(true);
   };
 
@@ -319,6 +403,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       totalInstallments: commitment.totalInstallments?.toString() || '',
       installmentNumber: commitment.installmentNumber?.toString() || '1'
     });
+    syncCommitmentCategoryMode(commitment.category || '');
     setIsDuplicateModalOpen(true);
   };
 
@@ -346,18 +431,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       await refresh();
       setIsEditModalOpen(false);
       setEditingId('');
-      setCommitmentForm({
-        type: 'expense_fixed',
-        description: '',
-        category: '',
-        amount: '',
-        date: '',
-        recurring: false,
-        generateNextMonths: false,
-        generateAllInstallments: true,
-        totalInstallments: '',
-        installmentNumber: '1'
-      });
+      resetCommitmentForm();
     } catch (err) {
       console.error('Error editing commitment:', err);
       toast.error('Erro ao editar compromisso. Tente novamente.');
@@ -427,18 +501,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       // Force refresh to update the list immediately
       await refresh();
       setIsDuplicateModalOpen(false);
-      setCommitmentForm({
-        type: 'expense_fixed',
-        description: '',
-        category: '',
-        amount: '',
-        date: '',
-        recurring: false,
-        generateNextMonths: false,
-        generateAllInstallments: true,
-        totalInstallments: '',
-        installmentNumber: '1'
-      });
+      resetCommitmentForm();
     } catch (err) {
       console.error('Error duplicating commitment:', err);
       toast.error('Erro ao duplicar compromisso. Tente novamente.');
@@ -1035,19 +1098,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
               />
             </div>
 
-            {/* Categoria */}
-            <div>
-              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
-                Categoria *
-              </label>
-              <input
-                type="text"
-                placeholder="Ex: Moradia, Contas, Eletrônicos"
-                value={commitmentForm.category}
-                onChange={(e) => setCommitmentForm({ ...commitmentForm, category: e.target.value })}
-                className={modalFieldClass}
-              />
-            </div>
+            {renderCommitmentCategoryField()}
 
             {/* Valor */}
             <div>
@@ -1227,19 +1278,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
               />
             </div>
 
-            {/* Categoria */}
-            <div>
-              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
-                Categoria *
-              </label>
-              <input
-                type="text"
-                placeholder="Ex: Moradia, Contas, Eletrônicos"
-                value={commitmentForm.category}
-                onChange={(e) => setCommitmentForm({ ...commitmentForm, category: e.target.value })}
-                className={modalFieldClass}
-              />
-            </div>
+            {renderCommitmentCategoryField()}
 
             {/* Valor */}
             <div>
@@ -1423,19 +1462,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
               />
             </div>
 
-            {/* Categoria */}
-            <div>
-              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
-                Categoria *
-              </label>
-              <input
-                type="text"
-                placeholder="Ex: Moradia, Lazer, Educação"
-                value={commitmentForm.category}
-                onChange={(e) => setCommitmentForm({ ...commitmentForm, category: e.target.value })}
-                className={modalFieldClass}
-              />
-            </div>
+            {renderCommitmentCategoryField()}
 
             {/* Valor */}
             <div>

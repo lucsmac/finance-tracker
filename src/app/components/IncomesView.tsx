@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useMemo, useState } from 'react';
 import {
   AlertCircle,
   Calendar as CalendarIcon,
@@ -16,6 +16,12 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { getTodayLocal, formatDateToLocaleString, createDateFromString } from '@/lib/utils/dateHelpers';
+import {
+  buildCategoryOptions,
+  CUSTOM_CATEGORY_VALUE,
+  INCOME_CATEGORY_PRESETS,
+  isPresetCategory,
+} from '@/lib/utils/categoryOptions';
 import { toast } from 'sonner';
 
 const summaryCardClass = 'app-panel min-w-0 rounded-[1.5rem] p-4 sm:p-5';
@@ -67,6 +73,7 @@ export function IncomesView({ selectedMonth, onSelectedMonthChange }: IncomesVie
   const [isDeleteModalOpen, setIsDeleteModalOpen] = useState(false);
   const [deletingId, setDeletingId] = useState<string>('');
   const [deletingDescription, setDeletingDescription] = useState<string>('');
+  const [isCustomCategory, setIsCustomCategory] = useState(false);
   const [incomeForm, setIncomeForm] = useState({
     description: '',
     category: '',
@@ -75,6 +82,17 @@ export function IncomesView({ selectedMonth, onSelectedMonthChange }: IncomesVie
     recurring: false,
     generateNextMonths: false
   });
+
+  const incomeCategoryOptions = useMemo(
+    () =>
+      buildCategoryOptions(
+        transactions
+          .filter((transaction) => transaction.type === 'income')
+          .map((transaction) => transaction.category),
+        INCOME_CATEGORY_PRESETS,
+      ),
+    [transactions],
+  );
 
   const incomes = transactions
     .filter(
@@ -117,7 +135,61 @@ export function IncomesView({ selectedMonth, onSelectedMonthChange }: IncomesVie
       recurring: false,
       generateNextMonths: false
     });
+    setIsCustomCategory(false);
   };
+
+  const syncIncomeCategoryMode = (category: string) => {
+    setIsCustomCategory(Boolean(category) && !isPresetCategory(category, incomeCategoryOptions));
+  };
+
+  const handleIncomeCategorySelectChange = (value: string) => {
+    if (value === CUSTOM_CATEGORY_VALUE) {
+      setIsCustomCategory(true);
+      setIncomeForm((current) => ({
+        ...current,
+        category: isPresetCategory(current.category, incomeCategoryOptions) ? '' : current.category,
+      }));
+      return;
+    }
+
+    setIsCustomCategory(false);
+    setIncomeForm((current) => ({ ...current, category: value }));
+  };
+
+  const selectedIncomeCategoryValue = isCustomCategory
+    ? CUSTOM_CATEGORY_VALUE
+    : isPresetCategory(incomeForm.category, incomeCategoryOptions)
+      ? incomeForm.category
+      : '';
+
+  const renderIncomeCategoryField = () => (
+    <div>
+      <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Categoria *</label>
+      <select
+        value={selectedIncomeCategoryValue}
+        onChange={(event) => handleIncomeCategorySelectChange(event.target.value)}
+        className={modalFieldClass}
+      >
+        <option value="">Selecione uma categoria</option>
+        {incomeCategoryOptions.map((category) => (
+          <option key={category} value={category}>
+            {category}
+          </option>
+        ))}
+        <option value={CUSTOM_CATEGORY_VALUE}>Nova categoria...</option>
+      </select>
+
+      {isCustomCategory && (
+        <input
+          type="text"
+          placeholder="Digite a nova categoria"
+          value={incomeForm.category}
+          onChange={(event) => setIncomeForm({ ...incomeForm, category: event.target.value })}
+          className={`${modalFieldClass} mt-3`}
+        />
+      )}
+    </div>
+  );
 
   if (loading) {
     return (
@@ -213,6 +285,7 @@ export function IncomesView({ selectedMonth, onSelectedMonthChange }: IncomesVie
 
   const handleOpenModal = () => {
     setIsAddModalOpen(true);
+    resetIncomeForm();
     setIncomeForm((current) => ({
       ...current,
       date: getTodayLocal()
@@ -229,6 +302,7 @@ export function IncomesView({ selectedMonth, onSelectedMonthChange }: IncomesVie
       recurring: income.recurring || false,
       generateNextMonths: false
     });
+    syncIncomeCategoryMode(income.category || '');
     setIsEditModalOpen(true);
   };
 
@@ -695,16 +769,7 @@ export function IncomesView({ selectedMonth, onSelectedMonthChange }: IncomesVie
               />
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Categoria *</label>
-              <input
-                type="text"
-                placeholder="Ex: Salário, Trabalho Autônomo, Investimentos"
-                value={incomeForm.category}
-                onChange={(e) => setIncomeForm({ ...incomeForm, category: e.target.value })}
-                className={modalFieldClass}
-              />
-            </div>
+            {renderIncomeCategoryField()}
 
             <div>
               <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Valor *</label>
@@ -807,16 +872,7 @@ export function IncomesView({ selectedMonth, onSelectedMonthChange }: IncomesVie
               />
             </div>
 
-            <div>
-              <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Categoria *</label>
-              <input
-                type="text"
-                placeholder="Ex: Salário, Trabalho Autônomo, Investimentos"
-                value={incomeForm.category}
-                onChange={(e) => setIncomeForm({ ...incomeForm, category: e.target.value })}
-                className={modalFieldClass}
-              />
-            </div>
+            {renderIncomeCategoryField()}
 
             <div>
               <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">Valor *</label>

@@ -44,7 +44,7 @@ CREATE TABLE transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   date DATE NOT NULL,
-  type TEXT NOT NULL CHECK (type IN ('income', 'expense_variable', 'expense_fixed', 'investment', 'installment')),
+  type TEXT NOT NULL CHECK (type IN ('income', 'expense_variable', 'expense_fixed', 'investment', 'investment_redemption', 'installment')),
   category TEXT NOT NULL,
   description TEXT NOT NULL,
   amount DECIMAL(10,2) NOT NULL,
@@ -63,10 +63,14 @@ CREATE TABLE investments (
   user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   category TEXT NOT NULL,
   amount DECIMAL(10,2) NOT NULL DEFAULT 0,
+  counts_as_reserve BOOLEAN NOT NULL DEFAULT FALSE,
   last_update DATE NOT NULL,
   created_at TIMESTAMPTZ DEFAULT NOW(),
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
+
+ALTER TABLE transactions
+ADD COLUMN investment_id UUID REFERENCES investments(id) ON DELETE SET NULL;
 
 -- Create goals table (unified schema)
 CREATE TABLE goals (
@@ -89,6 +93,7 @@ CREATE INDEX idx_estimates_active ON estimates(user_id, active);
 CREATE INDEX idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX idx_transactions_date ON transactions(user_id, date DESC);
 CREATE INDEX idx_transactions_type ON transactions(user_id, type);
+CREATE INDEX idx_transactions_investment_id ON transactions(user_id, investment_id);
 CREATE INDEX idx_investments_user_id ON investments(user_id);
 CREATE INDEX idx_goals_user_id ON goals(user_id);
 

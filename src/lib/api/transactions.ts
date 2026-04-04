@@ -18,6 +18,7 @@ export const transactionsApi = {
       category: item.category,
       description: item.description,
       amount: parseFloat(item.amount),
+      investmentId: item.investment_id || undefined,
       installmentGroup: item.installment_group,
       installmentNumber: item.installment_number,
       totalInstallments: item.total_installments,
@@ -44,6 +45,7 @@ export const transactionsApi = {
       category: item.category,
       description: item.description,
       amount: parseFloat(item.amount),
+      investmentId: item.investment_id || undefined,
       installmentGroup: item.installment_group,
       installmentNumber: item.installment_number,
       totalInstallments: item.total_installments,
@@ -62,6 +64,7 @@ export const transactionsApi = {
         category: transaction.category,
         description: transaction.description,
         amount: transaction.amount,
+        investment_id: transaction.investmentId,
         installment_group: transaction.installmentGroup,
         installment_number: transaction.installmentNumber,
         total_installments: transaction.totalInstallments,
@@ -80,6 +83,7 @@ export const transactionsApi = {
       category: data.category,
       description: data.description,
       amount: parseFloat(data.amount),
+      investmentId: data.investment_id || undefined,
       installmentGroup: data.installment_group,
       installmentNumber: data.installment_number,
       totalInstallments: data.total_installments,
@@ -121,6 +125,7 @@ export const transactionsApi = {
         category: firstInstallment.category,
         description: firstInstallment.description,
         amount: firstInstallment.amount,
+        investment_id: null,
         installment_group: firstInstallment.installmentGroup,
         installment_number: installmentNumber,
         total_installments: totalInstallments,
@@ -143,6 +148,7 @@ export const transactionsApi = {
       category: item.category,
       description: item.description,
       amount: parseFloat(item.amount),
+      investmentId: item.investment_id || undefined,
       installmentGroup: item.installment_group,
       installmentNumber: item.installment_number,
       totalInstallments: item.total_installments,
@@ -158,6 +164,7 @@ export const transactionsApi = {
     if (updates.category !== undefined) dbUpdates.category = updates.category
     if (updates.description !== undefined) dbUpdates.description = updates.description
     if (updates.amount !== undefined) dbUpdates.amount = updates.amount
+    if (updates.investmentId !== undefined) dbUpdates.investment_id = updates.investmentId
     if (updates.installmentGroup !== undefined) dbUpdates.installment_group = updates.installmentGroup
     if (updates.installmentNumber !== undefined) dbUpdates.installment_number = updates.installmentNumber
     if (updates.totalInstallments !== undefined) dbUpdates.total_installments = updates.totalInstallments
@@ -180,6 +187,7 @@ export const transactionsApi = {
       category: data.category,
       description: data.description,
       amount: parseFloat(data.amount),
+      investmentId: data.investment_id || undefined,
       installmentGroup: data.installment_group,
       installmentNumber: data.installment_number,
       totalInstallments: data.total_installments,
@@ -251,6 +259,7 @@ export const transactionsApi = {
               category: recurring.category,
               description: recurring.description,
               amount: recurring.amount,
+              investment_id: recurring.investment_id,
               recurring: true,
               paid: false
             }])
@@ -270,6 +279,7 @@ export const transactionsApi = {
               category: created.category,
               description: created.description,
               amount: parseFloat(created.amount),
+              investmentId: created.investment_id || undefined,
               recurring: created.recurring,
               paid: created.paid
             } as Transaction)

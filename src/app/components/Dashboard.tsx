@@ -19,7 +19,11 @@ import { useConfig } from '@/lib/hooks/useConfig';
 import { useDailyPlans } from '@/lib/hooks/useDailyPlans';
 import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
 import {
-  checkProjectionStatus
+  checkProjectionStatus,
+  isCashInflowTransactionType,
+  isCashOutflowTransactionType,
+  isInvestmentContributionTransactionType,
+  isInvestmentRedemptionTransactionType,
 } from '../data/mockData';
 import { formatDateLocal, getTodayLocal, createDateFromString, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
 import {
@@ -188,11 +192,11 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
   const getDayTotals = (dateStr: string, dayTransactions: any[]) => {
     const dayIncomes = dayTransactions
-      .filter(t => t.type === 'income')
+      .filter(t => isCashInflowTransactionType(t.type))
       .reduce((sum, t) => sum + t.amount, 0);
 
     const nonVariableExpenses = dayTransactions
-      .filter(t => t.type !== 'income' && t.type !== 'expense_variable')
+      .filter(t => isCashOutflowTransactionType(t.type) && t.type !== 'expense_variable')
       .reduce((sum, t) => sum + t.amount, 0);
 
     const dayExpenses = nonVariableExpenses + getEffectiveVariableExpensesForDate(dateStr);
@@ -248,19 +252,11 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
       const dayTransactions = allTransactions.filter(t => t.date === dateStr);
 
       balance += dayTransactions
-        .filter(t => t.type === 'income')
+        .filter(t => isCashInflowTransactionType(t.type))
         .reduce((sum, t) => sum + t.amount, 0);
 
       balance -= dayTransactions
-        .filter(t => t.type === 'expense_fixed')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      balance -= dayTransactions
-        .filter(t => t.type === 'installment')
-        .reduce((sum, t) => sum + t.amount, 0);
-
-      balance -= dayTransactions
-        .filter(t => t.type === 'investment')
+        .filter(t => isCashOutflowTransactionType(t.type) && t.type !== 'expense_variable')
         .reduce((sum, t) => sum + t.amount, 0);
 
       balance -= getEffectiveVariableExpensesForDate(dateStr);
@@ -323,7 +319,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
       const dateStr = formatDateLocal(year, month, day);
       const dayTransactions = allTransactions.filter(t => t.date === dateStr);
       const nonVariableExpenses = dayTransactions
-        .filter(t => t.type !== 'income' && t.type !== 'expense_variable')
+        .filter(t => isCashOutflowTransactionType(t.type) && t.type !== 'expense_variable')
         .reduce((sum, t) => sum + t.amount, 0);
 
       total += nonVariableExpenses + getEffectiveVariableExpensesForDate(dateStr);
@@ -848,7 +844,9 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
           // Calcular entradas e saídas do dia
           const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
-          const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+          const dayIncomes = dayTransactions
+            .filter(t => isCashInflowTransactionType(t.type))
+            .reduce((sum, t) => sum + t.amount, 0);
           const { dayExpenses } = getDayTotals(dayData.dateStr, dayTransactions);
 
           return (
@@ -925,7 +923,9 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
               // Calcular entradas e saídas do dia
               const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
-              const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+              const dayIncomes = dayTransactions
+                .filter(t => isCashInflowTransactionType(t.type))
+                .reduce((sum, t) => sum + t.amount, 0);
               const { dayExpenses } = getDayTotals(dayData.dateStr, dayTransactions);
 
               return (
@@ -972,7 +972,9 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
             // Calcular entradas e saídas do dia (incluindo transações hipotéticas)
             const dayTransactions = allTransactions.filter(t => t.date === dayData.dateStr);
-            const dayIncomes = dayTransactions.filter(t => t.type === 'income').reduce((sum, t) => sum + t.amount, 0);
+            const dayIncomes = dayTransactions
+              .filter(t => isCashInflowTransactionType(t.type))
+              .reduce((sum, t) => sum + t.amount, 0);
             const { dayExpenses } = getDayTotals(dayData.dateStr, dayTransactions);
 
             return (
@@ -1279,9 +1281,10 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                 {(() => {
                   const dayTransactions = transactions.filter(t => t.date === selectedDay);
                   const dayIncomes = dayTransactions.filter(t => t.type === 'income');
+                  const dayRedemptions = dayTransactions.filter(t => isInvestmentRedemptionTransactionType(t.type));
                   const fixedExpenses = dayTransactions.filter(t => t.type === 'expense_fixed');
                   const installments = dayTransactions.filter(t => t.type === 'installment');
-                  const investments = dayTransactions.filter(t => t.type === 'investment');
+                  const investments = dayTransactions.filter(t => isInvestmentContributionTransactionType(t.type));
                   const variableExpenseEntries = getVariableExpenseEntriesForDate(selectedDay, dailyExpenses, transactions)
                     .filter(entry => entry.source === 'daily_expense' || entry.paid);
 
@@ -1289,7 +1292,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                   const totalFixedExpenses = [...fixedExpenses, ...installments, ...investments]
                     .reduce((sum, transaction) => sum + transaction.amount, 0);
                   const totalExpenses = totalVariableExpenses + totalFixedExpenses;
-                  const totalIncomes = dayIncomes.reduce((sum, transaction) => sum + transaction.amount, 0);
+                  const totalIncomes = [...dayIncomes, ...dayRedemptions].reduce((sum, transaction) => sum + transaction.amount, 0);
                   const balance = totalIncomes - totalExpenses;
                   const plannedAmount = getPlannedAmountForDate(selectedDay);
                   const difference = plannedAmount - totalVariableExpenses;
@@ -1386,6 +1389,23 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                                         )}
                                       </div>
                                     </div>
+                                  </div>
+                                ))}
+                              </div>
+                            )}
+
+                            {dayRedemptions.length > 0 && (
+                              <div>
+                                <h4 className="mb-2 text-sm font-semibold text-[var(--app-text)]">Resgates</h4>
+                                {dayRedemptions.map(t => (
+                                  <div key={t.id} className={`${sectionItemClass} mb-2`}>
+                                    <div className="min-w-0">
+                                      <p className="font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">{t.description}</p>
+                                      <p className="text-sm text-[var(--app-text-muted)]">{t.category}</p>
+                                    </div>
+                                    <p className={`${listAmountClass} text-emerald-700 dark:text-emerald-400`}>
+                                      +{t.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                                    </p>
                                   </div>
                                 ))}
                               </div>
