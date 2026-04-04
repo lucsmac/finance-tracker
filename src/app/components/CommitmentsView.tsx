@@ -19,7 +19,8 @@ const neutralBadgeClass =
   'inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-2.5 py-1 text-xs font-medium text-[var(--app-text-muted)]';
 const iconButtonClass =
   'rounded-lg p-2 text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-surface-hover)] hover:text-[var(--app-text)]';
-const modalContentClass = 'app-panel-strong max-h-[90vh] overflow-y-auto rounded-[2rem] p-4 text-[var(--app-text)] sm:p-6';
+const modalContentClass = 'app-panel-strong overflow-hidden rounded-[1.5rem] p-0 text-[var(--app-text)]';
+const modalScrollAreaClass = 'max-h-[90vh] overflow-y-auto p-4 sm:p-6';
 const modalFieldClass =
   'w-full rounded-xl border border-[var(--app-field-border)] bg-[var(--app-field-bg)] px-4 py-3 text-[var(--app-text)] placeholder:text-[var(--app-field-placeholder)] focus:border-transparent focus:outline-none focus:ring-2 focus:ring-[var(--app-accent)]';
 const modalActionRowClass = 'mt-6 flex flex-col gap-3 sm:flex-row';
@@ -993,6 +994,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       {/* Modal de Cadastro de Compromisso */}
       <Dialog open={isAddModalOpen} onOpenChange={setIsAddModalOpen}>
         <DialogContent className={`${modalContentClass} max-w-lg`}>
+          <div className={modalScrollAreaClass}>
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-[var(--app-text)] sm:text-2xl">
               Adicionar Compromisso
@@ -1177,12 +1179,14 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
               Salvar Compromisso
             </button>
           </div>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Modal de Edição de Compromisso */}
       <Dialog open={isEditModalOpen} onOpenChange={setIsEditModalOpen}>
         <DialogContent className={`${modalContentClass} max-w-lg`}>
+          <div className={modalScrollAreaClass}>
           <DialogHeader>
             <DialogTitle className="text-xl font-bold text-[var(--app-text)] sm:text-2xl">
               Editar Compromisso
@@ -1367,12 +1371,14 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
               Salvar Alterações
             </button>
           </div>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Modal de Duplicação */}
       <Dialog open={isDuplicateModalOpen} onOpenChange={setIsDuplicateModalOpen}>
-        <DialogContent className={`${modalContentClass} max-w-lg overflow-y-auto`}>
+        <DialogContent className={`${modalContentClass} max-w-lg`}>
+          <div className={modalScrollAreaClass}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 text-xl font-bold text-[var(--app-text)] sm:text-2xl">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)]">
@@ -1543,12 +1549,14 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
               {saving ? 'Duplicando...' : 'Duplicar'}
             </button>
           </div>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Modal de Confirmação de Delete */}
       <Dialog open={isDeleteModalOpen} onOpenChange={setIsDeleteModalOpen}>
         <DialogContent className={`${modalContentClass} max-w-md`}>
+          <div className={modalScrollAreaClass}>
           <DialogHeader>
             <DialogTitle className="flex items-center gap-3 text-xl font-bold text-[var(--app-text)] sm:text-2xl">
               <div className="flex h-12 w-12 items-center justify-center rounded-xl border border-red-500/30 bg-red-500/10">
@@ -1582,6 +1590,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
             >
               {saving ? 'Deletando...' : 'Deletar Compromisso'}
             </button>
+          </div>
           </div>
         </DialogContent>
       </Dialog>

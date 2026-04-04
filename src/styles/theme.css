@@ -521,17 +521,6 @@
     border: 1px solid var(--app-field-border);
   }
 
-  /* Scrollbar inside modals/popovers */
-  [data-slot="dialog-content"] ::-webkit-scrollbar-thumb,
-  [data-slot="popover-content"] ::-webkit-scrollbar-thumb {
-    background: var(--app-scrollbar-thumb);
-  }
-
-  [data-slot="dialog-content"] ::-webkit-scrollbar-thumb:hover,
-  [data-slot="popover-content"] ::-webkit-scrollbar-thumb:hover {
-    background: var(--app-scrollbar-thumb-hover);
-  }
-
   [data-slot="dialog-overlay"] {
     background: var(--app-overlay);
     backdrop-filter: blur(6px);

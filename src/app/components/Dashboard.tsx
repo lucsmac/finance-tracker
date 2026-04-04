@@ -4,6 +4,7 @@ import {
   ChevronLeft,
   ChevronRight,
   Calendar as CalendarIcon,
+  Info,
   X,
   Eye
 } from 'lucide-react';
@@ -78,15 +79,23 @@ const compactMetricValueClass =
 const listAmountClass =
   'max-w-full text-lg font-bold leading-tight tabular-nums [overflow-wrap:anywhere]';
 const sectionCardClass =
-  'rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4';
+  'min-w-0 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4';
 const sectionItemClass =
   'flex flex-col gap-3 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-3 sm:flex-row sm:items-center sm:justify-between';
 const sectionInnerCardClass =
-  'rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-3';
-const accentNoteClass =
-  'rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-4';
+  'min-w-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-3';
 const neutralNoteClass =
   'rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4';
+const modalSummaryCardClass =
+  'min-w-0 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4';
+const modalSummaryLabelClass =
+  'mb-2 text-xs leading-snug text-[var(--app-text-faint)]';
+const modalSummaryValueClass =
+  'max-w-full whitespace-nowrap text-[clamp(0.95rem,1.55vw,1.2rem)] font-bold leading-tight tracking-tight tabular-nums';
+const modalDetailSummaryValueClass =
+  'max-w-full whitespace-nowrap text-[clamp(0.95rem,1.75vw,1.1rem)] font-bold leading-tight tracking-tight tabular-nums';
+const modalDetailHighlightValueClass =
+  'max-w-full whitespace-nowrap text-[clamp(0.95rem,1.9vw,1.15rem)] font-bold leading-tight tracking-tight tabular-nums';
 const neutralBadgeClass =
   'inline-flex rounded-full border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-2.5 py-1 text-xs font-medium text-[var(--app-text-muted)]';
 const dangerBadgeButtonClass =
@@ -1019,22 +1028,47 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
       {/* Modal Unificado com Abas */}
       <Dialog open={isDayModalOpen} onOpenChange={setIsDayModalOpen}>
-        <DialogContent className="app-panel-strong max-h-[90vh] max-w-2xl overflow-y-auto rounded-[2rem] p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-[var(--app-text)] sm:text-2xl">
-              {selectedDay && formatDateToLocaleString(selectedDay, 'pt-BR', {
-                weekday: 'long',
-                day: '2-digit',
-                month: 'long',
-                year: 'numeric'
-              })}
-            </DialogTitle>
-            <DialogDescription className="text-[var(--app-text-muted)]">
-              Adicione gastos ou veja os detalhes deste dia
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="app-panel-strong max-w-2xl overflow-hidden rounded-[1.5rem] p-0">
+          {activeTab === 'expenses' && (
+            <Popover>
+              <PopoverTrigger asChild>
+                <button
+                  type="button"
+                  className="absolute top-3 right-14 z-10 inline-flex size-11 items-center justify-center rounded-full text-[var(--app-text-muted)] transition-colors hover:bg-[var(--app-surface-soft)] hover:text-[var(--app-text)] sm:top-4 sm:right-14"
+                  aria-label="Como funciona"
+                >
+                  <Info className="h-5 w-5" />
+                </button>
+              </PopoverTrigger>
+              <PopoverContent
+                align="end"
+                side="bottom"
+                className="w-[min(21rem,calc(100vw-2rem))] rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-4 text-sm text-[var(--app-text-muted)] shadow-xl"
+              >
+                <p>
+                  <strong className="text-[var(--app-text)]">Como funciona:</strong> cada gasto diário é um lançamento com
+                  título, categoria e valor. O total do dia é a soma desses lançamentos. Se não houver lançamento real,
+                  o sistema usa o valor planejado deste dia na projeção.
+                </p>
+              </PopoverContent>
+            </Popover>
+          )}
+          <div className="max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+            <DialogHeader className="pr-20 sm:pr-24">
+              <DialogTitle className="text-xl font-bold text-[var(--app-text)] sm:text-2xl">
+                {selectedDay && formatDateToLocaleString(selectedDay, 'pt-BR', {
+                  weekday: 'long',
+                  day: '2-digit',
+                  month: 'long',
+                  year: 'numeric'
+                })}
+              </DialogTitle>
+              <DialogDescription className="text-[var(--app-text-muted)]">
+                Adicione gastos ou veja os detalhes deste dia
+              </DialogDescription>
+            </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
+            <Tabs value={activeTab} onValueChange={setActiveTab} className="mt-4">
             <TabsList className="grid h-auto w-full grid-cols-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-1">
               <TabsTrigger value="expenses" className="flex-1 rounded-[1rem] border border-transparent text-[var(--app-text-muted)] data-[state=active]:border-[var(--app-border)] data-[state=active]:bg-[var(--app-surface-strong)] data-[state=active]:text-[var(--app-text)] data-[state=active]:shadow-none hover:text-[var(--app-text)] transition-colors">
                 <DollarSign className="w-4 h-4 mr-2" />
@@ -1057,30 +1091,22 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
                 return (
                   <div className="space-y-4">
-                    <div className={accentNoteClass}>
-                      <p className="text-sm text-[var(--app-text-muted)]">
-                        <strong className="text-[var(--app-text)]">ℹ️ Como funciona:</strong> cada gasto diário agora é um lançamento com
-                        título, categoria e valor. O total do dia é a soma desses lançamentos. Se não houver lançamento real,
-                        o sistema usa o valor planejado deste dia na projeção.
-                      </p>
-                    </div>
-
                     <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
-                      <div className={sectionCardClass}>
-                        <p className="mb-1 text-xs text-[var(--app-text-faint)]">Gasto lançado</p>
-                        <p className="max-w-full text-2xl font-bold leading-tight text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">
+                      <div className={modalSummaryCardClass}>
+                        <p className={modalSummaryLabelClass}>Gasto lançado</p>
+                        <p className={`${modalSummaryValueClass} text-[var(--app-text)]`}>
                           {recordedTotal.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
                       </div>
-                      <div className={sectionCardClass}>
-                        <p className="mb-1 text-xs text-[var(--app-text-faint)]">Planejado do dia</p>
-                        <p className="max-w-full text-2xl font-bold leading-tight text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">
+                      <div className={modalSummaryCardClass}>
+                        <p className={modalSummaryLabelClass}>Planejado do dia</p>
+                        <p className={`${modalSummaryValueClass} text-[var(--app-text)]`}>
                           {plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
                       </div>
-                      <div className={sectionCardClass}>
-                        <p className="mb-1 text-xs text-[var(--app-text-faint)]">Valor diário padrão</p>
-                        <p className="max-w-full text-2xl font-bold leading-tight text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">
+                      <div className={modalSummaryCardClass}>
+                        <p className={modalSummaryLabelClass}>Valor diário padrão</p>
+                        <p className={`${modalSummaryValueClass} text-[var(--app-text)]`}>
                           {dailyStandard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
                       </div>
@@ -1274,15 +1300,15 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                       <div className="grid grid-cols-1 gap-3 rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4 sm:grid-cols-3 sm:gap-4">
                         <div className={`${sectionInnerCardClass} text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center`}>
                           <p className="mb-1 text-xs text-[var(--app-text-faint)]">Entradas</p>
-                          <p className="max-w-full text-lg font-bold leading-tight text-emerald-700 tabular-nums [overflow-wrap:anywhere] dark:text-emerald-400">{totalIncomes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                          <p className={`${modalDetailSummaryValueClass} text-emerald-700 dark:text-emerald-400`}>{totalIncomes.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                         </div>
                         <div className={`${sectionInnerCardClass} text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center`}>
                           <p className="mb-1 text-xs text-[var(--app-text-faint)]">Saídas</p>
-                          <p className="max-w-full text-lg font-bold leading-tight text-red-700 tabular-nums [overflow-wrap:anywhere] dark:text-red-400">{totalExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                          <p className={`${modalDetailSummaryValueClass} text-red-700 dark:text-red-400`}>{totalExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                         </div>
                         <div className={`${sectionInnerCardClass} text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center`}>
                           <p className="mb-1 text-xs text-[var(--app-text-faint)]">Saldo do dia</p>
-                          <p className={`max-w-full text-lg font-bold leading-tight tabular-nums [overflow-wrap:anywhere] ${balance >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
+                          <p className={`${modalDetailSummaryValueClass} ${balance >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
                             {balance >= 0 ? '+' : ''}{balance.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                           </p>
                         </div>
@@ -1293,11 +1319,11 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                         <div className="grid grid-cols-1 gap-3 sm:grid-cols-3 sm:gap-4">
                           <div className={`${sectionInnerCardClass} sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0`}>
                             <p className="mb-1 text-xs text-[var(--app-text-faint)]">Planejado</p>
-                            <p className="max-w-full text-xl font-bold leading-tight text-[var(--app-text)] tabular-nums [overflow-wrap:anywhere]">{plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+                            <p className={`${modalDetailHighlightValueClass} text-[var(--app-text)]`}>{plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
                           </div>
                           <div className={`${sectionInnerCardClass} text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-center`}>
                             <p className="mb-1 text-xs text-[var(--app-text-faint)]">Realizado</p>
-                            <p className={`max-w-full text-xl font-bold leading-tight tabular-nums [overflow-wrap:anywhere] ${hasRealExpenses ? 'text-[var(--app-text)]' : 'text-[var(--app-text-faint)]'}`}>
+                            <p className={`${modalDetailHighlightValueClass} ${hasRealExpenses ? 'text-[var(--app-text)]' : 'text-[var(--app-text-faint)]'}`}>
                               {totalVariableExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </p>
                             {!hasRealExpenses && (
@@ -1306,7 +1332,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                           </div>
                           <div className={`${sectionInnerCardClass} text-left sm:rounded-none sm:border-0 sm:bg-transparent sm:p-0 sm:text-right`}>
                             <p className="mb-1 text-xs text-[var(--app-text-faint)]">Diferença</p>
-                            <p className={`max-w-full text-xl font-bold leading-tight tabular-nums [overflow-wrap:anywhere] ${difference >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
+                            <p className={`${modalDetailHighlightValueClass} ${difference >= 0 ? 'text-emerald-700 dark:text-emerald-400' : 'text-red-700 dark:text-red-400'}`}>
                               {difference >= 0 ? '+' : ''}{difference.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                             </p>
                             {difference >= 0 ? (
@@ -1466,23 +1492,25 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                 })()}
               </div>
             </TabsContent>
-          </Tabs>
+            </Tabs>
+          </div>
         </DialogContent>
       </Dialog>
 
       {/* Modal de Projeção "E se?" */}
       <Dialog open={isProjectionModalOpen} onOpenChange={setIsProjectionModalOpen}>
-        <DialogContent className="app-panel-strong max-h-[90vh] max-w-4xl overflow-y-auto rounded-[2rem] p-4 sm:p-6">
-          <DialogHeader>
-            <DialogTitle className="text-xl font-bold text-[var(--app-text)] sm:text-2xl">
-              E se?
-            </DialogTitle>
-            <DialogDescription className="text-[var(--app-text-muted)]">
-              Simule transações futuras e veja como elas afetam seus saldos sem precisar cadastrá-las
-            </DialogDescription>
-          </DialogHeader>
+        <DialogContent className="app-panel-strong max-w-4xl overflow-hidden rounded-[1.5rem] p-0">
+          <div className="max-h-[90vh] overflow-y-auto p-4 sm:p-6">
+            <DialogHeader>
+              <DialogTitle className="text-xl font-bold text-[var(--app-text)] sm:text-2xl">
+                E se?
+              </DialogTitle>
+              <DialogDescription className="text-[var(--app-text-muted)]">
+                Simule transações futuras e veja como elas afetam seus saldos sem precisar cadastrá-las
+              </DialogDescription>
+            </DialogHeader>
 
-          <div className="space-y-6 mt-4">
+            <div className="space-y-6 mt-4">
             {/* Alertas sobre transações hipotéticas ativas */}
             {hypotheticalTransactions.length > 0 && (
               <div className="bg-[#AFFD37]/10 border border-[#AFFD37]/30 rounded-xl p-4">
@@ -1645,25 +1673,26 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
             </div>
           </div>
 
-          {/* Botões de ação */}
-          <div className="mt-6 flex flex-col gap-3 sm:flex-row">
-            <button
-              onClick={() => setIsProjectionModalOpen(false)}
-              className={secondaryButtonClass}
-            >
-              Fechar
-            </button>
-            {hypotheticalTransactions.length > 0 && (
+            {/* Botões de ação */}
+            <div className="mt-6 flex flex-col gap-3 sm:flex-row">
               <button
-                onClick={() => {
-                  handleClearProjection();
-                  setIsProjectionModalOpen(false);
-                }}
-                className="flex-1 px-4 py-3 bg-[#C27C75]/20 hover:bg-[#C27C75]/30 text-[#E837FD] rounded-xl font-semibold transition-colors"
+                onClick={() => setIsProjectionModalOpen(false)}
+                className={secondaryButtonClass}
               >
-                Limpar e Fechar
+                Fechar
               </button>
-            )}
+              {hypotheticalTransactions.length > 0 && (
+                <button
+                  onClick={() => {
+                    handleClearProjection();
+                    setIsProjectionModalOpen(false);
+                  }}
+                  className="flex-1 px-4 py-3 bg-[#C27C75]/20 hover:bg-[#C27C75]/30 text-[#E837FD] rounded-xl font-semibold transition-colors"
+                >
+                  Limpar e Fechar
+                </button>
+              )}
+            </div>
           </div>
         </DialogContent>
       </Dialog>

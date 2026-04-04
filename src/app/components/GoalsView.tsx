@@ -369,13 +369,14 @@ export function GoalsView() {
           setEditingGoal(null);
         }
       }}>
-        <DialogContent className="app-panel-strong max-h-[calc(100vh-2rem)] w-[calc(100vw-1.5rem)] max-w-md overflow-y-auto rounded-[2rem]">
-          <DialogHeader>
-            <DialogTitle className="text-2xl font-bold text-[var(--app-text)]">
-              {editingGoal ? 'Editar Meta' : 'Nova Meta'}
-            </DialogTitle>
-          </DialogHeader>
-          <div className="space-y-4 pt-4">
+        <DialogContent className="app-panel-strong w-[calc(100vw-1.5rem)] max-w-md overflow-hidden rounded-[1.5rem] p-0">
+          <div className="max-h-[calc(100vh-2rem)] overflow-y-auto p-4 sm:p-6">
+            <DialogHeader>
+              <DialogTitle className="text-2xl font-bold text-[var(--app-text)]">
+                {editingGoal ? 'Editar Meta' : 'Nova Meta'}
+              </DialogTitle>
+            </DialogHeader>
+            <div className="space-y-4 pt-4">
             <div>
               <label className="mb-2 block text-sm text-[var(--app-text-muted)]">Título da Meta</label>
               <input
@@ -467,6 +468,7 @@ export function GoalsView() {
               >
                 {saving ? 'Salvando...' : editingGoal ? 'Salvar' : 'Criar Meta'}
               </button>
+            </div>
             </div>
           </div>
         </DialogContent>
