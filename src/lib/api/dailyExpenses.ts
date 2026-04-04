@@ -1,5 +1,7 @@
 import { supabase } from '../supabase'
 
+export type DailyExpensePaymentMethod = 'debit' | 'credit_card'
+
 export interface DailyExpense {
   id: string
   userId: string
@@ -7,6 +9,9 @@ export interface DailyExpense {
   title: string
   category: string
   amount: number
+  paymentMethod: DailyExpensePaymentMethod
+  creditCardId?: string
+  statementReferenceMonth?: string
   createdAt: string
 }
 
@@ -15,6 +20,9 @@ export interface CreateDailyExpenseInput {
   title: string
   category: string
   amount: number
+  paymentMethod?: DailyExpensePaymentMethod
+  creditCardId?: string
+  statementReferenceMonth?: string
 }
 
 const mapDailyExpense = (item: any): DailyExpense => ({
@@ -24,6 +32,9 @@ const mapDailyExpense = (item: any): DailyExpense => ({
   title: item.title,
   category: item.category,
   amount: parseFloat(item.amount),
+  paymentMethod: item.payment_method || 'debit',
+  creditCardId: item.credit_card_id || undefined,
+  statementReferenceMonth: item.statement_reference_month || undefined,
   createdAt: item.created_at
 })
 
@@ -64,7 +75,10 @@ export const dailyExpensesApi = {
         date: expense.date,
         title: expense.title,
         category: expense.category,
-        amount: expense.amount
+        amount: expense.amount,
+        payment_method: expense.paymentMethod || 'debit',
+        credit_card_id: expense.creditCardId || null,
+        statement_reference_month: expense.statementReferenceMonth || null,
       }])
       .select()
       .single()

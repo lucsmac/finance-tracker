@@ -1,5 +1,5 @@
 import type { Transaction } from '@/app/data/mockData'
-import type { DailyExpense } from '@/lib/api/dailyExpenses'
+import type { DailyExpense, DailyExpensePaymentMethod } from '@/lib/api/dailyExpenses'
 
 export interface VariableExpenseEntry {
   id: string
@@ -9,14 +9,52 @@ export interface VariableExpenseEntry {
   amount: number
   source: 'daily_expense' | 'legacy_transaction'
   paid?: boolean
+  paymentMethod?: DailyExpensePaymentMethod | 'legacy_transaction'
+  creditCardId?: string
+  statementReferenceMonth?: string
 }
 
-export const getDailyExpensesForDate = (date: string, dailyExpenses: DailyExpense[]) => {
-  return dailyExpenses.filter(expense => expense.date === date)
+interface DailyExpenseFilterOptions {
+  cashImpactOnly?: boolean
+  paymentMethod?: DailyExpensePaymentMethod
 }
 
-export const getDailyExpensesTotalForDate = (date: string, dailyExpenses: DailyExpense[]) => {
-  return getDailyExpensesForDate(date, dailyExpenses)
+export interface VariableExpenseRecordedSplit {
+  total: number
+  debit: number
+  creditCard: number
+}
+
+export const isCreditCardDailyExpense = (expense: DailyExpense) => expense.paymentMethod === 'credit_card'
+
+export const isCashImpactDailyExpense = (expense: DailyExpense) => expense.paymentMethod !== 'credit_card'
+
+const matchesDailyExpenseFilters = (expense: DailyExpense, options?: DailyExpenseFilterOptions) => {
+  if (options?.paymentMethod && expense.paymentMethod !== options.paymentMethod) {
+    return false
+  }
+
+  if (options?.cashImpactOnly && !isCashImpactDailyExpense(expense)) {
+    return false
+  }
+
+  return true
+}
+
+export const getDailyExpensesForDate = (
+  date: string,
+  dailyExpenses: DailyExpense[],
+  options?: DailyExpenseFilterOptions,
+) => {
+  return dailyExpenses.filter((expense) => expense.date === date && matchesDailyExpenseFilters(expense, options))
+}
+
+export const getDailyExpensesTotalForDate = (
+  date: string,
+  dailyExpenses: DailyExpense[],
+  options?: DailyExpenseFilterOptions,
+) => {
+  return getDailyExpensesForDate(date, dailyExpenses, options)
     .reduce((sum, expense) => sum + expense.amount, 0)
 }
 
@@ -50,10 +88,26 @@ export const getLegacyVariableExpensesTotalForDate = (
 export const getRecordedVariableExpensesTotalForDate = (
   date: string,
   dailyExpenses: DailyExpense[],
-  transactions: Transaction[]
+  transactions: Transaction[],
+  options?: { cashImpactOnly?: boolean }
 ) => {
-  return getDailyExpensesTotalForDate(date, dailyExpenses) +
+  return getDailyExpensesTotalForDate(date, dailyExpenses, { cashImpactOnly: options?.cashImpactOnly }) +
     getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true })
+}
+
+export const getRecordedVariableExpensesSplitForDate = (
+  date: string,
+  dailyExpenses: DailyExpense[],
+  transactions: Transaction[],
+): VariableExpenseRecordedSplit => {
+  const creditCard = getDailyExpensesTotalForDate(date, dailyExpenses, { paymentMethod: 'credit_card' })
+  const debit = getRecordedVariableExpensesTotalForDate(date, dailyExpenses, transactions, { cashImpactOnly: true })
+
+  return {
+    total: debit + creditCard,
+    debit,
+    creditCard,
+  }
 }
 
 interface EffectiveVariableExpensesParams {
@@ -72,13 +126,32 @@ export const getEffectiveVariableExpensesTotalForDate = ({
   additionalVariableExpenses = 0,
 }: EffectiveVariableExpensesParams) => {
   const recordedDailyExpenses = getDailyExpensesTotalForDate(date, dailyExpenses)
+  const hasExplicitDailyExpenses = getDailyExpensesForDate(date, dailyExpenses).length > 0
   const committedVariableExpenses =
     getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true }) +
     additionalVariableExpenses
 
   // The daily fallback is only replaced by explicit daily expenses.
   // Transaction-based commitments are always added on top of the day's base amount.
-  const fallbackOrDailyExpense = recordedDailyExpenses > 0 ? recordedDailyExpenses : plannedAmount
+  const fallbackOrDailyExpense = hasExplicitDailyExpenses ? recordedDailyExpenses : plannedAmount
+
+  return fallbackOrDailyExpense + committedVariableExpenses
+}
+
+export const getEffectiveVariableCashExpensesTotalForDate = ({
+  date,
+  plannedAmount,
+  dailyExpenses,
+  transactions,
+  additionalVariableExpenses = 0,
+}: EffectiveVariableExpensesParams) => {
+  const recordedCashDailyExpenses = getDailyExpensesTotalForDate(date, dailyExpenses, { cashImpactOnly: true })
+  const hasExplicitDailyExpenses = getDailyExpensesForDate(date, dailyExpenses).length > 0
+  const committedVariableExpenses =
+    getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true }) +
+    additionalVariableExpenses
+
+  const fallbackOrDailyExpense = hasExplicitDailyExpenses ? recordedCashDailyExpenses : plannedAmount
 
   return fallbackOrDailyExpense + committedVariableExpenses
 }
@@ -95,7 +168,10 @@ export const getVariableExpenseEntriesForDate = (
       title: expense.title,
       category: expense.category,
       amount: expense.amount,
-      source: 'daily_expense' as const
+      source: 'daily_expense' as const,
+      paymentMethod: expense.paymentMethod,
+      creditCardId: expense.creditCardId,
+      statementReferenceMonth: expense.statementReferenceMonth,
     }))
 
   const legacyEntries: VariableExpenseEntry[] = getLegacyVariableTransactionsForDate(date, transactions)
@@ -106,7 +182,8 @@ export const getVariableExpenseEntriesForDate = (
       category: transaction.category,
       amount: transaction.amount,
       source: 'legacy_transaction' as const,
-      paid: transaction.paid
+      paid: transaction.paid,
+      paymentMethod: 'legacy_transaction' as const,
     }))
 
   return [...dailyExpenseEntries, ...legacyEntries]
@@ -115,9 +192,10 @@ export const getVariableExpenseEntriesForDate = (
 export const sumDailyExpensesUntilDate = (
   dailyExpenses: DailyExpense[],
   endDate: string,
-  startDate?: string
+  startDate?: string,
+  options?: DailyExpenseFilterOptions,
 ) => {
   return dailyExpenses
-    .filter(expense => expense.date <= endDate && (!startDate || expense.date >= startDate))
+    .filter(expense => expense.date <= endDate && (!startDate || expense.date >= startDate) && matchesDailyExpenseFilters(expense, options))
     .reduce((sum, expense) => sum + expense.amount, 0)
 }

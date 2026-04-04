@@ -1,4 +1,4 @@
-import { useState, useEffect } from 'react';
+import { useEffect, useMemo, useState } from 'react';
 import {
   DollarSign,
   ChevronLeft,
@@ -18,6 +18,7 @@ import { useTransactions } from '@/lib/hooks/useTransactions';
 import { useConfig } from '@/lib/hooks/useConfig';
 import { useDailyPlans } from '@/lib/hooks/useDailyPlans';
 import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
+import { useCreditCards } from '@/lib/hooks/useCreditCards';
 import {
   checkProjectionStatus,
   isCashInflowTransactionType,
@@ -27,10 +28,14 @@ import {
 } from '../data/mockData';
 import { formatDateLocal, getTodayLocal, createDateFromString, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
 import {
+  getDailyExpensesTotalForDate,
+  getEffectiveVariableCashExpensesTotalForDate,
   getEffectiveVariableExpensesTotalForDate,
   getRecordedVariableExpensesTotalForDate,
+  getRecordedVariableExpensesSplitForDate,
   getVariableExpenseEntriesForDate
 } from '@/lib/utils/dailyExpenses';
+import { formatReferenceMonthLabel, getCreditCardStatementReferenceMonth } from '@/lib/utils/creditCards';
 import { toast } from 'sonner';
 
 interface DashboardProps {
@@ -128,6 +133,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
     deleteDailyExpense,
     getExpensesForDate,
   } = useDailyExpenses(user?.id);
+  const { cards, loading: loadingCreditCards } = useCreditCards(user?.id);
   const [savingPlanned, setSavingPlanned] = useState(false);
   const [savingDailyExpense, setSavingDailyExpense] = useState(false);
   const [deletingDailyExpenseId, setDeletingDailyExpenseId] = useState<string | null>(null);
@@ -139,7 +145,9 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
   const [dailyExpenseForm, setDailyExpenseForm] = useState({
     title: '',
     category: '',
-    amount: ''
+    amount: '',
+    paymentMethod: 'debit' as 'debit' | 'credit_card',
+    creditCardId: '',
   });
   const [plannedForm, setPlannedForm] = useState({
     plannedAmount: ''
@@ -156,7 +164,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
   });
 
   // Loading state
-  const loading = loadingEstimates || loadingTransactions || loadingConfig || loadingPlans || loadingDailyExpenses;
+  const loading = loadingEstimates || loadingTransactions || loadingConfig || loadingPlans || loadingDailyExpenses || loadingCreditCards;
   const selectedDate = selectedMonth;
 
   // Calcular valores baseados na data selecionada
@@ -172,8 +180,17 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
     return customPlanned !== null ? customPlanned : dailyStandard;
   };
 
+  const cardsById = useMemo(
+    () => new Map(cards.map(card => [card.id, card])),
+    [cards],
+  );
+
   const getRecordedVariableExpensesForDate = (dateStr: string) => {
     return getRecordedVariableExpensesTotalForDate(dateStr, dailyExpenses, transactions);
+  };
+
+  const getRecordedVariableExpenseSplitForDate = (dateStr: string) => {
+    return getRecordedVariableExpensesSplitForDate(dateStr, dailyExpenses, transactions);
   };
 
   const getEffectiveVariableExpensesForDate = (dateStr: string) => {
@@ -182,6 +199,20 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
       .reduce((sum, t) => sum + t.amount, 0);
 
     return getEffectiveVariableExpensesTotalForDate({
+      date: dateStr,
+      plannedAmount: getPlannedAmountForDate(dateStr),
+      dailyExpenses,
+      transactions,
+      additionalVariableExpenses: hypotheticalVariableExpenses,
+    });
+  };
+
+  const getEffectiveCashVariableExpensesForDate = (dateStr: string) => {
+    const hypotheticalVariableExpenses = hypotheticalTransactions
+      .filter(t => t.type === 'expense_variable' && t.date === dateStr)
+      .reduce((sum, t) => sum + t.amount, 0);
+
+    return getEffectiveVariableCashExpensesTotalForDate({
       date: dateStr,
       plannedAmount: getPlannedAmountForDate(dateStr),
       dailyExpenses,
@@ -259,7 +290,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
         .filter(t => isCashOutflowTransactionType(t.type) && t.type !== 'expense_variable')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      balance -= getEffectiveVariableExpensesForDate(dateStr);
+      balance -= getEffectiveCashVariableExpensesForDate(dateStr);
     }
 
     return balance;
@@ -361,7 +392,10 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
   };
 
   const availableBalance = calculateBalanceUntilDate(today);
-  const todayExpenses = getRecordedVariableExpensesForDate(today);
+  const todayExpenseSplit = getRecordedVariableExpenseSplitForDate(today);
+  const todayExpenses = todayExpenseSplit.total;
+  const todayCashExpenses = todayExpenseSplit.debit;
+  const todayCreditCardExpenses = todayExpenseSplit.creditCard;
   const todayPlannedAmount = getPlannedAmountForDate(today);
   const todayVariation = todayExpenses - todayPlannedAmount;
   const monthExpensesTotal = calculateProjectedMonthExpenses(selectedDate);
@@ -411,7 +445,9 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
     setDailyExpenseForm({
       title: '',
       category: '',
-      amount: ''
+      amount: '',
+      paymentMethod: 'debit',
+      creditCardId: '',
     });
 
     // Carregar o planejado do dia (se existir) ou usar o padrão
@@ -434,18 +470,34 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
       return;
     }
 
+    const selectedCard = dailyExpenseForm.paymentMethod === 'credit_card'
+      ? cards.find(card => card.id === dailyExpenseForm.creditCardId) || null
+      : null;
+
+    if (dailyExpenseForm.paymentMethod === 'credit_card' && !selectedCard) {
+      toast.error('Selecione o cartão usado nessa compra.');
+      return;
+    }
+
     try {
       setSavingDailyExpense(true);
       await createDailyExpense({
         date: selectedDay,
         title: dailyExpenseForm.title,
         category: dailyExpenseForm.category,
-        amount
+        amount,
+        paymentMethod: dailyExpenseForm.paymentMethod,
+        creditCardId: selectedCard?.id,
+        statementReferenceMonth: selectedCard
+          ? getCreditCardStatementReferenceMonth(selectedDay, selectedCard.closingDay)
+          : undefined,
       });
       setDailyExpenseForm({
         title: '',
         category: '',
-        amount: ''
+        amount: '',
+        paymentMethod: 'debit',
+        creditCardId: '',
       });
       toast.success('Gasto diario adicionado.');
     } catch (err) {
@@ -752,6 +804,9 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
           <div className={`${metricCardClass} sm:border-r sm:border-[var(--app-border)]`}>
             <p className="mb-1 text-sm text-[var(--app-text-muted)]">Gasto de hoje</p>
             <p className={metricValueClass}>{todayExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}</p>
+            <p className="mt-1 text-xs leading-relaxed text-[var(--app-text-faint)] [overflow-wrap:anywhere]">
+              {todayCashExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} no débito • {todayCreditCardExpenses.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })} no cartão
+            </p>
             {todayVariation === 0 ? (
               <p className="mt-1 text-xs leading-relaxed text-[var(--app-text-muted)]">Dentro do planejado</p>
             ) : (
@@ -1088,12 +1143,13 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                 const recordedVariableEntries = getVariableExpenseEntriesForDate(selectedDay, dailyExpenses, transactions)
                   .filter(entry => entry.source === 'daily_expense' || entry.paid);
                 const legacyVariableEntries = recordedVariableEntries.filter(entry => entry.source === 'legacy_transaction');
-                const recordedTotal = getRecordedVariableExpensesForDate(selectedDay);
+                const expenseSplit = getRecordedVariableExpenseSplitForDate(selectedDay);
+                const recordedTotal = expenseSplit.total;
                 const plannedAmount = getPlannedAmountForDate(selectedDay);
 
                 return (
                   <div className="space-y-4">
-                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-3">
+                    <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
                       <div className={modalSummaryCardClass}>
                         <p className={modalSummaryLabelClass}>Gasto lançado</p>
                         <p className={`${modalSummaryValueClass} text-[var(--app-text)]`}>
@@ -1101,15 +1157,21 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                         </p>
                       </div>
                       <div className={modalSummaryCardClass}>
-                        <p className={modalSummaryLabelClass}>Planejado do dia</p>
+                        <p className={modalSummaryLabelClass}>Saiu do caixa hoje</p>
                         <p className={`${modalSummaryValueClass} text-[var(--app-text)]`}>
-                          {plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          {expenseSplit.debit.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
                       </div>
                       <div className={modalSummaryCardClass}>
-                        <p className={modalSummaryLabelClass}>Valor diário padrão</p>
+                        <p className={modalSummaryLabelClass}>Foi para o cartão</p>
                         <p className={`${modalSummaryValueClass} text-[var(--app-text)]`}>
-                          {dailyStandard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                          {expenseSplit.creditCard.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
+                        </p>
+                      </div>
+                      <div className={modalSummaryCardClass}>
+                        <p className={modalSummaryLabelClass}>Planejado do dia</p>
+                        <p className={`${modalSummaryValueClass} text-[var(--app-text)]`}>
+                          {plannedAmount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                         </p>
                       </div>
                     </div>
@@ -1143,6 +1205,62 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                             className={fieldInputClass}
                           />
                         </div>
+                      </div>
+
+                      <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
+                        <div>
+                          <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
+                            Como foi pago? *
+                          </label>
+                          <select
+                            value={dailyExpenseForm.paymentMethod}
+                            onChange={(e) => setDailyExpenseForm({
+                              ...dailyExpenseForm,
+                              paymentMethod: e.target.value as 'debit' | 'credit_card',
+                              creditCardId: e.target.value === 'credit_card' ? dailyExpenseForm.creditCardId : '',
+                            })}
+                            className={fieldInputClass}
+                          >
+                            <option value="debit">Débito / Pix / Dinheiro</option>
+                            <option value="credit_card">Cartão de crédito</option>
+                          </select>
+                        </div>
+
+                        {dailyExpenseForm.paymentMethod === 'credit_card' ? (
+                          <div>
+                            <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
+                              Cartão *
+                            </label>
+                            <select
+                              value={dailyExpenseForm.creditCardId}
+                              onChange={(e) => setDailyExpenseForm({ ...dailyExpenseForm, creditCardId: e.target.value })}
+                              className={fieldInputClass}
+                              disabled={cards.length === 0}
+                            >
+                              <option value="">{cards.length === 0 ? 'Cadastre um cartão primeiro' : 'Selecione um cartão'}</option>
+                              {cards.map((card) => (
+                                <option key={card.id} value={card.id}>
+                                  {card.name}
+                                </option>
+                              ))}
+                            </select>
+                            {dailyExpenseForm.creditCardId && cardsById.get(dailyExpenseForm.creditCardId) && (
+                              <p className="mt-2 text-xs text-[var(--app-text-faint)]">
+                                Vai para a fatura de {formatReferenceMonthLabel(
+                                  getCreditCardStatementReferenceMonth(
+                                    selectedDay,
+                                    cardsById.get(dailyExpenseForm.creditCardId)!.closingDay,
+                                  ),
+                                  'long',
+                                )}
+                              </p>
+                            )}
+                          </div>
+                        ) : (
+                          <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-4 py-3 text-sm text-[var(--app-text-muted)]">
+                            Esse lançamento afeta o saldo disponível no mesmo dia.
+                          </div>
+                        )}
                       </div>
 
                       <div>
@@ -1190,6 +1308,18 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                             <div className="min-w-0">
                               <p className="font-medium text-[var(--app-text)] [overflow-wrap:anywhere]">{expense.title}</p>
                               <p className="text-sm text-[var(--app-text-muted)]">{expense.category}</p>
+                              <div className="mt-2 flex flex-wrap gap-2">
+                                <span className={neutralBadgeClass}>
+                                  {expense.paymentMethod === 'credit_card'
+                                    ? `Cartão${expense.creditCardId ? ` • ${cardsById.get(expense.creditCardId)?.name || 'Sem nome'}` : ''}`
+                                    : 'Débito / Pix'}
+                                </span>
+                                {expense.paymentMethod === 'credit_card' && expense.statementReferenceMonth && (
+                                  <span className={neutralBadgeClass}>
+                                    Fatura {formatReferenceMonthLabel(expense.statementReferenceMonth)}
+                                  </span>
+                                )}
+                              </div>
                             </div>
                             <div className="flex w-full items-center justify-between gap-3 sm:w-auto sm:justify-end">
                               <p className={`${listAmountClass} text-[var(--app-text)]`}>

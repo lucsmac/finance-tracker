@@ -44,7 +44,8 @@ import { useConfig } from '../../lib/hooks/useConfig';
 import { useDailyExpenses } from '@/lib/hooks/useDailyExpenses';
 import { useDailyPlans } from '@/lib/hooks/useDailyPlans';
 import {
-  getEffectiveVariableExpensesTotalForDate
+  getEffectiveVariableCashExpensesTotalForDate,
+  sumDailyExpensesUntilDate,
 } from '@/lib/utils/dailyExpenses';
 import { formatDateLocal } from '@/lib/utils/dateHelpers';
 import {
@@ -130,8 +131,8 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
     return customPlanned !== null ? customPlanned : dailyStandard;
   };
 
-  const getEffectiveVariableExpensesForDate = (dateStr: string) => {
-    return getEffectiveVariableExpensesTotalForDate({
+  const getEffectiveCashVariableExpensesForDate = (dateStr: string) => {
+    return getEffectiveVariableCashExpensesTotalForDate({
       date: dateStr,
       plannedAmount: getPlannedAmountForDate(dateStr),
       dailyExpenses,
@@ -163,7 +164,7 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
         .filter(transaction => isCashOutflowTransactionType(transaction.type) && transaction.type !== 'expense_variable')
         .reduce((sum, transaction) => sum + transaction.amount, 0);
 
-      balance -= getEffectiveVariableExpensesForDate(dateStr);
+      balance -= getEffectiveCashVariableExpensesForDate(dateStr);
     }
 
     return balance;
@@ -260,18 +261,25 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
   // e saldo no final do período (após o último dia)
   const transactionsBeforeFirstDay = transactions.filter(t => t.date < firstDayStr);
   const transactionsUntilLastDay = transactions.filter(t => t.date <= lastDayStr);
-  const dailyExpensesBeforeFirstDay = dailyExpenses.filter(expense => expense.date < firstDayStr);
-  const dailyExpensesUntilLastDay = dailyExpenses.filter(expense => expense.date <= lastDayStr);
+  const firstDayDate = new Date(`${firstDayStr}T12:00:00`);
+  firstDayDate.setDate(firstDayDate.getDate() - 1);
+  const dayBeforeFirstDayStr = formatDateLocal(
+    firstDayDate.getFullYear(),
+    firstDayDate.getMonth(),
+    firstDayDate.getDate(),
+  );
+  const cashDailyExpensesBeforeFirstDay = sumDailyExpensesUntilDate(dailyExpenses, dayBeforeFirstDayStr, undefined, { cashImpactOnly: true });
+  const cashDailyExpensesUntilLastDay = sumDailyExpensesUntilDate(dailyExpenses, lastDayStr, undefined, { cashImpactOnly: true });
 
   const balanceBeforePeriod = calculateBalanceForAnalysis(
     config?.initialBalance || 0,
     transactionsBeforeFirstDay
-  ) - dailyExpensesBeforeFirstDay.reduce((sum, expense) => sum + expense.amount, 0);
+  ) - cashDailyExpensesBeforeFirstDay;
 
   const balanceAfterPeriod = calculateBalanceForAnalysis(
     config?.initialBalance || 0,
     transactionsUntilLastDay
-  ) - dailyExpensesUntilLastDay.reduce((sum, expense) => sum + expense.amount, 0);
+  ) - cashDailyExpensesUntilLastDay;
 
   const periodBalanceChange = balanceAfterPeriod - balanceBeforePeriod;
 

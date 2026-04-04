@@ -5,7 +5,7 @@ import {
 } from '@/app/data/mockData'
 import type { DailyExpense } from '@/lib/api/dailyExpenses'
 import { createDateFromString, formatDateLocal } from '@/lib/utils/dateHelpers'
-import { getEffectiveVariableExpensesTotalForDate } from '@/lib/utils/dailyExpenses'
+import { getEffectiveVariableCashExpensesTotalForDate } from '@/lib/utils/dailyExpenses'
 
 interface CalculateAvailableBalanceUntilDateInput {
   initialBalance: number
@@ -50,7 +50,7 @@ export const calculateAvailableBalanceUntilDate = ({
       .filter((transaction) => isCashOutflowTransactionType(transaction.type) && transaction.type !== 'expense_variable')
       .reduce((sum, transaction) => sum + transaction.amount, 0)
 
-    balance -= getEffectiveVariableExpensesTotalForDate({
+    balance -= getEffectiveVariableCashExpensesTotalForDate({
       date: dateStr,
       plannedAmount: effectivePlannedAmount,
       dailyExpenses,
