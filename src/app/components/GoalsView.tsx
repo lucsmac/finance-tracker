@@ -1,8 +1,9 @@
-import { useMemo, useState } from 'react'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import {
   AlertTriangle,
   ArrowRight,
   Calculator,
+  CreditCard,
   ChevronDown,
   ChevronUp,
   Pencil,
@@ -25,6 +26,7 @@ import { useDailyPlans } from '@/lib/hooks/useDailyPlans'
 import { useTransactions } from '@/lib/hooks/useTransactions'
 import { useInvestments } from '@/lib/hooks/useInvestments'
 import { useEstimates } from '@/lib/hooks/useEstimates'
+import { useCreditCards } from '@/lib/hooks/useCreditCards'
 import { toast } from 'sonner'
 import type { Goal } from '@/app/data/mockData'
 import { getTodayLocal } from '@/lib/utils/dateHelpers'
@@ -39,6 +41,13 @@ import {
 type GoalType = Goal['type']
 type GoalPeriod = 'month' | 'year'
 type IncomeProfile = 'stable' | 'variable' | 'autonomous'
+type GoalsViewNavigateTarget = 'cards'
+
+const GOALS_VIEW_MODE_STORAGE_KEY = 'automoney:goals:view-mode'
+
+interface GoalsViewProps {
+  onNavigate?: (view: GoalsViewNavigateTarget) => void
+}
 
 const currencyFormatter = new Intl.NumberFormat('pt-BR', {
   style: 'currency',
@@ -61,6 +70,23 @@ const parseNumber = (value: string) => {
 const clamp = (value: number, min: number, max: number) => Math.min(Math.max(value, min), max)
 
 const formatCurrency = (value: number) => currencyFormatter.format(Number.isFinite(value) ? value : 0)
+
+const formatIsoDate = (value: string | null | undefined) => {
+  if (!value) return 'data indisponível'
+
+  const [year, month, day] = value.split('-')
+
+  if (!year || !month || !day) return 'data indisponível'
+
+  return `${day}/${month}/${year}`
+}
+
+const getInitialGoalViewMode = (): GoalPeriod => {
+  if (typeof window === 'undefined') return 'month'
+
+  const stored = window.localStorage.getItem(GOALS_VIEW_MODE_STORAGE_KEY)
+  return stored === 'year' ? 'year' : 'month'
+}
 
 const getGoalTypeLabel = (type: GoalType): string => {
   switch (type) {
@@ -177,7 +203,27 @@ const getCoverageToneClasses = (tone: 'low' | 'medium' | 'high') => {
   }
 }
 
-export function GoalsView() {
+const getPillarToneClasses = (status: 'healthy' | 'warning' | 'danger') => {
+  switch (status) {
+    case 'healthy':
+      return {
+        badge: 'bg-[var(--app-success)]/10 text-[var(--app-success)]',
+        bar: 'var(--app-success)',
+      }
+    case 'warning':
+      return {
+        badge: 'bg-[var(--app-warning)]/10 text-[var(--app-warning)]',
+        bar: 'var(--app-warning)',
+      }
+    default:
+      return {
+        badge: 'bg-[var(--app-danger)]/10 text-[var(--app-danger)]',
+        bar: 'var(--app-danger)',
+      }
+  }
+}
+
+export function GoalsView({ onNavigate }: GoalsViewProps) {
   const { user } = useAuth()
   const today = getTodayLocal()
   const {
@@ -194,8 +240,15 @@ export function GoalsView() {
   const { transactions, loading: transactionsLoading, error: transactionsError } = useTransactions(user?.id)
   const { investments, loading: investmentsLoading, error: investmentsError } = useInvestments(user?.id)
   const { estimates, loading: estimatesLoading, error: estimatesError } = useEstimates(user?.id)
+  const {
+    cards,
+    statements: cardStatements,
+    payments: cardPayments,
+    loading: creditCardsLoading,
+    error: creditCardsError,
+  } = useCreditCards(user?.id)
 
-  const [viewMode, setViewMode] = useState<GoalPeriod>('month')
+  const [viewMode, setViewMode] = useState<GoalPeriod>(getInitialGoalViewMode)
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingGoal, setEditingGoal] = useState<Goal | null>(null)
   const [saving, setSaving] = useState(false)
@@ -207,6 +260,7 @@ export function GoalsView() {
     currentReserve: '',
     incomeProfile: 'stable' as IncomeProfile,
   })
+  const goalsSectionRef = useRef<HTMLElement | null>(null)
   const [goalForm, setGoalForm] = useState({
     name: '',
     type: 'savings' as GoalType,
@@ -232,7 +286,8 @@ export function GoalsView() {
     dailyPlansLoading ||
     transactionsLoading ||
     investmentsLoading ||
-    estimatesLoading
+    estimatesLoading ||
+    creditCardsLoading
 
   const error =
     goalsError ||
@@ -241,11 +296,15 @@ export function GoalsView() {
     dailyPlansError ||
     transactionsError ||
     investmentsError ||
-    estimatesError
+    estimatesError ||
+    creditCardsError
 
   const healthSummary = useMemo(
     () =>
       calculateFinancialHealthSummary({
+        cards,
+        cardPayments,
+        cardStatements,
         config,
         dailyExpenses,
         estimates,
@@ -255,7 +314,7 @@ export function GoalsView() {
         transactions,
         today,
       }),
-    [config, dailyExpenses, dailyPlans, estimates, goals, investments, today, transactions],
+    [cards, cardPayments, cardStatements, config, dailyExpenses, dailyPlans, estimates, goals, investments, today, transactions],
   )
 
   const guidedMissions = useMemo(
@@ -267,6 +326,19 @@ export function GoalsView() {
     () => goals.filter((goal) => (goal.period || 'month') === viewMode),
     [goals, viewMode],
   )
+
+  const monthGoalsCount = useMemo(
+    () => goals.filter((goal) => (goal.period || 'month') === 'month').length,
+    [goals],
+  )
+
+  const yearGoalsCount = useMemo(
+    () => goals.filter((goal) => (goal.period || 'month') === 'year').length,
+    [goals],
+  )
+
+  const alternateViewMode = viewMode === 'month' ? 'year' : 'month'
+  const alternateViewGoalsCount = alternateViewMode === 'month' ? monthGoalsCount : yearGoalsCount
 
   const calculatorPreview = useMemo(
     () => {
@@ -289,6 +361,15 @@ export function GoalsView() {
 
   const achievedGoals = filteredGoals.filter((goal) => getGoalStatus(goal) === 'success').length
   const totalGoals = filteredGoals.length
+
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    window.localStorage.setItem(GOALS_VIEW_MODE_STORAGE_KEY, viewMode)
+  }, [viewMode])
+
+  const focusGoalsList = () => {
+    goalsSectionRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
+  }
 
   const openReserveCalculator = () => {
     setCalculatorForm({
@@ -562,6 +643,9 @@ export function GoalsView() {
 
   const handleMissionAction = async (mission: GuidedMission) => {
     switch (mission.action) {
+      case 'open_cards':
+        onNavigate?.('cards')
+        return
       case 'open_reserve_calculator':
         openReserveCalculator()
         return
@@ -580,6 +664,13 @@ export function GoalsView() {
   }
 
   const primaryAction = (() => {
+    if (healthSummary.priorityJourney === 'reduce_credit') {
+      return {
+        label: 'Revisar cartões',
+        onClick: () => onNavigate?.('cards'),
+      }
+    }
+
     if (healthSummary.priorityJourney === 'emergency_fund') {
       return {
         label: 'Montar reserva guiada',
@@ -598,7 +689,7 @@ export function GoalsView() {
 
     if (healthSummary.priorityJourney === 'stabilize') {
       return {
-        label: healthSummary.overdueCount > 0 ? 'Criar meta de quitação' : 'Criar teto mensal',
+        label: healthSummary.overdueCount > 0 ? 'Criar meta de quitação' : 'Criar meta de caixa',
         onClick: () => {
           if (healthSummary.overdueCount > 0) {
             void upsertDebtGoal()
@@ -655,9 +746,16 @@ export function GoalsView() {
           <div className="space-y-3">
             <h1 className="app-page-title text-4xl font-semibold">Seu plano financeiro agora</h1>
             <p className="max-w-3xl text-[var(--app-text-muted)]">
-              A tela de metas agora te orienta por etapa: mostra o nível atual, sugere a trilha certa e transforma
-              objetivos grandes em passos menores.
+              A tela de metas agora cruza caixa, crédito e patrimônio: mostra o nível atual, sugere a trilha certa
+              e transforma objetivos grandes em passos menores.
             </p>
+            <button
+              onClick={focusGoalsList}
+              className="inline-flex items-center gap-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-4 py-2 text-sm font-medium text-[var(--app-text)] transition-colors hover:border-[var(--app-border-strong)]"
+            >
+              <Target className="h-4 w-4" />
+              Ver minhas metas
+            </button>
           </div>
 
           <div className="flex flex-col gap-3 sm:flex-row">
@@ -713,6 +811,43 @@ export function GoalsView() {
               ))}
             </div>
 
+            <div className="grid gap-3 md:grid-cols-3">
+              {healthSummary.pillars.map((pillar) => {
+                const tone = getPillarToneClasses(pillar.status)
+
+                return (
+                  <div
+                    key={pillar.id}
+                    className="rounded-[1.35rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4"
+                  >
+                    <div className="flex items-start justify-between gap-3">
+                      <div>
+                        <p className="text-sm uppercase tracking-[0.16em] text-[var(--app-text-faint)]">{pillar.label}</p>
+                        <p className="mt-2 text-base font-semibold text-[var(--app-text)]">{pillar.title}</p>
+                      </div>
+                      <span className={`rounded-full px-2.5 py-1 text-[11px] font-semibold ${tone.badge}`}>
+                        {pillar.status === 'healthy' ? 'Saudável' : pillar.status === 'warning' ? 'Atenção' : 'Pressão'}
+                      </span>
+                    </div>
+                    <p className="mt-2 text-sm text-[var(--app-text-muted)]">{pillar.detail}</p>
+                    <div className="mt-4 flex items-center justify-between text-xs text-[var(--app-text-faint)]">
+                      <span>{pillar.metricLabel}</span>
+                      <span>{Math.round(pillar.progress)}%</span>
+                    </div>
+                    <div className="mt-2 h-2 overflow-hidden rounded-full bg-[var(--app-surface-strong)]">
+                      <div
+                        className="h-full rounded-full transition-all duration-500"
+                        style={{
+                          width: `${clamp(pillar.progress, 0, 100)}%`,
+                          backgroundColor: tone.bar,
+                        }}
+                      />
+                    </div>
+                  </div>
+                )
+              })}
+            </div>
+
             <Collapsible open={isCriteriaOpen} onOpenChange={setIsCriteriaOpen}>
               <div className="rounded-[1.5rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
                 <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
@@ -743,7 +878,7 @@ export function GoalsView() {
                       <p className="text-sm uppercase tracking-[0.16em] text-[var(--app-text-faint)]">Sequência das regras</p>
                       <div className="mt-3 space-y-2 text-sm text-[var(--app-text-muted)]">
                         <div>1. Menos de 60% da base pronta: Nível 0</div>
-                        <div>2. Base pronta, mas com atrasos ou 5+ dias acima do limite diário: Nível 1</div>
+                        <div>2. Base pronta, mas com atrasos, fatura vencida, crédito crítico ou mês fechando no negativo: Nível 1</div>
                         <div>3. Sem esse descontrole, mas reserva abaixo de 1 mês: Nível 2</div>
                         <div>4. Reserva entre 1 e 6 meses: Nível 3</div>
                         <div>5. Reserva de 6+ meses, mas investimentos abaixo de R$ 10.000: Nível 4</div>
@@ -798,20 +933,24 @@ export function GoalsView() {
               <div className="rounded-[1.25rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
                 <div className="mb-2 flex items-center gap-2 text-[var(--app-text-faint)]">
                   <Wallet className="h-4 w-4" />
-                  <span className="text-sm">Saldo atual</span>
+                  <span className="text-sm">Fechamento do mês</span>
                 </div>
-                <p className="text-xl font-semibold text-[var(--app-text)]">{formatCurrency(healthSummary.currentBalance)}</p>
-                <p className="mt-1 text-sm text-[var(--app-text-muted)]">Leitura até {today.split('-').reverse().join('/')}</p>
+                <p className="text-xl font-semibold text-[var(--app-text)]">{formatCurrency(healthSummary.projectedMonthEndBalance)}</p>
+                <p className="mt-1 text-sm text-[var(--app-text-muted)]">
+                  Projeção em {formatIsoDate(healthSummary.projectedMonthEndDate)}
+                </p>
               </div>
 
               <div className="rounded-[1.25rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)] p-4">
                 <div className="mb-2 flex items-center gap-2 text-[var(--app-text-faint)]">
-                  <Target className="h-4 w-4" />
-                  <span className="text-sm">Atrasos</span>
+                  <CreditCard className="h-4 w-4" />
+                  <span className="text-sm">Crédito</span>
                 </div>
-                <p className="text-xl font-semibold text-[var(--app-text)]">{healthSummary.overdueCount}</p>
+                <p className="text-xl font-semibold text-[var(--app-text)]">
+                  {Math.round(healthSummary.creditUtilizationRate * 100)}%
+                </p>
                 <p className="mt-1 text-sm text-[var(--app-text-muted)]">
-                  {formatCurrency(healthSummary.overdueAmount)} vencidos
+                  {formatCurrency(healthSummary.creditUsedLimit)} usados de {formatCurrency(healthSummary.creditUnlockedLimit)}
                 </p>
               </div>
             </div>
@@ -1076,7 +1215,7 @@ export function GoalsView() {
         </div>
       </section>
 
-      <section className="space-y-4">
+      <section ref={goalsSectionRef} className="space-y-4">
         <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
           <div>
             <p className="app-kicker">Metas em acompanhamento</p>
@@ -1093,7 +1232,7 @@ export function GoalsView() {
                     : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
                 }`}
               >
-                Mês
+                Mês ({monthGoalsCount})
               </button>
               <button
                 onClick={() => setViewMode('year')}
@@ -1103,7 +1242,7 @@ export function GoalsView() {
                     : 'text-[var(--app-text-muted)] hover:text-[var(--app-text)]'
                 }`}
               >
-                Ano
+                Ano ({yearGoalsCount})
               </button>
             </div>
 
@@ -1121,9 +1260,23 @@ export function GoalsView() {
           <div className="app-panel rounded-[1.75rem] p-12 text-center">
             <Target className="mx-auto mb-4 h-16 w-16 text-[var(--app-text-faint)]" />
             <p className="mb-2 text-lg text-[var(--app-text-muted)]">Nenhuma meta cadastrada neste período</p>
-            <p className="text-sm text-[var(--app-text-faint)]">
-              Use os templates guiados acima ou crie uma meta manual para começar.
-            </p>
+            {alternateViewGoalsCount > 0 ? (
+              <div className="space-y-3">
+                <p className="text-sm text-[var(--app-text-faint)]">
+                  Você tem {alternateViewGoalsCount} meta(s) no período {alternateViewMode === 'month' ? 'mensal' : 'anual'}.
+                </p>
+                <button
+                  onClick={() => setViewMode(alternateViewMode)}
+                  className="inline-flex items-center justify-center gap-2 rounded-2xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-4 py-2 text-sm font-medium text-[var(--app-text)] transition-colors hover:border-[var(--app-border-strong)]"
+                >
+                  Ver metas {alternateViewMode === 'month' ? 'mensais' : 'anuais'}
+                </button>
+              </div>
+            ) : (
+              <p className="text-sm text-[var(--app-text-faint)]">
+                Use os templates guiados acima ou crie uma meta manual para começar.
+              </p>
+            )}
           </div>
         ) : (
           <div className="space-y-4">

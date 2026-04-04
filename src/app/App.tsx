@@ -647,7 +647,7 @@ export default function App() {
             onSelectedMonthChange={handleSelectedMonthChange}
           />
         )}
-        {currentView === 'goals' && <GoalsView />}
+        {currentView === 'goals' && <GoalsView onNavigate={navigateToView} />}
       </div>
 
       {/* Bottom Navigation */}

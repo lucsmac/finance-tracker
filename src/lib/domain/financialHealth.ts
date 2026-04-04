@@ -1,15 +1,27 @@
 import { type Estimate, type Goal, type Investment, type Transaction } from '@/app/data/mockData'
+import type { CreditCard, CreditCardPayment, CreditCardStatement } from '@/lib/api/creditCards'
 import type { DailyExpense } from '@/lib/api/dailyExpenses'
 import { calculateAvailableBalanceUntilDate } from '@/lib/domain/availableBalance'
 import type { UserConfig } from '@/lib/api/config'
 import { createDateFromString, formatDateLocal } from '@/lib/utils/dateHelpers'
 
 type FinancialLevelKey = 'setup' | 'organizing' | 'stabilizing' | 'protected' | 'accumulating' | 'investor'
-type JourneyType = 'setup' | 'stabilize' | 'emergency_fund' | 'first_10k'
-type MissionAction = 'none' | 'open_reserve_calculator' | 'create_budget_goal' | 'create_first_10k_goal' | 'create_debt_goal'
+type JourneyType = 'setup' | 'stabilize' | 'reduce_credit' | 'emergency_fund' | 'first_10k'
+type MissionAction =
+  | 'none'
+  | 'open_reserve_calculator'
+  | 'create_budget_goal'
+  | 'create_first_10k_goal'
+  | 'create_debt_goal'
+  | 'open_cards'
 type MissionTone = 'neutral' | 'accent' | 'warning' | 'danger' | 'success'
+type FinancialPillarKey = 'cash' | 'credit' | 'assets'
+type FinancialPillarStatus = 'healthy' | 'warning' | 'danger'
 
 interface FinancialHealthInput {
+  cards: CreditCard[]
+  cardPayments: CreditCardPayment[]
+  cardStatements: CreditCardStatement[]
   config: UserConfig | null
   dailyExpenses: DailyExpense[]
   estimates: Estimate[]
@@ -65,6 +77,18 @@ export interface FinancialHealthSummary {
   monthlyEssentialCost: number
   investmentTotal: number
   currentBalance: number
+  projectedMonthEndBalance: number
+  projectedMonthEndDate: string
+  monthEndsPositive: boolean
+  cardsCount: number
+  creditTotalLimit: number
+  creditUnlockedLimit: number
+  creditUsedLimit: number
+  creditAvailableLimit: number
+  creditUtilizationRate: number
+  openCardStatementsAmount: number
+  overdueCardStatementsCount: number
+  overdueCardStatementsAmount: number
   monthlyVariableBudget: number
   currentMonthVariableSpent: number
   activeGoalsCount: number
@@ -82,6 +106,15 @@ export interface FinancialHealthSummary {
     label: string
     detail: string
     met: boolean
+  }>
+  pillars: Array<{
+    id: FinancialPillarKey
+    label: string
+    title: string
+    detail: string
+    metricLabel: string
+    progress: number
+    status: FinancialPillarStatus
   }>
 }
 
@@ -159,10 +192,32 @@ const clamp = (value: number, min: number, max: number) => Math.min(Math.max(val
 
 const roundCurrency = (value: number) => Math.round(value * 100) / 100
 
+const formatCurrency = (value: number) =>
+  value.toLocaleString('pt-BR', {
+    style: 'currency',
+    currency: 'BRL',
+  })
+
 const addDays = (dateStr: string, days: number) => {
   const date = createDateFromString(dateStr)
   date.setDate(date.getDate() + days)
   return formatDateLocal(date.getFullYear(), date.getMonth(), date.getDate())
+}
+
+const getMonthEndDate = (dateStr: string) => {
+  const date = createDateFromString(dateStr)
+  const monthEnd = new Date(date.getFullYear(), date.getMonth() + 1, 0)
+  return formatDateLocal(monthEnd.getFullYear(), monthEnd.getMonth(), monthEnd.getDate())
+}
+
+const formatIsoDateForDisplay = (dateStr: string | null | undefined) => {
+  if (!dateStr) return 'data indisponível'
+
+  const [year, month, day] = dateStr.split('-')
+
+  if (!year || !month || !day) return 'data indisponível'
+
+  return `${day}/${month}/${year}`
 }
 
 const sumAmounts = <T>(items: T[], selector: (item: T) => number) =>
@@ -352,6 +407,64 @@ const estimateReserveCurrent = (goals: Goal[], investments: Investment[]) => {
   return 0
 }
 
+const getCreditHealthSnapshot = (
+  cards: CreditCard[],
+  statements: CreditCardStatement[],
+  payments: CreditCardPayment[],
+  today: string,
+) => {
+  const paidByStatement = new Map<string, number>()
+
+  payments.forEach((payment) => {
+    paidByStatement.set(
+      payment.statementId,
+      (paidByStatement.get(payment.statementId) || 0) + payment.amount,
+    )
+  })
+
+  const statementSummaries = statements.map((statement) => {
+    const paidAmount = paidByStatement.get(statement.id) || 0
+    const remainingAmount = roundCurrency(Math.max(statement.totalAmount - paidAmount, 0))
+
+    return {
+      statement,
+      paidAmount,
+      remainingAmount,
+      overdue: remainingAmount > 0 && statement.dueDate < today,
+    }
+  })
+
+  const totalLimit = sumAmounts(cards, (card) => card.totalLimit)
+  const totalBlockedLimit = sumAmounts(cards, (card) => card.blockedLimit)
+  const totalUnlockedLimit = roundCurrency(Math.max(totalLimit - totalBlockedLimit, 0))
+  const totalUsedLimit = sumAmounts(cards, (card) => card.usedLimit)
+  const totalFreeLimit = roundCurrency(Math.max(totalUnlockedLimit - totalUsedLimit, 0))
+  const openStatementsAmount = sumAmounts(
+    statementSummaries.filter((summary) => summary.remainingAmount > 0),
+    (summary) => summary.remainingAmount,
+  )
+  const overdueStatements = statementSummaries.filter((summary) => summary.overdue)
+  const overdueStatementsAmount = sumAmounts(overdueStatements, (summary) => summary.remainingAmount)
+  const utilizationRate =
+    totalUnlockedLimit > 0
+      ? clamp(totalUsedLimit / totalUnlockedLimit, 0, 1)
+      : totalUsedLimit > 0
+        ? 1
+        : 0
+
+  return {
+    cardsCount: cards.length,
+    totalLimit,
+    totalUnlockedLimit,
+    totalUsedLimit,
+    totalFreeLimit,
+    openStatementsAmount,
+    overdueStatementsCount: overdueStatements.length,
+    overdueStatementsAmount,
+    utilizationRate,
+  }
+}
+
 const inferConfidence = ({
   config,
   estimates,
@@ -511,6 +624,9 @@ export const calculateEmergencyFund = ({
 }
 
 export const calculateFinancialHealthSummary = ({
+  cards,
+  cardPayments,
+  cardStatements,
   config,
   dailyExpenses,
   estimates,
@@ -520,6 +636,18 @@ export const calculateFinancialHealthSummary = ({
   transactions,
   today,
 }: FinancialHealthInput): FinancialHealthSummary => {
+  const creditSnapshot = getCreditHealthSnapshot(cards, cardStatements, cardPayments, today)
+  const {
+    cardsCount,
+    totalLimit: creditTotalLimit,
+    totalUnlockedLimit: creditUnlockedLimit,
+    totalUsedLimit: creditUsedLimit,
+    totalFreeLimit: creditAvailableLimit,
+    openStatementsAmount: openCardStatementsAmount,
+    overdueStatementsCount: overdueCardStatementsCount,
+    overdueStatementsAmount: overdueCardStatementsAmount,
+    utilizationRate: creditUtilizationRate,
+  } = creditSnapshot
   const investmentTotal = sumAmounts(investments, (investment) => investment.amount)
   const currentReserve = estimateReserveCurrent(goals, investments)
   const essentialCostProfile = buildEssentialCostProfile(estimates, transactions, config, today)
@@ -531,11 +659,44 @@ export const calculateFinancialHealthSummary = ({
     (transaction) => mandatoryTypes.has(transaction.type) && !transaction.paid && transaction.date < today,
   )
   const overdueAmount = sumAmounts(overdueTransactions, (transaction) => transaction.amount)
+  const currentBalance = calculateAvailableBalanceUntilDate({
+    initialBalance: config?.initialBalance || 0,
+    transactions,
+    dailyExpenses,
+    dailyStandard: config?.dailyStandard || 0,
+    balanceStartDate: config?.balanceStartDate,
+    targetDate: today,
+    getPlannedAmountForDate,
+  })
+  const projectedMonthEndDate = getMonthEndDate(today)
+  const projectedMonthEndBalance = calculateAvailableBalanceUntilDate({
+    initialBalance: config?.initialBalance || 0,
+    transactions,
+    dailyExpenses,
+    dailyStandard: config?.dailyStandard || 0,
+    balanceStartDate: config?.balanceStartDate,
+    targetDate: projectedMonthEndDate,
+    getPlannedAmountForDate,
+  })
+  const monthEndsPositive = projectedMonthEndBalance >= 0
   const { overrunDays, trackedDays, underControlDays } = getBudgetWindowStats(
     transactions,
     config?.dailyStandard || 0,
     today,
   )
+  const hasCriticalCreditPressure =
+    overdueCardStatementsCount > 0 ||
+    creditUtilizationRate >= 0.85 ||
+    (openCardStatementsAmount > 0 && openCardStatementsAmount > Math.max(currentBalance, 0))
+  const hasActiveCreditUse = creditUsedLimit > 0 || openCardStatementsAmount > 0
+  const hasCreditDependence =
+    hasActiveCreditUse &&
+    (
+      creditUtilizationRate >= 0.45 ||
+      creditUsedLimit >= 1500 ||
+      (monthlyEssentialCost > 0 && openCardStatementsAmount >= monthlyEssentialCost * 0.5)
+    )
+  const shouldPrioritizeCredit = hasCriticalCreditPressure || (reserveCoverageMonths >= 0.5 && hasCreditDependence)
 
   const recurringIncomeCount = transactions.filter((transaction) => transaction.type === 'income' && transaction.recurring).length
   const setupChecks = [
@@ -552,7 +713,7 @@ export const calculateFinancialHealthSummary = ({
 
   if (setupProgress < 0.6) {
     levelKey = 'setup'
-  } else if (overdueTransactions.length > 0 || overrunDays >= 5) {
+  } else if (overdueTransactions.length > 0 || !monthEndsPositive || hasCriticalCreditPressure) {
     levelKey = 'organizing'
   } else if (reserveCoverageMonths < 1) {
     levelKey = 'stabilizing'
@@ -572,22 +733,18 @@ export const calculateFinancialHealthSummary = ({
   if (overdueTransactions.length > 0) {
     reasons.push(`${overdueTransactions.length} compromisso(s) vencido(s) aguardando quitação`)
   }
-  if (overrunDays > 0 && trackedDays > 0) {
-    reasons.push(`${overrunDays} dia(s) acima do limite nos ultimos 14 dias`)
+  if (!monthEndsPositive) {
+    reasons.push(`projeção de fechamento do mês em ${formatCurrency(projectedMonthEndBalance)}`)
+  }
+  if (overdueCardStatementsCount > 0) {
+    reasons.push(`${overdueCardStatementsCount} fatura(s) de cartão vencida(s)`)
+  }
+  if (hasActiveCreditUse) {
+    reasons.push(`${Math.round(creditUtilizationRate * 100)}% do limite desbloqueado do cartão em uso`)
   }
   if (monthlyEssentialCost > 0) {
     reasons.push(`${reserveCoverageMonths.toFixed(1)} mes(es) de reserva cobertos`)
   }
-
-  const currentBalance = calculateAvailableBalanceUntilDate({
-    initialBalance: config?.initialBalance || 0,
-    transactions,
-    dailyExpenses,
-    dailyStandard: config?.dailyStandard || 0,
-    balanceStartDate: config?.balanceStartDate,
-    targetDate: today,
-    getPlannedAmountForDate,
-  })
 
   const currentMonthKey = today.slice(0, 7)
   const monthlyVariableBudget = roundCurrency((config?.dailyStandard || 0) * 30)
@@ -604,8 +761,11 @@ export const calculateFinancialHealthSummary = ({
         return clamp(setupProgress * 100, 0, 100)
       case 'organizing': {
         const overdueProgress = overdueTransactions.length === 0 ? 1 : clamp(1 - overdueTransactions.length / 3, 0, 1)
-        const budgetProgress = trackedDays === 0 ? 0.5 : clamp(1 - overrunDays / 7, 0, 1)
-        return clamp(average([overdueProgress, budgetProgress]) * 100, 0, 100)
+        const monthEndProgress = monthEndsPositive
+          ? 1
+          : clamp(1 - Math.abs(projectedMonthEndBalance) / Math.max(monthlyEssentialCost || 1, 1), 0, 1)
+        const creditProgress = hasCriticalCreditPressure ? clamp((1 - creditUtilizationRate) * 100, 0, 100) / 100 : 1
+        return clamp(average([overdueProgress, monthEndProgress, creditProgress]) * 100, 0, 100)
       }
       case 'stabilizing':
         return clamp(reserveCoverageMonths * 100, 0, 100)
@@ -623,9 +783,15 @@ export const calculateFinancialHealthSummary = ({
       case 'setup':
         return 'Completar a base para o app recomendar um plano melhor'
       case 'organizing':
-        return overdueTransactions.length > 0
-          ? 'Zerar compromissos vencidos'
-          : 'Passar duas semanas com menos rompimentos do limite diario'
+        if (overdueTransactions.length > 0 || overdueCardStatementsCount > 0) {
+          return 'Eliminar atrasos do caixa e do cartão'
+        }
+
+        if (hasCriticalCreditPressure) {
+          return 'Trazer o uso do crédito para uma zona mais segura'
+        }
+
+        return 'Fechar o mês no positivo com mais folga'
       case 'stabilizing':
         return 'Chegar a 1 mes de custo essencial protegido'
       case 'protected':
@@ -639,12 +805,37 @@ export const calculateFinancialHealthSummary = ({
 
   const priorityJourney: JourneyType = (() => {
     if (levelKey === 'setup') return 'setup'
-    if (levelKey === 'organizing') return 'stabilize'
+    if (overdueCardStatementsCount > 0) return 'reduce_credit'
+    if (overdueTransactions.length > 0 || !monthEndsPositive) return 'stabilize'
+    if (shouldPrioritizeCredit) return 'reduce_credit'
     if (reserveCoverageMonths < 6) return 'emergency_fund'
     return 'first_10k'
   })()
 
   const levelMeta = getLevelMeta(levelKey)
+  const focusLabel = (() => {
+    if (levelKey === 'setup') return levelMeta.focusLabel
+    if (overdueTransactions.length > 0 || overdueCardStatementsCount > 0) {
+      return 'Limpar urgências do caixa e tirar pressão do crédito.'
+    }
+    if (!monthEndsPositive) {
+      return 'Virar o fechamento do mês para o azul antes de acelerar outras metas.'
+    }
+    if (shouldPrioritizeCredit) {
+      return 'Reduzir a dependência do cartão e voltar ao débito como padrão.'
+    }
+    if (reserveCoverageMonths < 1) {
+      return 'Construir a primeira camada da reserva de emergência.'
+    }
+    if (reserveCoverageMonths < 6) {
+      return 'Completar uma reserva mais robusta antes de acelerar risco.'
+    }
+    if (investmentTotal < 10000) {
+      return 'Transformar a estabilidade atual em patrimônio investido.'
+    }
+
+    return levelMeta.focusLabel
+  })()
   const criteria = [
     {
       id: 'setup',
@@ -662,13 +853,23 @@ export const calculateFinancialHealthSummary = ({
       met: overdueTransactions.length === 0,
     },
     {
-      id: 'budget',
-      label: 'Controle recente do gasto diário',
+      id: 'month_end',
+      label: 'Fechamento do mês no positivo',
+      detail: `Projeção em ${formatIsoDateForDisplay(projectedMonthEndDate)}: ${formatCurrency(projectedMonthEndBalance)}`,
+      met: monthEndsPositive,
+    },
+    {
+      id: 'credit',
+      label: 'Uso do crédito sob controle',
       detail:
-        trackedDays === 0
-          ? 'Ainda sem histórico suficiente'
-          : `${overrunDays} dia(s) acima do limite nos últimos 14`,
-      met: trackedDays === 0 ? false : overrunDays < 5,
+        cardsCount === 0
+          ? 'Nenhum cartão impactando o plano'
+          : overdueCardStatementsCount > 0
+            ? `${overdueCardStatementsCount} fatura(s) vencida(s)`
+            : creditUnlockedLimit <= 0
+              ? 'Sem limite liberado no momento'
+              : `${Math.round(creditUtilizationRate * 100)}% do limite desbloqueado em uso`,
+      met: overdueCardStatementsCount === 0 && creditUtilizationRate < 0.85,
     },
     {
       id: 'reserve_1m',
@@ -701,7 +902,7 @@ export const calculateFinancialHealthSummary = ({
     if (levelKey === 'organizing') {
       return {
         title: 'Nível 1',
-        description: 'A base já existe, mas ainda há atraso em compromissos ou 5+ dias acima do limite diário nos últimos 14 dias.',
+        description: 'A base já existe, mas ainda há atraso no caixa, fechamento projetado negativo ou pressão de cartão relevante.',
       }
     }
 
@@ -755,9 +956,134 @@ export const calculateFinancialHealthSummary = ({
       message: `Já existem ${historicalDataMonths} mes(es) de dados preenchidos. Isso deixa a estimativa mais consistente.`,
     }
   })()
+  const cashPillar = (() => {
+    const status: FinancialPillarStatus =
+      overdueTransactions.length > 0 || !monthEndsPositive
+        ? 'danger'
+        : projectedMonthEndBalance < Math.max((config?.dailyStandard || 0) * 5, monthlyEssentialCost * 0.15)
+          ? 'warning'
+          : 'healthy'
+
+    const detail =
+      overdueTransactions.length > 0
+        ? `${overdueTransactions.length} pendência(s) vencida(s) ainda pressionam o fechamento do mês`
+        : !monthEndsPositive
+          ? `Hoje a projeção aponta fechamento em ${formatCurrency(projectedMonthEndBalance)}`
+          : projectedMonthEndBalance < Math.max((config?.dailyStandard || 0) * 5, monthlyEssentialCost * 0.15)
+            ? `O mês fecha positivo, mas com folga curta em ${formatCurrency(projectedMonthEndBalance)}`
+            : `O mês tende a fechar no positivo em ${formatCurrency(projectedMonthEndBalance)}`
+
+    return {
+      id: 'cash' as const,
+      label: 'Caixa',
+      title:
+        status === 'healthy'
+          ? 'Mês fechando no azul'
+          : status === 'warning'
+            ? 'Caixa com pouca folga'
+            : 'Mês ameaçando fechar no vermelho',
+      detail,
+      metricLabel: `${formatCurrency(projectedMonthEndBalance)} no fim do mês`,
+      progress:
+        status === 'danger'
+          ? clamp(average([
+              overdueTransactions.length === 0 ? 100 : clamp((1 - overdueTransactions.length / 3) * 100, 0, 100),
+              clamp((1 - Math.abs(projectedMonthEndBalance) / Math.max(monthlyEssentialCost || 1, 1)) * 100, 0, 100),
+            ]), 0, 100)
+          : status === 'warning'
+            ? clamp((projectedMonthEndBalance / Math.max(monthlyEssentialCost || 1, 1)) * 100, 40, 100)
+            : 100,
+      status,
+    }
+  })()
+  const creditPillar = (() => {
+    const status: FinancialPillarStatus =
+      hasCriticalCreditPressure
+        ? 'danger'
+        : hasActiveCreditUse
+          ? 'warning'
+          : 'healthy'
+
+    const detail =
+      cardsCount === 0
+        ? 'Sem cartão influenciando sua prioridade atual'
+        : overdueCardStatementsCount > 0
+          ? `${overdueCardStatementsCount} fatura(s) vencida(s) somando ${formatCurrency(overdueCardStatementsAmount)}`
+          : hasActiveCreditUse
+            ? `${formatCurrency(creditUsedLimit)} usados de ${formatCurrency(creditUnlockedLimit)} liberados`
+            : 'Cartões sem saldo usado relevante neste momento'
+
+    return {
+      id: 'credit' as const,
+      label: 'Crédito',
+      title:
+        status === 'healthy'
+          ? 'Crédito leve'
+          : status === 'warning'
+            ? 'Dependência do cartão'
+            : 'Crédito pressionando o plano',
+      detail,
+      metricLabel:
+        cardsCount === 0
+          ? 'Sem pressão ativa'
+          : `${Math.round(creditUtilizationRate * 100)}% do limite desbloqueado em uso`,
+      progress:
+        cardsCount === 0
+          ? 100
+          : hasCriticalCreditPressure
+            ? clamp((1 - creditUtilizationRate) * 100, 0, 100)
+            : hasActiveCreditUse
+              ? clamp((1 - creditUtilizationRate) * 100, 0, 100)
+              : 100,
+      status,
+    }
+  })()
+  const assetsPillar = (() => {
+    const status: FinancialPillarStatus =
+      reserveCoverageMonths < 1
+        ? 'danger'
+        : reserveCoverageMonths < 6 || investmentTotal < 10000
+          ? 'warning'
+          : 'healthy'
+
+    const detail =
+      reserveCoverageMonths < 1
+        ? `${reserveCoverageMonths.toFixed(1)} mes(es) de reserva hoje`
+        : reserveCoverageMonths < 6
+          ? `${reserveCoverageMonths.toFixed(1)} mes(es) cobertos; ainda falta robustez`
+          : investmentTotal < 10000
+            ? `${formatCurrency(investmentTotal)} acumulados rumo aos primeiros R$ 10 mil`
+            : 'Reserva e patrimônio em um patamar mais resiliente'
+
+    const progress =
+      reserveCoverageMonths < 1
+        ? clamp(reserveCoverageMonths * 100, 0, 100)
+        : reserveCoverageMonths < 6
+          ? clamp(((reserveCoverageMonths - 1) / 5) * 100, 0, 100)
+          : investmentTotal < 10000
+            ? clamp((investmentTotal / 10000) * 100, 0, 100)
+            : 100
+
+    return {
+      id: 'assets' as const,
+      label: 'Patrimônio',
+      title:
+        status === 'healthy'
+          ? 'Reserva e patrimônio consistentes'
+          : status === 'warning'
+            ? 'Patrimônio em construção'
+            : 'Reserva ainda curta',
+      detail,
+      metricLabel: `${reserveCoverageMonths.toFixed(1)} mes(es) de reserva`,
+      progress,
+      status,
+    }
+  })()
+  const pillars = [cashPillar, creditPillar, assetsPillar]
 
   return {
     ...levelMeta,
+    focusLabel,
     confidence: inferConfidence({
       config,
       estimates,
@@ -780,6 +1106,18 @@ export const calculateFinancialHealthSummary = ({
     monthlyEssentialCost,
     investmentTotal,
     currentBalance,
+    projectedMonthEndBalance,
+    projectedMonthEndDate,
+    monthEndsPositive,
+    cardsCount,
+    creditTotalLimit,
+    creditUnlockedLimit,
+    creditUsedLimit,
+    creditAvailableLimit,
+    creditUtilizationRate,
+    openCardStatementsAmount,
+    overdueCardStatementsCount,
+    overdueCardStatementsAmount,
     monthlyVariableBudget,
     currentMonthVariableSpent,
     activeGoalsCount: goals.length,
@@ -793,6 +1131,7 @@ export const calculateFinancialHealthSummary = ({
     essentialCostIncludedBreakdown: essentialCostProfile.includedBreakdown,
     essentialCostExcludedBreakdown: essentialCostProfile.excludedBreakdown,
     criteria,
+    pillars,
   }
 }
 
@@ -800,6 +1139,31 @@ export const buildGuidedMissions = (
   summary: FinancialHealthSummary,
 ): GuidedMission[] => {
   const missions: GuidedMission[] = []
+
+  if (summary.cardsCount > 0 && (summary.creditUsedLimit > 0 || summary.openCardStatementsAmount > 0)) {
+    missions.push({
+      id: 'reduce-card-dependence',
+      title: summary.overdueCardStatementsCount > 0 ? 'Regularizar cartões' : 'Reduzir dependência do cartão',
+      description:
+        summary.overdueCardStatementsCount > 0
+          ? 'Use a área de cartões para atacar as faturas vencidas e enxugar o limite que continua te puxando para o crédito.'
+          : 'Ajuste o limite desbloqueado e acompanhe a queda do saldo usado até o débito voltar a ser o padrão.',
+      whyItMatters:
+        summary.overdueCardStatementsCount > 0
+          ? `${summary.overdueCardStatementsCount} fatura(s) vencida(s) somam ${formatCurrency(summary.overdueCardStatementsAmount)} e travam o caixa.`
+          : `${formatCurrency(summary.creditUsedLimit)} do crédito ainda estão ocupados. Quanto menor essa dependência, mais real fica o plano em débito.`,
+      metricLabel: `${formatCurrency(summary.creditUsedLimit)} usados de ${formatCurrency(summary.creditUnlockedLimit)} liberados`,
+      progress:
+        summary.creditUnlockedLimit > 0
+          ? clamp((1 - summary.creditUtilizationRate) * 100, 0, 100)
+          : summary.creditUsedLimit > 0
+            ? 0
+            : 100,
+      action: 'open_cards',
+      actionLabel: 'Revisar cartões',
+      tone: summary.overdueCardStatementsCount > 0 || summary.creditUtilizationRate >= 0.85 ? 'danger' : 'warning',
+    })
+  }
 
   if (summary.overdueCount > 0) {
     missions.push({
@@ -812,6 +1176,20 @@ export const buildGuidedMissions = (
       action: 'create_debt_goal',
       actionLabel: 'Criar meta de quitacao',
       tone: 'danger',
+    })
+  }
+
+  if (summary.monthlyVariableBudget > 0 && !summary.monthEndsPositive) {
+    missions.push({
+      id: 'month-end-positive',
+      title: 'Fechar o mês no positivo',
+      description: 'Use um teto de gasto mensal para virar a projeção do fechamento e recuperar folga no caixa.',
+      whyItMatters: `Com a projeção atual em ${formatCurrency(summary.projectedMonthEndBalance)}, o mês ainda tende a terminar no vermelho.`,
+      metricLabel: `Fechamento projetado em ${formatIsoDateForDisplay(summary.projectedMonthEndDate)}`,
+      progress: clamp((1 - Math.abs(summary.projectedMonthEndBalance) / Math.max(summary.monthlyEssentialCost || 1, 1)) * 100, 0, 100),
+      action: 'create_budget_goal',
+      actionLabel: 'Criar meta de caixa',
+      tone: 'warning',
     })
   }
 
@@ -840,22 +1218,6 @@ export const buildGuidedMissions = (
       action: 'open_reserve_calculator',
       actionLabel: 'Transformar em meta',
       tone: 'accent',
-    })
-  }
-
-  if (summary.monthlyVariableBudget > 0 && summary.recentOverrunDays >= 5) {
-    const underControlDays = Math.max(summary.trackedBudgetDays - summary.recentOverrunDays, 0)
-
-    missions.push({
-      id: 'budget-control',
-      title: 'Passar 7 dias dentro do planejado',
-      description: 'Use um teto de gasto mensal para transformar disciplina diaria em uma meta visivel.',
-      whyItMatters: `${summary.recentOverrunDays} dias acima do limite nos ultimos 14 indicam fuga de comportamento.`,
-      metricLabel: `${underControlDays} de 7 dias dentro do alvo`,
-      progress: clamp((underControlDays / 7) * 100, 0, 100),
-      action: 'create_budget_goal',
-      actionLabel: 'Criar teto mensal',
-      tone: 'warning',
     })
   }
 
