@@ -968,12 +968,12 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                   ) : (
                     <span className="ml-0 text-xl font-bold text-[var(--app-text)]">{dayData.day}</span>
                   )}
-                  {dayData.isToday && (
-                    <span className="inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
-                      Hoje
-                    </span>
-                  )}
                 </div>
+                {dayData.isToday && (
+                  <span className="inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
+                    Hoje
+                  </span>
+                )}
               </div>
 
               {/* Saldo */}
@@ -1104,12 +1104,12 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                         {dayData.day}
                       </span>
                     )}
-                    {dayData.isToday && (
-                      <span className="inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
-                        Hoje
-                      </span>
-                    )}
                   </div>
+                  {dayData.isToday && (
+                    <span className="inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
+                      Hoje
+                    </span>
+                  )}
                 </div>
 
                 {/* Centro: Saldo */}
