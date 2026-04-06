@@ -15,6 +15,9 @@ export interface Transaction {
   description: string;
   amount: number;
   investmentId?: string;
+  paymentMethod?: 'debit' | 'credit_card';
+  creditCardId?: string;
+  statementReferenceMonth?: string;
   installmentGroup?: string;
   installmentNumber?: number;
   totalInstallments?: number;
@@ -55,6 +58,17 @@ export const isCashInflowTransactionType = (type: Transaction['type']) =>
 export const isCashOutflowTransactionType = (type: Transaction['type']) =>
   type === 'expense_variable' || type === 'expense_fixed' || type === 'installment' || type === 'investment';
 
+const isCashImpactTransaction = (transaction: Transaction) =>
+  transaction.type === 'investment' ||
+  (
+    isCashOutflowTransactionType(transaction.type) &&
+    !(transaction.paymentMethod === 'credit_card' && (
+      transaction.type === 'expense_variable' ||
+      transaction.type === 'expense_fixed' ||
+      transaction.type === 'installment'
+    ))
+  );
+
 export const isExpenseAnalysisTransactionType = (type: Transaction['type']) =>
   type === 'expense_variable' || type === 'expense_fixed' || type === 'installment';
 
@@ -90,7 +104,7 @@ export const calculateCurrentBalance = (
   sortedTransactions.forEach(t => {
     if (isCashInflowTransactionType(t.type)) {
       balance += t.amount;
-    } else if (isCashOutflowTransactionType(t.type)) {
+    } else if (isCashImpactTransaction(t)) {
       balance -= t.amount;
     }
   });
@@ -169,7 +183,8 @@ export const calculateCommittedAmount = (
     .filter(t =>
       !t.paid &&
       t.date >= currentDate &&
-      (t.type === 'expense_fixed' || t.type === 'installment')
+      (t.type === 'expense_fixed' || t.type === 'installment') &&
+      isCashImpactTransaction(t)
     )
     .reduce((sum, t) => sum + t.amount, 0);
 };

@@ -1,6 +1,24 @@
 import { supabase } from '../supabase'
 import type { Transaction } from '@/app/data/mockData'
 
+const mapTransaction = (item: any): Transaction => ({
+  id: item.id,
+  date: item.date,
+  type: item.type,
+  category: item.category,
+  description: item.description,
+  amount: parseFloat(item.amount),
+  investmentId: item.investment_id || undefined,
+  paymentMethod: item.payment_method || 'debit',
+  creditCardId: item.credit_card_id || undefined,
+  statementReferenceMonth: item.statement_reference_month || undefined,
+  installmentGroup: item.installment_group,
+  installmentNumber: item.installment_number,
+  totalInstallments: item.total_installments,
+  recurring: item.recurring,
+  paid: item.paid
+})
+
 export const transactionsApi = {
   async getAll(userId: string) {
     const { data, error } = await supabase
@@ -11,20 +29,7 @@ export const transactionsApi = {
 
     if (error) throw error
 
-    return (data || []).map(item => ({
-      id: item.id,
-      date: item.date,
-      type: item.type,
-      category: item.category,
-      description: item.description,
-      amount: parseFloat(item.amount),
-      investmentId: item.investment_id || undefined,
-      installmentGroup: item.installment_group,
-      installmentNumber: item.installment_number,
-      totalInstallments: item.total_installments,
-      recurring: item.recurring,
-      paid: item.paid
-    })) as Transaction[]
+    return (data || []).map(mapTransaction)
   },
 
   async getByDateRange(userId: string, startDate: string, endDate: string) {
@@ -38,20 +43,7 @@ export const transactionsApi = {
 
     if (error) throw error
 
-    return (data || []).map(item => ({
-      id: item.id,
-      date: item.date,
-      type: item.type,
-      category: item.category,
-      description: item.description,
-      amount: parseFloat(item.amount),
-      investmentId: item.investment_id || undefined,
-      installmentGroup: item.installment_group,
-      installmentNumber: item.installment_number,
-      totalInstallments: item.total_installments,
-      recurring: item.recurring,
-      paid: item.paid
-    })) as Transaction[]
+    return (data || []).map(mapTransaction)
   },
 
   async create(userId: string, transaction: Omit<Transaction, 'id'>) {
@@ -65,6 +57,9 @@ export const transactionsApi = {
         description: transaction.description,
         amount: transaction.amount,
         investment_id: transaction.investmentId,
+        payment_method: transaction.paymentMethod || 'debit',
+        credit_card_id: transaction.creditCardId || null,
+        statement_reference_month: transaction.statementReferenceMonth || null,
         installment_group: transaction.installmentGroup,
         installment_number: transaction.installmentNumber,
         total_installments: transaction.totalInstallments,
@@ -76,20 +71,7 @@ export const transactionsApi = {
 
     if (error) throw error
 
-    return {
-      id: data.id,
-      date: data.date,
-      type: data.type,
-      category: data.category,
-      description: data.description,
-      amount: parseFloat(data.amount),
-      investmentId: data.investment_id || undefined,
-      installmentGroup: data.installment_group,
-      installmentNumber: data.installment_number,
-      totalInstallments: data.total_installments,
-      recurring: data.recurring,
-      paid: data.paid
-    } as Transaction
+    return mapTransaction(data)
   },
 
   /**
@@ -126,6 +108,9 @@ export const transactionsApi = {
         description: firstInstallment.description,
         amount: firstInstallment.amount,
         investment_id: null,
+        payment_method: firstInstallment.paymentMethod || 'debit',
+        credit_card_id: firstInstallment.creditCardId || null,
+        statement_reference_month: firstInstallment.statementReferenceMonth || null,
         installment_group: firstInstallment.installmentGroup,
         installment_number: installmentNumber,
         total_installments: totalInstallments,
@@ -141,20 +126,7 @@ export const transactionsApi = {
 
     if (error) throw error
 
-    return (data || []).map(item => ({
-      id: item.id,
-      date: item.date,
-      type: item.type,
-      category: item.category,
-      description: item.description,
-      amount: parseFloat(item.amount),
-      investmentId: item.investment_id || undefined,
-      installmentGroup: item.installment_group,
-      installmentNumber: item.installment_number,
-      totalInstallments: item.total_installments,
-      recurring: item.recurring,
-      paid: item.paid
-    })) as Transaction[]
+    return (data || []).map(mapTransaction)
   },
 
   async update(id: string, updates: Partial<Transaction>) {
@@ -164,10 +136,13 @@ export const transactionsApi = {
     if (updates.category !== undefined) dbUpdates.category = updates.category
     if (updates.description !== undefined) dbUpdates.description = updates.description
     if (updates.amount !== undefined) dbUpdates.amount = updates.amount
-    if (updates.investmentId !== undefined) dbUpdates.investment_id = updates.investmentId
-    if (updates.installmentGroup !== undefined) dbUpdates.installment_group = updates.installmentGroup
-    if (updates.installmentNumber !== undefined) dbUpdates.installment_number = updates.installmentNumber
-    if (updates.totalInstallments !== undefined) dbUpdates.total_installments = updates.totalInstallments
+    if ('investmentId' in updates) dbUpdates.investment_id = updates.investmentId || null
+    if ('paymentMethod' in updates) dbUpdates.payment_method = updates.paymentMethod
+    if ('creditCardId' in updates) dbUpdates.credit_card_id = updates.creditCardId || null
+    if ('statementReferenceMonth' in updates) dbUpdates.statement_reference_month = updates.statementReferenceMonth || null
+    if ('installmentGroup' in updates) dbUpdates.installment_group = updates.installmentGroup || null
+    if ('installmentNumber' in updates) dbUpdates.installment_number = updates.installmentNumber || null
+    if ('totalInstallments' in updates) dbUpdates.total_installments = updates.totalInstallments || null
     if (updates.recurring !== undefined) dbUpdates.recurring = updates.recurring
     if (updates.paid !== undefined) dbUpdates.paid = updates.paid
 
@@ -180,20 +155,7 @@ export const transactionsApi = {
 
     if (error) throw error
 
-    return {
-      id: data.id,
-      date: data.date,
-      type: data.type,
-      category: data.category,
-      description: data.description,
-      amount: parseFloat(data.amount),
-      investmentId: data.investment_id || undefined,
-      installmentGroup: data.installment_group,
-      installmentNumber: data.installment_number,
-      totalInstallments: data.total_installments,
-      recurring: data.recurring,
-      paid: data.paid
-    } as Transaction
+    return mapTransaction(data)
   },
 
   async delete(id: string) {
@@ -260,6 +222,9 @@ export const transactionsApi = {
               description: recurring.description,
               amount: recurring.amount,
               investment_id: recurring.investment_id,
+              payment_method: recurring.payment_method || 'debit',
+              credit_card_id: recurring.credit_card_id || null,
+              statement_reference_month: recurring.statement_reference_month || null,
               recurring: true,
               paid: false
             }])
@@ -272,17 +237,7 @@ export const transactionsApi = {
           }
 
           if (created) {
-            createdTransactions.push({
-              id: created.id,
-              date: created.date,
-              type: created.type,
-              category: created.category,
-              description: created.description,
-              amount: parseFloat(created.amount),
-              investmentId: created.investment_id || undefined,
-              recurring: created.recurring,
-              paid: created.paid
-            } as Transaction)
+            createdTransactions.push(mapTransaction(created))
           }
         }
       }

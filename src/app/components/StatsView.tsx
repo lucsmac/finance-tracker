@@ -33,7 +33,6 @@ import {
 } from 'recharts';
 import {
   isCashInflowTransactionType,
-  isCashOutflowTransactionType,
   isExpenseAnalysisTransactionType,
   type Transaction,
 } from '../data/mockData';
@@ -47,6 +46,7 @@ import {
   getEffectiveVariableCashExpensesTotalForDate,
   sumDailyExpensesUntilDate,
 } from '@/lib/utils/dailyExpenses';
+import { isCashImpactTransaction } from '@/lib/utils/transactionPayments';
 import { formatDateLocal } from '@/lib/utils/dateHelpers';
 import {
   buildReportFilename,
@@ -161,7 +161,7 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
         .reduce((sum, transaction) => sum + transaction.amount, 0);
 
       balance -= dayTransactions
-        .filter(transaction => isCashOutflowTransactionType(transaction.type) && transaction.type !== 'expense_variable')
+        .filter(transaction => isCashImpactTransaction(transaction) && transaction.type !== 'expense_variable')
         .reduce((sum, transaction) => sum + transaction.amount, 0);
 
       balance -= getEffectiveCashVariableExpensesForDate(dateStr);
@@ -250,7 +250,7 @@ export function StatsView({ selectedMonth, onSelectedMonthChange }: StatsViewPro
     transactionsToInclude.forEach(t => {
       if (isCashInflowTransactionType(t.type)) {
         balance += t.amount;
-      } else if (isCashOutflowTransactionType(t.type)) {
+      } else if (isCashImpactTransaction(t)) {
         balance -= t.amount;
       }
     });

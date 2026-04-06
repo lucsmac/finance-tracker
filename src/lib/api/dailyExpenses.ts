@@ -25,6 +25,8 @@ export interface CreateDailyExpenseInput {
   statementReferenceMonth?: string
 }
 
+export type UpdateDailyExpenseInput = Partial<CreateDailyExpenseInput>
+
 const mapDailyExpense = (item: any): DailyExpense => ({
   id: item.id,
   userId: item.user_id,
@@ -80,6 +82,34 @@ export const dailyExpensesApi = {
         credit_card_id: expense.creditCardId || null,
         statement_reference_month: expense.statementReferenceMonth || null,
       }])
+      .select()
+      .single()
+
+    if (error) {
+      if (isMissingDailyExpensesTableError(error)) {
+        throw createMissingTableError()
+      }
+
+      throw error
+    }
+
+    return mapDailyExpense(data)
+  },
+
+  async update(id: string, updates: UpdateDailyExpenseInput) {
+    const dbUpdates: any = {}
+    if (updates.date !== undefined) dbUpdates.date = updates.date
+    if (updates.title !== undefined) dbUpdates.title = updates.title
+    if (updates.category !== undefined) dbUpdates.category = updates.category
+    if (updates.amount !== undefined) dbUpdates.amount = updates.amount
+    if ('paymentMethod' in updates) dbUpdates.payment_method = updates.paymentMethod
+    if ('creditCardId' in updates) dbUpdates.credit_card_id = updates.creditCardId || null
+    if ('statementReferenceMonth' in updates) dbUpdates.statement_reference_month = updates.statementReferenceMonth || null
+
+    const { data, error } = await supabase
+      .from('daily_expenses')
+      .update(dbUpdates)
+      .eq('id', id)
       .select()
       .single()
 

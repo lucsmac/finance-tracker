@@ -18,6 +18,7 @@ import { useTransactions } from '@/lib/hooks/useTransactions';
 import type { CreditCard as CreditCardItem, CreditCardPayment, CreditCardStatement } from '@/lib/api/creditCards';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from './ui/dialog';
 import { getTodayLocal } from '@/lib/utils/dateHelpers';
+import { canTransactionUseCreditCard } from '@/lib/utils/transactionPayments';
 
 interface CreditCardsViewProps {
   selectedMonth: Date;
@@ -39,6 +40,12 @@ interface CreditExpenseSummary {
   card: CreditCardItem
   amount: number
   count: number
+}
+
+interface CreditActivityEntry {
+  cardId: string
+  amount: number
+  statementReferenceMonth?: string
 }
 
 const sectionClass = 'rounded-[1.75rem] border border-[var(--app-border)] bg-[var(--app-surface-soft)]';
@@ -197,20 +204,95 @@ export function CreditCardsView({ selectedMonth, onSelectedMonthChange }: Credit
     (summary) => summary.statement.referenceMonth.slice(0, 7) === selectedMonthKey,
   );
 
-  const totalLimit = cards.reduce((sum, card) => sum + card.totalLimit, 0);
-  const totalBlockedLimit = cards.reduce((sum, card) => sum + card.blockedLimit, 0);
-  const totalUsedLimit = cards.reduce((sum, card) => sum + card.usedLimit, 0);
-  const totalUnlockedLimit = Math.max(totalLimit - totalBlockedLimit, 0);
-  const totalFreeLimit = Math.max(totalUnlockedLimit - totalUsedLimit, 0);
-
   const selectedPaymentStatement = statementSummaries.find((summary) => summary.statement.id === paymentStatementId) || null;
   const creditDailyExpenses = useMemo(
     () => dailyExpenses.filter((expense) => expense.paymentMethod === 'credit_card' && expense.creditCardId),
     [dailyExpenses],
   );
+  const creditCommitmentTransactions = useMemo(
+    () => transactions.filter((transaction) => (
+      transaction.paid &&
+      canTransactionUseCreditCard(transaction.type) &&
+      transaction.paymentMethod === 'credit_card' &&
+      transaction.creditCardId
+    )),
+    [transactions],
+  );
+  const statementKeys = useMemo(
+    () => new Set(statements.map((statement) => `${statement.cardId}:${statement.referenceMonth}`)),
+    [statements],
+  );
+  const effectiveUsedLimitByCard = useMemo(() => {
+    const remainingStatementsByCard = new Map<string, number>();
+
+    statementSummaries.forEach((summary) => {
+      remainingStatementsByCard.set(
+        summary.statement.cardId,
+        (remainingStatementsByCard.get(summary.statement.cardId) || 0) + summary.remainingAmount,
+      );
+    });
+
+    const unbilledActivityEntries: CreditActivityEntry[] = [
+      ...creditDailyExpenses.map((expense) => ({
+        cardId: expense.creditCardId!,
+        amount: expense.amount,
+        statementReferenceMonth: expense.statementReferenceMonth,
+      })),
+      ...creditCommitmentTransactions.map((transaction) => ({
+        cardId: transaction.creditCardId!,
+        amount: transaction.amount,
+        statementReferenceMonth: transaction.statementReferenceMonth,
+      })),
+    ].filter((entry) => !entry.statementReferenceMonth || !statementKeys.has(`${entry.cardId}:${entry.statementReferenceMonth}`));
+
+    const unbilledByCard = new Map<string, number>();
+    unbilledActivityEntries.forEach((entry) => {
+      unbilledByCard.set(entry.cardId, (unbilledByCard.get(entry.cardId) || 0) + entry.amount);
+    });
+
+    const nextMap = new Map<string, number>();
+    cards.forEach((card) => {
+      const remainingStatementAmount = remainingStatementsByCard.get(card.id) || 0;
+      const unbilledAmount = unbilledByCard.get(card.id) || 0;
+      const trackedUsed = clampCurrency(remainingStatementAmount + unbilledAmount);
+      const hasTrackedUsage =
+        trackedUsed > 0 ||
+        statements.some((statement) => statement.cardId === card.id) ||
+        creditDailyExpenses.some((expense) => expense.creditCardId === card.id) ||
+        creditCommitmentTransactions.some((transaction) => transaction.creditCardId === card.id);
+
+      nextMap.set(
+        card.id,
+        hasTrackedUsage
+          ? clampCurrency(Math.max(card.usedLimit, remainingStatementAmount) + unbilledAmount)
+          : card.usedLimit,
+      );
+    });
+
+    return nextMap;
+  }, [cards, creditCommitmentTransactions, creditDailyExpenses, statementKeys, statementSummaries, statements]);
+
+  const totalLimit = cards.reduce((sum, card) => sum + card.totalLimit, 0);
+  const totalBlockedLimit = cards.reduce((sum, card) => sum + card.blockedLimit, 0);
+  const totalUsedLimit = cards.reduce((sum, card) => sum + (effectiveUsedLimitByCard.get(card.id) || 0), 0);
+  const totalUnlockedLimit = Math.max(totalLimit - totalBlockedLimit, 0);
+  const totalFreeLimit = Math.max(totalUnlockedLimit - totalUsedLimit, 0);
   const selectedMonthCreditExpenses = useMemo(
-    () => creditDailyExpenses.filter((expense) => expense.statementReferenceMonth?.slice(0, 7) === selectedMonthKey),
-    [creditDailyExpenses, selectedMonthKey],
+    () => [
+      ...creditDailyExpenses.filter((expense) => expense.statementReferenceMonth?.slice(0, 7) === selectedMonthKey)
+        .map((expense) => ({
+          cardId: expense.creditCardId!,
+          amount: expense.amount,
+          source: 'daily_expense' as const,
+        })),
+      ...creditCommitmentTransactions.filter((transaction) => transaction.statementReferenceMonth?.slice(0, 7) === selectedMonthKey)
+        .map((transaction) => ({
+          cardId: transaction.creditCardId!,
+          amount: transaction.amount,
+          source: 'commitment' as const,
+        })),
+    ],
+    [creditCommitmentTransactions, creditDailyExpenses, selectedMonthKey],
   );
   const selectedMonthCreditExpensesTotal = useMemo(
     () => selectedMonthCreditExpenses.reduce((sum, expense) => sum + expense.amount, 0),
@@ -220,7 +302,7 @@ export function CreditCardsView({ selectedMonth, onSelectedMonthChange }: Credit
     const grouped = new Map<string, CreditExpenseSummary>();
 
     selectedMonthCreditExpenses.forEach((expense) => {
-      const card = cards.find((item) => item.id === expense.creditCardId);
+      const card = cards.find((item) => item.id === expense.cardId);
 
       if (!card) return;
 
@@ -244,13 +326,23 @@ export function CreditCardsView({ selectedMonth, onSelectedMonthChange }: Credit
   const getSuggestedStatementAmount = (cardId: string, referenceMonthInput: string) => {
     if (!cardId || !referenceMonthInput) return 0;
 
-    return creditDailyExpenses
+    const dailyExpensesAmount = creditDailyExpenses
       .filter(
         (expense) =>
           expense.creditCardId === cardId &&
           expense.statementReferenceMonth?.slice(0, 7) === referenceMonthInput,
       )
       .reduce((sum, expense) => sum + expense.amount, 0);
+
+    const commitmentAmount = creditCommitmentTransactions
+      .filter(
+        (transaction) =>
+          transaction.creditCardId === cardId &&
+          transaction.statementReferenceMonth?.slice(0, 7) === referenceMonthInput,
+      )
+      .reduce((sum, transaction) => sum + transaction.amount, 0);
+
+    return dailyExpensesAmount + commitmentAmount;
   };
 
   const suggestedStatementAmount = useMemo(
@@ -588,6 +680,11 @@ export function CreditCardsView({ selectedMonth, onSelectedMonthChange }: Credit
       return;
     }
 
+    if (transactions.some((transaction) => transaction.creditCardId === card.id)) {
+      toast.error('Esse cartão ainda está vinculado a compromissos ou lançamentos pagos no crédito. Remova esses vínculos primeiro.');
+      return;
+    }
+
     if (!window.confirm(`Excluir o cartão ${card.name}?`)) return;
 
     try {
@@ -787,7 +884,7 @@ export function CreditCardsView({ selectedMonth, onSelectedMonthChange }: Credit
             <div>
               <h3 className="text-lg font-semibold text-[var(--app-text)]">Compras lançadas no crédito</h3>
               <p className="mt-1 text-sm text-[var(--app-text-muted)]">
-                Gastos diários marcados como cartão e vinculados à fatura de {formatMonthLabel(selectedMonth)}.
+                Gastos diários e compromissos quitados no cartão, vinculados à fatura de {formatMonthLabel(selectedMonth)}.
               </p>
             </div>
             <span className={subtleBadgeClass}>{formatCurrency(selectedMonthCreditExpensesTotal)} no mês em foco</span>
@@ -797,9 +894,9 @@ export function CreditCardsView({ selectedMonth, onSelectedMonthChange }: Credit
         <div className="px-5 py-4">
           {selectedMonthCreditExpenseSummaries.length === 0 ? (
             <div className="rounded-[1.25rem] border border-dashed border-[var(--app-border)] bg-[var(--app-surface-strong)] px-4 py-6 text-center">
-              <p className="text-sm font-medium text-[var(--app-text)]">Nenhuma compra variável lançada no cartão nesse mês</p>
+              <p className="text-sm font-medium text-[var(--app-text)]">Nenhum lançamento no cartão nesse mês</p>
               <p className="mt-2 text-sm text-[var(--app-text-muted)]">
-                Ao marcar um gasto diário como cartão de crédito na home, ele aparece aqui separado do débito.
+                Ao marcar um gasto diário ou compromisso como cartão de crédito, ele aparece aqui separado do débito.
               </p>
             </div>
           ) : (
@@ -859,8 +956,9 @@ export function CreditCardsView({ selectedMonth, onSelectedMonthChange }: Credit
 
             {cards.map((card) => {
               const unlockedLimit = Math.max(card.totalLimit - card.blockedLimit, 0);
-              const availableLimit = unlockedLimit - card.usedLimit;
-              const utilization = unlockedLimit > 0 ? Math.min((card.usedLimit / unlockedLimit) * 100, 100) : 0;
+              const effectiveUsedLimit = effectiveUsedLimitByCard.get(card.id) || 0;
+              const availableLimit = unlockedLimit - effectiveUsedLimit;
+              const utilization = unlockedLimit > 0 ? Math.min((effectiveUsedLimit / unlockedLimit) * 100, 100) : 0;
 
               return (
                 <div key={card.id} className="px-5 py-4">
@@ -883,7 +981,7 @@ export function CreditCardsView({ selectedMonth, onSelectedMonthChange }: Credit
                         </div>
                         <div className="rounded-[1rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-3">
                           <p className="text-xs text-[var(--app-text-faint)]">Usado agora</p>
-                          <p className="mt-1 font-semibold text-[var(--app-text)]">{formatCurrency(card.usedLimit)}</p>
+                          <p className="mt-1 font-semibold text-[var(--app-text)]">{formatCurrency(effectiveUsedLimit)}</p>
                         </div>
                         <div className="rounded-[1rem] border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-3">
                           <p className="text-xs text-[var(--app-text-faint)]">Ainda liberado</p>
@@ -1137,7 +1235,7 @@ export function CreditCardsView({ selectedMonth, onSelectedMonthChange }: Credit
               </div>
 
               <div>
-                <label className="mb-2 block text-sm font-medium text-[var(--app-text)]">Limite usado hoje</label>
+                <label className="mb-2 block text-sm font-medium text-[var(--app-text)]">Limite usado base</label>
                 <input
                   type="number"
                   min="0"
@@ -1146,6 +1244,9 @@ export function CreditCardsView({ selectedMonth, onSelectedMonthChange }: Credit
                   onChange={(event) => setCardForm((current) => ({ ...current, usedLimit: event.target.value }))}
                   className={fieldClass}
                 />
+                <p className="mt-2 text-xs text-[var(--app-text-faint)]">
+                  Use esse campo para o que ja estava usado no cartao fora dos lancamentos rastreados pelo app.
+                </p>
               </div>
 
               <div>

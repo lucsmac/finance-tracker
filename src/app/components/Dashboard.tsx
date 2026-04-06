@@ -6,7 +6,8 @@ import {
   Calendar as CalendarIcon,
   Info,
   X,
-  Eye
+  Eye,
+  Edit
 } from 'lucide-react';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
@@ -28,7 +29,6 @@ import {
 } from '../data/mockData';
 import { formatDateLocal, getTodayLocal, createDateFromString, formatDateToLocaleString } from '@/lib/utils/dateHelpers';
 import {
-  getDailyExpensesTotalForDate,
   getEffectiveVariableCashExpensesTotalForDate,
   getEffectiveVariableExpensesTotalForDate,
   getRecordedVariableExpensesTotalForDate,
@@ -36,6 +36,7 @@ import {
   getVariableExpenseEntriesForDate
 } from '@/lib/utils/dailyExpenses';
 import { formatReferenceMonthLabel, getCreditCardStatementReferenceMonth } from '@/lib/utils/creditCards';
+import { isCashImpactTransaction } from '@/lib/utils/transactionPayments';
 import { toast } from 'sonner';
 
 interface DashboardProps {
@@ -130,6 +131,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
     dailyExpenses,
     loading: loadingDailyExpenses,
     createDailyExpense,
+    updateDailyExpense,
     deleteDailyExpense,
     getExpensesForDate,
   } = useDailyExpenses(user?.id);
@@ -137,6 +139,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
   const [savingPlanned, setSavingPlanned] = useState(false);
   const [savingDailyExpense, setSavingDailyExpense] = useState(false);
   const [deletingDailyExpenseId, setDeletingDailyExpenseId] = useState<string | null>(null);
+  const [editingDailyExpenseId, setEditingDailyExpenseId] = useState<string | null>(null);
 
   // Estados do modal unificado com abas
   const [isDayModalOpen, setIsDayModalOpen] = useState(false);
@@ -184,6 +187,47 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
     () => new Map(cards.map(card => [card.id, card])),
     [cards],
   );
+
+  const resetDailyExpenseForm = () => {
+    setDailyExpenseForm({
+      title: '',
+      category: '',
+      amount: '',
+      paymentMethod: 'debit',
+      creditCardId: '',
+    });
+    setEditingDailyExpenseId(null);
+  };
+
+  const getDailyExpensePayloadFromForm = () => {
+    const amount = parseFloat(dailyExpenseForm.amount);
+    if (isNaN(amount) || amount <= 0) {
+      throw new Error('Informe um valor valido maior que zero.')
+    }
+
+    const selectedCard = dailyExpenseForm.paymentMethod === 'credit_card'
+      ? cards.find(card => card.id === dailyExpenseForm.creditCardId) || null
+      : null;
+
+    if (dailyExpenseForm.paymentMethod === 'credit_card' && !selectedCard) {
+      throw new Error('Selecione o cartão usado nessa compra.')
+    }
+
+    return {
+      payload: {
+        date: selectedDay,
+        title: dailyExpenseForm.title,
+        category: dailyExpenseForm.category,
+        amount,
+        paymentMethod: dailyExpenseForm.paymentMethod,
+        creditCardId: selectedCard?.id,
+        statementReferenceMonth: selectedCard
+          ? getCreditCardStatementReferenceMonth(selectedDay, selectedCard.closingDay)
+          : undefined,
+      },
+      selectedCard,
+    };
+  };
 
   const getRecordedVariableExpensesForDate = (dateStr: string) => {
     return getRecordedVariableExpensesTotalForDate(dateStr, dailyExpenses, transactions);
@@ -287,7 +331,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
         .reduce((sum, t) => sum + t.amount, 0);
 
       balance -= dayTransactions
-        .filter(t => isCashOutflowTransactionType(t.type) && t.type !== 'expense_variable')
+        .filter(t => isCashImpactTransaction(t) && t.type !== 'expense_variable')
         .reduce((sum, t) => sum + t.amount, 0);
 
       balance -= getEffectiveCashVariableExpensesForDate(dateStr);
@@ -334,7 +378,8 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
         !t.paid &&
         t.date >= today &&
         t.date < nextIncomeDate &&
-        (t.type === 'expense_fixed' || t.type === 'installment')
+        (t.type === 'expense_fixed' || t.type === 'installment') &&
+        isCashImpactTransaction(t)
       )
       .reduce((sum, t) => sum + t.amount, 0);
   };
@@ -350,10 +395,10 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
       const dateStr = formatDateLocal(year, month, day);
       const dayTransactions = allTransactions.filter(t => t.date === dateStr);
       const nonVariableExpenses = dayTransactions
-        .filter(t => isCashOutflowTransactionType(t.type) && t.type !== 'expense_variable')
+        .filter(t => isCashImpactTransaction(t) && t.type !== 'expense_variable')
         .reduce((sum, t) => sum + t.amount, 0);
 
-      total += nonVariableExpenses + getEffectiveVariableExpensesForDate(dateStr);
+      total += nonVariableExpenses + getEffectiveCashVariableExpensesForDate(dateStr);
     }
 
     return total;
@@ -442,13 +487,7 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
     setSelectedDay(dateStr);
     setActiveTab(tab);
     setIsDayModalOpen(true);
-    setDailyExpenseForm({
-      title: '',
-      category: '',
-      amount: '',
-      paymentMethod: 'debit',
-      creditCardId: '',
-    });
+    resetDailyExpenseForm();
 
     // Carregar o planejado do dia (se existir) ou usar o padrão
     setPlannedForm({
@@ -456,7 +495,25 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
     });
   };
 
-  const handleAddDailyExpense = async () => {
+  const handleStartDailyExpenseEdit = (expenseId: string) => {
+    const expense = dailyExpenses.find((item) => item.id === expenseId);
+    if (!expense) return;
+
+    setEditingDailyExpenseId(expense.id);
+    setDailyExpenseForm({
+      title: expense.title,
+      category: expense.category,
+      amount: expense.amount.toString(),
+      paymentMethod: expense.paymentMethod,
+      creditCardId: expense.creditCardId || '',
+    });
+  };
+
+  const handleCancelDailyExpenseEdit = () => {
+    resetDailyExpenseForm();
+  };
+
+  const handleSaveDailyExpense = async () => {
     if (!selectedDay) return;
 
     if (!dailyExpenseForm.title || !dailyExpenseForm.category || !dailyExpenseForm.amount) {
@@ -464,45 +521,31 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
       return;
     }
 
-    const amount = parseFloat(dailyExpenseForm.amount);
-    if (isNaN(amount) || amount <= 0) {
-      toast.error('Informe um valor valido maior que zero.');
-      return;
-    }
-
-    const selectedCard = dailyExpenseForm.paymentMethod === 'credit_card'
-      ? cards.find(card => card.id === dailyExpenseForm.creditCardId) || null
-      : null;
-
-    if (dailyExpenseForm.paymentMethod === 'credit_card' && !selectedCard) {
-      toast.error('Selecione o cartão usado nessa compra.');
-      return;
-    }
-
     try {
+      const { payload } = getDailyExpensePayloadFromForm();
       setSavingDailyExpense(true);
-      await createDailyExpense({
-        date: selectedDay,
-        title: dailyExpenseForm.title,
-        category: dailyExpenseForm.category,
-        amount,
-        paymentMethod: dailyExpenseForm.paymentMethod,
-        creditCardId: selectedCard?.id,
-        statementReferenceMonth: selectedCard
-          ? getCreditCardStatementReferenceMonth(selectedDay, selectedCard.closingDay)
-          : undefined,
-      });
-      setDailyExpenseForm({
-        title: '',
-        category: '',
-        amount: '',
-        paymentMethod: 'debit',
-        creditCardId: '',
-      });
+
+      if (editingDailyExpenseId) {
+        const previousExpense = dailyExpenses.find((expense) => expense.id === editingDailyExpenseId);
+        if (!previousExpense) {
+          throw new Error('Lançamento diário não encontrado para edição.')
+        }
+
+        await updateDailyExpense(editingDailyExpenseId, payload);
+
+        resetDailyExpenseForm();
+        toast.success('Lançamento diário atualizado.');
+        return;
+      }
+
+      await createDailyExpense(payload);
+
+      resetDailyExpenseForm();
       toast.success('Gasto diario adicionado.');
     } catch (err) {
       console.error('Error creating daily expense:', err);
-      toast.error('Erro ao adicionar gasto diario. Tente novamente.');
+      const errorMessage = err instanceof Error ? err.message : 'Erro ao salvar gasto diário. Tente novamente.'
+      toast.error(errorMessage);
     } finally {
       setSavingDailyExpense(false);
     }
@@ -515,6 +558,9 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
     try {
       setDeletingDailyExpenseId(id);
       await deleteDailyExpense(id);
+      if (editingDailyExpenseId === id) {
+        resetDailyExpenseForm();
+      }
       toast.success('Lancamento diario removido.');
     } catch (err) {
       console.error('Error deleting daily expense:', err);
@@ -922,6 +968,11 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                   ) : (
                     <span className="ml-0 text-xl font-bold text-[var(--app-text)]">{dayData.day}</span>
                   )}
+                  {dayData.isToday && (
+                    <span className="inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
+                      Hoje
+                    </span>
+                  )}
                 </div>
               </div>
 
@@ -1043,15 +1094,22 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
 
                 {/* Header: Número do dia */}
                 <div className="mb-1 flex items-start justify-between gap-2 pt-1">
-                  {dayData.isToday ? (
-                    <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--app-badge-bg)] text-lg font-bold text-[var(--app-badge-text)]">
-                      {dayData.day}
-                    </span>
-                  ) : (
-                    <span className="text-lg font-bold text-[var(--app-text)]">
-                      {dayData.day}
-                    </span>
-                  )}
+                  <div className="flex items-center gap-2">
+                    {dayData.isToday ? (
+                      <span className="inline-flex h-8 w-8 items-center justify-center rounded-full bg-[var(--app-badge-bg)] text-lg font-bold text-[var(--app-badge-text)]">
+                        {dayData.day}
+                      </span>
+                    ) : (
+                      <span className="text-lg font-bold text-[var(--app-text)]">
+                        {dayData.day}
+                      </span>
+                    )}
+                    {dayData.isToday && (
+                      <span className="inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-2 py-1 text-[10px] font-semibold uppercase tracking-[0.18em] text-[var(--app-text-muted)]">
+                        Hoje
+                      </span>
+                    )}
+                  </div>
                 </div>
 
                 {/* Centro: Saldo */}
@@ -1177,7 +1235,20 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                     </div>
 
                     <div className={`${sectionCardClass} space-y-4`}>
-                      <h4 className="text-sm font-semibold text-[var(--app-text)]">Adicionar gasto diário</h4>
+                      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+                        <h4 className="text-sm font-semibold text-[var(--app-text)]">
+                          {editingDailyExpenseId ? 'Editar lançamento diário' : 'Adicionar gasto diário'}
+                        </h4>
+                        {editingDailyExpenseId && (
+                          <button
+                            type="button"
+                            onClick={handleCancelDailyExpenseEdit}
+                            className="text-sm font-medium text-[var(--app-text-muted)] transition-colors hover:text-[var(--app-text)]"
+                          >
+                            Cancelar edição
+                          </button>
+                        )}
+                      </div>
 
                       <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                         <div>
@@ -1282,11 +1353,13 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                       </div>
 
                       <button
-                        onClick={handleAddDailyExpense}
+                        onClick={handleSaveDailyExpense}
                         disabled={savingDailyExpense}
                         className={primaryMonoButtonClass}
                       >
-                        {savingDailyExpense ? 'Salvando lançamento...' : 'Adicionar lançamento'}
+                        {savingDailyExpense
+                          ? (editingDailyExpenseId ? 'Salvando edição...' : 'Salvando lançamento...')
+                          : (editingDailyExpenseId ? 'Salvar edição' : 'Adicionar lançamento')}
                       </button>
                     </div>
 
@@ -1325,6 +1398,13 @@ export function Dashboard({ onNavigate, selectedMonth, onSelectedMonthChange }: 
                               <p className={`${listAmountClass} text-[var(--app-text)]`}>
                                 {expense.amount.toLocaleString('pt-BR', { style: 'currency', currency: 'BRL' })}
                               </p>
+                              <button
+                                onClick={() => handleStartDailyExpenseEdit(expense.id)}
+                                className="shrink-0 rounded-lg border border-[var(--app-border)] bg-[var(--app-surface-strong)] p-2 text-[var(--app-text-muted)] transition-colors hover:border-[var(--app-border-strong)] hover:text-[var(--app-text)]"
+                                title="Editar lançamento"
+                              >
+                                <Edit className="w-4 h-4" />
+                              </button>
                               <button
                                 onClick={() => handleDeleteDailyExpense(expense.id)}
                                 disabled={deletingDailyExpenseId === expense.id}

@@ -1,5 +1,6 @@
 import type { Transaction } from '@/app/data/mockData'
 import type { DailyExpense, DailyExpensePaymentMethod } from '@/lib/api/dailyExpenses'
+import { isCreditCardTransaction } from '@/lib/utils/transactionPayments'
 
 export interface VariableExpenseEntry {
   id: string
@@ -61,15 +62,27 @@ export const getDailyExpensesTotalForDate = (
 export const getLegacyVariableTransactionsForDate = (
   date: string,
   transactions: Transaction[],
-  options?: { onlyPaid?: boolean }
+  options?: { onlyPaid?: boolean; cashImpactOnly?: boolean; paymentMethod?: DailyExpensePaymentMethod }
 ) => {
   return transactions.filter(transaction => {
     if (transaction.type !== 'expense_variable' || transaction.date !== date) {
       return false
     }
 
-    if (options?.onlyPaid) {
-      return !!transaction.paid
+    if (options?.onlyPaid && !transaction.paid) {
+      return false
+    }
+
+    if (options?.paymentMethod === 'credit_card' && !isCreditCardTransaction(transaction)) {
+      return false
+    }
+
+    if (options?.paymentMethod === 'debit' && isCreditCardTransaction(transaction)) {
+      return false
+    }
+
+    if (options?.cashImpactOnly && isCreditCardTransaction(transaction)) {
+      return false
     }
 
     return true
@@ -79,7 +92,7 @@ export const getLegacyVariableTransactionsForDate = (
 export const getLegacyVariableExpensesTotalForDate = (
   date: string,
   transactions: Transaction[],
-  options?: { onlyPaid?: boolean }
+  options?: { onlyPaid?: boolean; cashImpactOnly?: boolean; paymentMethod?: DailyExpensePaymentMethod }
 ) => {
   return getLegacyVariableTransactionsForDate(date, transactions, options)
     .reduce((sum, transaction) => sum + transaction.amount, 0)
@@ -92,7 +105,7 @@ export const getRecordedVariableExpensesTotalForDate = (
   options?: { cashImpactOnly?: boolean }
 ) => {
   return getDailyExpensesTotalForDate(date, dailyExpenses, { cashImpactOnly: options?.cashImpactOnly }) +
-    getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true })
+    getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true, cashImpactOnly: options?.cashImpactOnly })
 }
 
 export const getRecordedVariableExpensesSplitForDate = (
@@ -100,8 +113,12 @@ export const getRecordedVariableExpensesSplitForDate = (
   dailyExpenses: DailyExpense[],
   transactions: Transaction[],
 ): VariableExpenseRecordedSplit => {
-  const creditCard = getDailyExpensesTotalForDate(date, dailyExpenses, { paymentMethod: 'credit_card' })
-  const debit = getRecordedVariableExpensesTotalForDate(date, dailyExpenses, transactions, { cashImpactOnly: true })
+  const creditCard =
+    getDailyExpensesTotalForDate(date, dailyExpenses, { paymentMethod: 'credit_card' }) +
+    getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true, paymentMethod: 'credit_card' })
+  const debit =
+    getDailyExpensesTotalForDate(date, dailyExpenses, { cashImpactOnly: true }) +
+    getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true, cashImpactOnly: true })
 
   return {
     total: debit + creditCard,
@@ -126,16 +143,17 @@ export const getEffectiveVariableExpensesTotalForDate = ({
   additionalVariableExpenses = 0,
 }: EffectiveVariableExpensesParams) => {
   const recordedDailyExpenses = getDailyExpensesTotalForDate(date, dailyExpenses)
-  const hasExplicitDailyExpenses = getDailyExpensesForDate(date, dailyExpenses).length > 0
-  const committedVariableExpenses =
-    getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true }) +
-    additionalVariableExpenses
+  const committedVariableExpenses = getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true })
+  const hasExplicitVariableEntries =
+    getDailyExpensesForDate(date, dailyExpenses).length > 0 ||
+    getLegacyVariableTransactionsForDate(date, transactions, { onlyPaid: true }).length > 0 ||
+    additionalVariableExpenses > 0
 
-  // The daily fallback is only replaced by explicit daily expenses.
-  // Transaction-based commitments are always added on top of the day's base amount.
-  const fallbackOrDailyExpense = hasExplicitDailyExpenses ? recordedDailyExpenses : plannedAmount
+  // The fallback is replaced whenever there is an explicit real launch for the day,
+  // whether it came from the new daily-expense flow or the legacy variable transactions.
+  const fallbackOrDailyExpense = hasExplicitVariableEntries ? recordedDailyExpenses : plannedAmount
 
-  return fallbackOrDailyExpense + committedVariableExpenses
+  return fallbackOrDailyExpense + committedVariableExpenses + additionalVariableExpenses
 }
 
 export const getEffectiveVariableCashExpensesTotalForDate = ({
@@ -146,14 +164,18 @@ export const getEffectiveVariableCashExpensesTotalForDate = ({
   additionalVariableExpenses = 0,
 }: EffectiveVariableExpensesParams) => {
   const recordedCashDailyExpenses = getDailyExpensesTotalForDate(date, dailyExpenses, { cashImpactOnly: true })
-  const hasExplicitDailyExpenses = getDailyExpensesForDate(date, dailyExpenses).length > 0
-  const committedVariableExpenses =
-    getLegacyVariableExpensesTotalForDate(date, transactions, { onlyPaid: true }) +
-    additionalVariableExpenses
+  const committedCashVariableExpenses = getLegacyVariableExpensesTotalForDate(date, transactions, {
+    onlyPaid: true,
+    cashImpactOnly: true,
+  })
+  const hasExplicitVariableEntries =
+    getDailyExpensesForDate(date, dailyExpenses).length > 0 ||
+    getLegacyVariableTransactionsForDate(date, transactions, { onlyPaid: true }).length > 0 ||
+    additionalVariableExpenses > 0
 
-  const fallbackOrDailyExpense = hasExplicitDailyExpenses ? recordedCashDailyExpenses : plannedAmount
+  const fallbackOrDailyExpense = hasExplicitVariableEntries ? recordedCashDailyExpenses : plannedAmount
 
-  return fallbackOrDailyExpense + committedVariableExpenses
+  return fallbackOrDailyExpense + committedCashVariableExpenses + additionalVariableExpenses
 }
 
 export const getVariableExpenseEntriesForDate = (
@@ -183,7 +205,9 @@ export const getVariableExpenseEntriesForDate = (
       amount: transaction.amount,
       source: 'legacy_transaction' as const,
       paid: transaction.paid,
-      paymentMethod: 'legacy_transaction' as const,
+      paymentMethod: transaction.paymentMethod || 'legacy_transaction',
+      creditCardId: transaction.creditCardId,
+      statementReferenceMonth: transaction.statementReferenceMonth,
     }))
 
   return [...dailyExpenseEntries, ...legacyEntries]

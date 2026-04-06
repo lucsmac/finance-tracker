@@ -2,16 +2,19 @@ import { useMemo, useState } from 'react';
 import { Calendar as CalendarIcon, Check, X, Plus, ChevronLeft, ChevronRight, Edit, Trash2, Copy } from 'lucide-react';
 import { useAuth } from '@/lib/hooks/useAuth';
 import { useTransactions } from '@/lib/hooks/useTransactions';
+import { useCreditCards } from '@/lib/hooks/useCreditCards';
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from './ui/dialog';
 import { Popover, PopoverContent, PopoverTrigger } from './ui/popover';
 import { Calendar } from './ui/calendar';
 import { getTodayLocal, formatDateToLocaleString, createDateFromString } from '@/lib/utils/dateHelpers';
+import { getCreditCardStatementReferenceMonth } from '@/lib/utils/creditCards';
 import {
   buildCategoryOptions,
   COMMITMENT_CATEGORY_PRESETS,
   CUSTOM_CATEGORY_VALUE,
   isPresetCategory,
 } from '@/lib/utils/categoryOptions';
+import { canTransactionUseCreditCard, getTransactionPaymentMethodLabel } from '@/lib/utils/transactionPayments';
 import { toast } from 'sonner';
 
 type CommitmentType = 'expense_fixed' | 'expense_variable' | 'installment';
@@ -50,7 +53,8 @@ interface CommitmentsViewProps {
 
 export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: CommitmentsViewProps) {
   const { user } = useAuth();
-  const { transactions, loading, error, createTransaction, createInstallments, updateTransaction, deleteTransaction, refresh } = useTransactions(user?.id);
+  const { transactions, loading, error, createTransaction, updateTransaction, deleteTransaction, refresh } = useTransactions(user?.id);
+  const { cards, loading: loadingCards } = useCreditCards(user?.id);
   const todayStr = getTodayLocal();
   const selectedDate = selectedMonth;
   const [saving, setSaving] = useState(false);
@@ -75,6 +79,8 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
     category: '',
     amount: '',
     date: '',
+    paymentMethod: 'debit' as 'debit' | 'credit_card',
+    creditCardId: '',
     recurring: false,
     generateNextMonths: false,
     generateAllInstallments: true, // Por padrão, criar todas as parcelas
@@ -97,6 +103,11 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
     [transactions],
   );
 
+  const cardsById = useMemo(
+    () => new Map(cards.map((card) => [card.id, card])),
+    [cards],
+  );
+
   const resetCommitmentForm = (overrides?: Partial<typeof commitmentForm>) => {
     setCommitmentForm({
       type: 'expense_fixed',
@@ -104,6 +115,8 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       category: '',
       amount: '',
       date: '',
+      paymentMethod: 'debit',
+      creditCardId: '',
       recurring: false,
       generateNextMonths: false,
       generateAllInstallments: true,
@@ -248,111 +261,236 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
     return neutralBadgeClass;
   };
 
-  // Função para salvar compromisso
-  const handleSaveCommitment = async () => {
-    if (!commitmentForm.description || !commitmentForm.amount || !commitmentForm.date) {
-      toast.error('Preencha todos os campos obrigatorios.');
-      return;
+  const buildCommitmentPaymentData = (date: string) => {
+    if (!canTransactionUseCreditCard(commitmentForm.type) || commitmentForm.paymentMethod !== 'credit_card') {
+      return {
+        paymentMethod: 'debit' as const,
+        creditCardId: undefined,
+        statementReferenceMonth: undefined,
+      };
     }
 
-    // Validar campos de parcelamento
+    const selectedCard = cardsById.get(commitmentForm.creditCardId);
+    if (!selectedCard) {
+      throw new Error('Selecione o cartão usado nesse compromisso.')
+    }
+
+    return {
+      paymentMethod: 'credit_card' as const,
+      creditCardId: selectedCard.id,
+      statementReferenceMonth: getCreditCardStatementReferenceMonth(date, selectedCard.closingDay),
+    };
+  };
+
+  const renderPaymentMethodField = () => (
+    <div className="space-y-4">
+      <div>
+        <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
+          Como será pago? *
+        </label>
+        <select
+          value={commitmentForm.paymentMethod}
+          onChange={(event) => setCommitmentForm((current) => ({
+            ...current,
+            paymentMethod: event.target.value as 'debit' | 'credit_card',
+            creditCardId: event.target.value === 'credit_card' ? current.creditCardId : '',
+          }))}
+          className={modalFieldClass}
+        >
+          <option value="debit">Débito / Pix / Dinheiro</option>
+          <option value="credit_card">Cartão de crédito</option>
+        </select>
+      </div>
+
+      {commitmentForm.paymentMethod === 'credit_card' ? (
+        <div>
+          <label className="mb-2 block text-sm font-medium text-[var(--app-text-muted)]">
+            Cartão *
+          </label>
+          <select
+            value={commitmentForm.creditCardId}
+            onChange={(event) => setCommitmentForm((current) => ({ ...current, creditCardId: event.target.value }))}
+            className={modalFieldClass}
+            disabled={cards.length === 0}
+          >
+            <option value="">{cards.length === 0 ? 'Cadastre um cartão primeiro' : 'Selecione um cartão'}</option>
+            {cards.map((card) => (
+              <option key={card.id} value={card.id}>
+                {card.name}
+              </option>
+            ))}
+          </select>
+          {commitmentForm.creditCardId && cardsById.get(commitmentForm.creditCardId) && commitmentForm.date && (
+            <p className="mt-2 text-xs text-[var(--app-text-faint)]">
+              Quando for marcado como pago, vai ocupar o limite do cartão e entrar na fatura de{' '}
+              {formatDateToLocaleString(
+                getCreditCardStatementReferenceMonth(
+                  commitmentForm.date,
+                  cardsById.get(commitmentForm.creditCardId)!.closingDay,
+                ),
+                'pt-BR',
+                { month: 'long', year: 'numeric' },
+              )}
+              .
+            </p>
+          )}
+        </div>
+      ) : (
+        <div className="rounded-xl border border-[var(--app-border)] bg-[var(--app-surface-soft)] px-4 py-3 text-sm text-[var(--app-text-muted)]">
+          Esse compromisso derruba o saldo disponível quando for pago.
+        </div>
+      )}
+    </div>
+  );
+
+  const validateCommitmentForm = () => {
+    if (!commitmentForm.description || !commitmentForm.amount || !commitmentForm.date) {
+      throw new Error('Preencha todos os campos obrigatorios.')
+    }
+
+    if (commitmentForm.paymentMethod === 'credit_card' && !commitmentForm.creditCardId) {
+      throw new Error('Selecione o cartão desse compromisso.')
+    }
+
     if (commitmentForm.type === 'installment') {
       const currentInstallment = parseInt(commitmentForm.installmentNumber) || 1;
       const totalInstallments = parseInt(commitmentForm.totalInstallments);
 
       if (!commitmentForm.totalInstallments || totalInstallments < 1) {
-        toast.error('Informe o numero total de parcelas.');
-        return;
+        throw new Error('Informe o numero total de parcelas.')
       }
 
       if (currentInstallment < 1) {
-        toast.error('A parcela atual deve ser pelo menos 1.');
-        return;
+        throw new Error('A parcela atual deve ser pelo menos 1.')
       }
 
       if (currentInstallment > totalInstallments) {
-        toast.error('A parcela atual nao pode ser maior que o total de parcelas.');
-        return;
+        throw new Error('A parcela atual nao pode ser maior que o total de parcelas.')
       }
     }
+  };
 
+  const buildCommitmentPayload = ({
+    date,
+    paid = false,
+    installmentGroup,
+    installmentNumber,
+    totalInstallments,
+  }: {
+    date: string;
+    paid?: boolean;
+    installmentGroup?: string;
+    installmentNumber?: number;
+    totalInstallments?: number;
+  }) => {
+    const paymentData = buildCommitmentPaymentData(date);
+
+    return {
+      type: commitmentForm.type,
+      category: commitmentForm.category || 'Geral',
+      description: commitmentForm.description,
+      amount: parseFloat(commitmentForm.amount),
+      date,
+      paymentMethod: paymentData.paymentMethod,
+      creditCardId: paymentData.creditCardId,
+      statementReferenceMonth: paymentData.statementReferenceMonth,
+      recurring: commitmentForm.type === 'expense_fixed' ? commitmentForm.recurring : false,
+      paid,
+      installmentGroup,
+      installmentNumber,
+      totalInstallments,
+    };
+  };
+
+  const createCommitmentsFromForm = async () => {
+    validateCommitmentForm();
+
+    if (commitmentForm.type === 'installment') {
+      const currentInstallment = parseInt(commitmentForm.installmentNumber) || 1;
+      const totalInstallments = parseInt(commitmentForm.totalInstallments);
+      const installmentGroup = `${commitmentForm.description}-${Date.now()}`;
+      const startDate = new Date(commitmentForm.date + 'T00:00:00');
+      const dayOfMonth = startDate.getDate();
+      const installmentsToCreate = commitmentForm.generateAllInstallments
+        ? totalInstallments - currentInstallment + 1
+        : 1;
+
+      for (let i = 0; i < installmentsToCreate; i++) {
+        const installmentNumber = currentInstallment + i;
+        const installmentDate = new Date(startDate.getFullYear(), startDate.getMonth() + i, dayOfMonth);
+        const installmentDateStr = installmentDate.toISOString().split('T')[0];
+
+        await createTransaction(buildCommitmentPayload({
+          date: installmentDateStr,
+          paid: false,
+          installmentGroup,
+          installmentNumber,
+          totalInstallments,
+        }));
+      }
+
+      return;
+    }
+
+    await createTransaction(buildCommitmentPayload({
+      date: commitmentForm.date,
+      paid: false,
+    }));
+
+    const isRecurring = commitmentForm.type === 'expense_fixed' ? commitmentForm.recurring : false;
+    if (!isRecurring || !commitmentForm.generateNextMonths) {
+      return;
+    }
+
+    const originalDate = new Date(commitmentForm.date + 'T00:00:00');
+    const dayOfMonth = originalDate.getDate();
+
+    for (let monthOffset = 1; monthOffset <= 2; monthOffset++) {
+      const nextMonthDate = new Date(originalDate.getFullYear(), originalDate.getMonth() + monthOffset, dayOfMonth);
+      const nextMonthDateStr = nextMonthDate.toISOString().split('T')[0];
+
+      await createTransaction(buildCommitmentPayload({
+        date: nextMonthDateStr,
+        paid: false,
+      }));
+    }
+  };
+
+  const buildTransactionUpdatePayload = (commitmentId?: string) => {
+    const originalCommitment = commitmentId
+      ? transactions.find((transaction) => transaction.id === commitmentId)
+      : null;
+
+    if (commitmentId && !originalCommitment) {
+      throw new Error('Compromisso nao encontrado para atualizar.')
+    }
+
+    const paymentData = buildCommitmentPaymentData(commitmentForm.date);
+
+    return {
+      type: commitmentForm.type,
+      category: commitmentForm.category || 'Geral',
+      description: commitmentForm.description,
+      amount: parseFloat(commitmentForm.amount),
+      date: commitmentForm.date,
+      paymentMethod: paymentData.paymentMethod,
+      creditCardId: paymentData.creditCardId,
+      statementReferenceMonth: paymentData.statementReferenceMonth,
+      recurring: commitmentForm.type === 'expense_fixed' ? commitmentForm.recurring : false,
+      paid: originalCommitment?.paid || false,
+      installmentGroup: commitmentForm.type === 'installment'
+        ? originalCommitment?.installmentGroup || `${commitmentForm.description}-${Date.now()}`
+        : undefined,
+      installmentNumber: commitmentForm.type === 'installment' ? parseInt(commitmentForm.installmentNumber) : undefined,
+      totalInstallments: commitmentForm.type === 'installment' ? parseInt(commitmentForm.totalInstallments) : undefined,
+    };
+  };
+
+  // Função para salvar compromisso
+  const handleSaveCommitment = async () => {
     try {
       setSaving(true);
-
-      // Se for parcelamento
-      if (commitmentForm.type === 'installment') {
-        if (commitmentForm.generateAllInstallments) {
-          // Criar todas as parcelas restantes
-          await createInstallments({
-            type: 'installment',
-            category: commitmentForm.category || 'Geral',
-            description: commitmentForm.description,
-            amount: parseFloat(commitmentForm.amount),
-            date: commitmentForm.date,
-            recurring: false,
-            paid: false,
-            installmentGroup: `${commitmentForm.description}-${Date.now()}`,
-            installmentNumber: parseInt(commitmentForm.installmentNumber) || 1,
-            totalInstallments: parseInt(commitmentForm.totalInstallments)
-          });
-        } else {
-          // Criar apenas a parcela atual
-          await createTransaction({
-            type: 'installment',
-            category: commitmentForm.category || 'Geral',
-            description: commitmentForm.description,
-            amount: parseFloat(commitmentForm.amount),
-            date: commitmentForm.date,
-            recurring: false,
-            paid: false,
-            installmentGroup: `${commitmentForm.description}-${Date.now()}`,
-            installmentNumber: parseInt(commitmentForm.installmentNumber) || 1,
-            totalInstallments: parseInt(commitmentForm.totalInstallments)
-          });
-        }
-      } else {
-        const isRecurring = commitmentForm.type === 'expense_fixed' ? commitmentForm.recurring : false;
-
-        await createTransaction({
-          type: commitmentForm.type,
-          category: commitmentForm.category || 'Geral',
-          description: commitmentForm.description,
-          amount: parseFloat(commitmentForm.amount),
-          date: commitmentForm.date,
-          recurring: isRecurring,
-          paid: false
-        });
-
-        // Se marcou para gerar próximos meses e é recorrente, criar mais 2 réplicas
-        if (isRecurring && commitmentForm.generateNextMonths) {
-          const originalDate = new Date(commitmentForm.date + 'T00:00:00');
-          const dayOfMonth = originalDate.getDate();
-
-          // Criar réplica para o próximo mês
-          const nextMonth1 = new Date(originalDate.getFullYear(), originalDate.getMonth() + 1, dayOfMonth);
-          await createTransaction({
-            type: commitmentForm.type,
-            category: commitmentForm.category || 'Geral',
-            description: commitmentForm.description,
-            amount: parseFloat(commitmentForm.amount),
-            date: nextMonth1.toISOString().split('T')[0],
-            recurring: true,
-            paid: false
-          });
-
-          // Criar réplica para o segundo mês seguinte
-          const nextMonth2 = new Date(originalDate.getFullYear(), originalDate.getMonth() + 2, dayOfMonth);
-          await createTransaction({
-            type: commitmentForm.type,
-            category: commitmentForm.category || 'Geral',
-            description: commitmentForm.description,
-            amount: parseFloat(commitmentForm.amount),
-            date: nextMonth2.toISOString().split('T')[0],
-            recurring: true,
-            paid: false
-          });
-        }
-      }
+      await createCommitmentsFromForm();
 
       // Force refresh to update the list immediately
       await refresh();
@@ -360,7 +498,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       resetCommitmentForm();
     } catch (err) {
       console.error('Error saving commitment:', err);
-      toast.error('Erro ao salvar compromisso. Tente novamente.');
+      toast.error(err instanceof Error ? err.message : 'Erro ao salvar compromisso. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -383,7 +521,11 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       category: commitment.category,
       amount: commitment.amount.toString(),
       date: commitment.date,
+      paymentMethod: commitment.paymentMethod || 'debit',
+      creditCardId: commitment.creditCardId || '',
       recurring: commitment.recurring || false,
+      generateNextMonths: false,
+      generateAllInstallments: true,
       totalInstallments: commitment.totalInstallments?.toString() || '',
       installmentNumber: commitment.installmentNumber?.toString() || ''
     });
@@ -399,7 +541,11 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       category: commitment.category,
       amount: commitment.amount.toString(),
       date: commitment.date,
+      paymentMethod: commitment.paymentMethod || 'debit',
+      creditCardId: commitment.creditCardId || '',
       recurring: commitment.recurring || false,
+      generateNextMonths: false,
+      generateAllInstallments: true,
       totalInstallments: commitment.totalInstallments?.toString() || '',
       installmentNumber: commitment.installmentNumber?.toString() || '1'
     });
@@ -415,17 +561,15 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
     }
 
     try {
+      const originalCommitment = transactions.find((transaction) => transaction.id === editingId);
+      if (!originalCommitment) {
+        throw new Error('Compromisso nao encontrado para atualizar.')
+      }
+
       setSaving(true);
-      await updateTransaction(editingId, {
-        type: commitmentForm.type,
-        category: commitmentForm.category || 'Geral',
-        description: commitmentForm.description,
-        amount: parseFloat(commitmentForm.amount),
-        date: commitmentForm.date,
-        recurring: commitmentForm.type === 'expense_fixed' ? commitmentForm.recurring : false,
-        installmentNumber: commitmentForm.type === 'installment' ? parseInt(commitmentForm.installmentNumber) : undefined,
-        totalInstallments: commitmentForm.type === 'installment' ? parseInt(commitmentForm.totalInstallments) : undefined
-      });
+      validateCommitmentForm();
+      const updates = buildTransactionUpdatePayload(editingId);
+      await updateTransaction(editingId, updates);
 
       // Force refresh to update the list immediately
       await refresh();
@@ -434,7 +578,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       resetCommitmentForm();
     } catch (err) {
       console.error('Error editing commitment:', err);
-      toast.error('Erro ao editar compromisso. Tente novamente.');
+      toast.error(err instanceof Error ? err.message : 'Erro ao editar compromisso. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -442,61 +586,9 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
 
   // Função para salvar duplicação (usa a mesma lógica do handleSaveCommitment)
   const handleSaveDuplicate = async () => {
-    if (!commitmentForm.description || !commitmentForm.amount || !commitmentForm.date) {
-      toast.error('Preencha todos os campos obrigatorios.');
-      return;
-    }
-
-    // Validar campos de parcelamento
-    if (commitmentForm.type === 'installment') {
-      const currentInstallment = parseInt(commitmentForm.installmentNumber) || 1;
-      const totalInstallments = parseInt(commitmentForm.totalInstallments);
-
-      if (!commitmentForm.totalInstallments || totalInstallments < 1) {
-        toast.error('Informe o numero total de parcelas.');
-        return;
-      }
-
-      if (currentInstallment < 1) {
-        toast.error('A parcela atual deve ser pelo menos 1.');
-        return;
-      }
-
-      if (currentInstallment > totalInstallments) {
-        toast.error('A parcela atual nao pode ser maior que o total de parcelas.');
-        return;
-      }
-    }
-
     try {
       setSaving(true);
-
-      // Se for parcelamento, usar createInstallments para criar todas as parcelas
-      if (commitmentForm.type === 'installment') {
-        await createInstallments({
-          type: 'installment',
-          category: commitmentForm.category || 'Geral',
-          description: commitmentForm.description,
-          amount: parseFloat(commitmentForm.amount),
-          date: commitmentForm.date,
-          recurring: false,
-          paid: false,
-          installmentGroup: `${commitmentForm.description}-${Date.now()}`,
-          installmentNumber: parseInt(commitmentForm.installmentNumber) || 1,
-          totalInstallments: parseInt(commitmentForm.totalInstallments)
-        });
-      } else {
-        await createTransaction({
-          type: commitmentForm.type,
-          category: commitmentForm.category || 'Geral',
-          description: commitmentForm.description,
-          amount: parseFloat(commitmentForm.amount),
-          date: commitmentForm.date,
-          // Apenas gastos fixos podem ser recorrentes
-          recurring: commitmentForm.type === 'expense_fixed' ? commitmentForm.recurring : false,
-          paid: false
-        });
-      }
+      await createCommitmentsFromForm();
 
       // Force refresh to update the list immediately
       await refresh();
@@ -504,7 +596,7 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       resetCommitmentForm();
     } catch (err) {
       console.error('Error duplicating commitment:', err);
-      toast.error('Erro ao duplicar compromisso. Tente novamente.');
+      toast.error(err instanceof Error ? err.message : 'Erro ao duplicar compromisso. Tente novamente.');
     } finally {
       setSaving(false);
     }
@@ -513,12 +605,20 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
   // Função para marcar como pago/não pago
   const handleTogglePaid = async (id: string, currentPaid: boolean) => {
     try {
-      await updateTransaction(id, { paid: !currentPaid });
+      const currentCommitment = transactions.find((transaction) => transaction.id === id);
+      if (!currentCommitment) {
+        throw new Error('Compromisso nao encontrado para atualizar.')
+      }
+
+      await updateTransaction(id, {
+        paid: !currentPaid,
+      });
+
       // Force refresh to update the list immediately
       await refresh();
     } catch (err) {
       console.error('Error toggling paid status:', err);
-      toast.error('Erro ao atualizar status. Tente novamente.');
+      toast.error(err instanceof Error ? err.message : 'Erro ao atualizar status. Tente novamente.');
     }
   };
 
@@ -534,6 +634,11 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
     if (!deletingId) return;
 
     try {
+      const commitmentToDelete = transactions.find((transaction) => transaction.id === deletingId);
+      if (!commitmentToDelete) {
+        throw new Error('Compromisso nao encontrado para remover.')
+      }
+
       setSaving(true);
       await deleteTransaction(deletingId);
       // Force refresh to update the list immediately
@@ -543,14 +648,14 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
       setDeletingDescription('');
     } catch (err) {
       console.error('Error deleting commitment:', err);
-      toast.error('Erro ao deletar compromisso. Tente novamente.');
+      toast.error(err instanceof Error ? err.message : 'Erro ao deletar compromisso. Tente novamente.');
     } finally {
       setSaving(false);
     }
   };
 
   // Loading state
-  if (loading) {
+  if (loading || loadingCards) {
     return (
       <div className="flex items-center justify-center min-h-[400px]">
         <div className="text-center">
@@ -799,6 +904,9 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
                       <span>
                         {isOverdue ? 'Venceu em' : 'Vence em'} {formatDateToLocaleString(commitment.date)}
                       </span>
+                      <span className={neutralBadgeClass}>
+                        {getTransactionPaymentMethodLabel(commitment, cardsById.get(commitment.creditCardId || '')?.name)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -907,6 +1015,9 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
 
                     <div className="mt-2 flex flex-wrap items-center gap-2 text-sm text-[var(--app-text-muted)]">
                       <span>Pago em {formatDateToLocaleString(commitment.date)}</span>
+                      <span className={neutralBadgeClass}>
+                        {getTransactionPaymentMethodLabel(commitment, cardsById.get(commitment.creditCardId || '')?.name)}
+                      </span>
                     </div>
                   </div>
                 </div>
@@ -1012,6 +1123,9 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
                       </p>
                       <span className={`mt-2 ${getCategoryBadgeClass(commitment.category)}`}>
                         {commitment.category}
+                      </span>
+                      <span className="ml-2 inline-flex items-center rounded-full border border-[var(--app-border)] bg-[var(--app-surface-strong)] px-2.5 py-1 text-xs font-medium text-[var(--app-text-muted)]">
+                        {getTransactionPaymentMethodLabel(commitment, cardsById.get(commitment.creditCardId || '')?.name)}
                       </span>
                       {commitment.paid && (
                         <span className="ml-2 inline-flex items-center text-xs text-[var(--app-success)]">✓ Pago</span>
@@ -1128,6 +1242,8 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
                 className={modalFieldClass}
               />
             </div>
+
+            {renderPaymentMethodField()}
 
             {/* Recorrente (apenas para gasto fixo) */}
             {commitmentForm.type === 'expense_fixed' && (
@@ -1308,6 +1424,8 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
                 className={modalFieldClass}
               />
             </div>
+
+            {renderPaymentMethodField()}
 
             {/* Recorrente (apenas para gasto fixo) */}
             {commitmentForm.type === 'expense_fixed' && (
@@ -1492,6 +1610,8 @@ export function CommitmentsView({ selectedMonth, onSelectedMonthChange }: Commit
                 className={modalFieldClass}
               />
             </div>
+
+            {renderPaymentMethodField()}
 
             {/* Recorrente (apenas para gasto fixo) */}
             {commitmentForm.type === 'expense_fixed' && (

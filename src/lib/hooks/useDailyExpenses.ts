@@ -2,7 +2,8 @@ import { useEffect, useState } from 'react'
 import {
   dailyExpensesApi,
   type CreateDailyExpenseInput,
-  type DailyExpense
+  type DailyExpense,
+  type UpdateDailyExpenseInput,
 } from '../api/dailyExpenses'
 import { supabase } from '../supabase'
 import { emitDataSync, subscribeDataSync } from '../utils/dataSync'
@@ -81,6 +82,16 @@ export function useDailyExpenses(userId: string | undefined) {
     emitDataSync('daily_expenses')
   }
 
+  const updateDailyExpense = async (id: string, updates: UpdateDailyExpenseInput) => {
+    const updatedExpense = await dailyExpensesApi.update(id, updates)
+    setDailyExpenses((current) => sortDailyExpenses(current.map((expense) => (
+      expense.id === id ? updatedExpense : expense
+    ))))
+    setError(null)
+    emitDataSync('daily_expenses')
+    return updatedExpense
+  }
+
   const getExpensesForDate = (date: string) => {
     return dailyExpenses.filter(expense => expense.date === date)
   }
@@ -94,6 +105,7 @@ export function useDailyExpenses(userId: string | undefined) {
     loading,
     error,
     createDailyExpense,
+    updateDailyExpense,
     deleteDailyExpense,
     getExpensesForDate,
     getTotalForDate,

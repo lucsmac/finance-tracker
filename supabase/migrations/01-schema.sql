@@ -130,6 +130,32 @@ CREATE TABLE credit_card_payments (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
+ALTER TABLE transactions
+ADD COLUMN payment_method TEXT NOT NULL DEFAULT 'debit',
+ADD COLUMN credit_card_id UUID REFERENCES credit_cards(id),
+ADD COLUMN statement_reference_month DATE;
+
+ALTER TABLE transactions
+ADD CONSTRAINT transactions_payment_method_check
+CHECK (payment_method IN ('debit', 'credit_card'));
+
+ALTER TABLE transactions
+ADD CONSTRAINT transactions_payment_link_check
+CHECK (
+  (
+    payment_method = 'debit' AND
+    credit_card_id IS NULL AND
+    statement_reference_month IS NULL
+  )
+  OR
+  (
+    payment_method = 'credit_card' AND
+    type IN ('expense_variable', 'expense_fixed', 'installment') AND
+    credit_card_id IS NOT NULL AND
+    statement_reference_month IS NOT NULL
+  )
+);
+
 -- Create indexes for performance
 CREATE INDEX idx_estimates_user_id ON estimates(user_id);
 CREATE INDEX idx_estimates_active ON estimates(user_id, active);
@@ -137,6 +163,7 @@ CREATE INDEX idx_transactions_user_id ON transactions(user_id);
 CREATE INDEX idx_transactions_date ON transactions(user_id, date DESC);
 CREATE INDEX idx_transactions_type ON transactions(user_id, type);
 CREATE INDEX idx_transactions_investment_id ON transactions(user_id, investment_id);
+CREATE INDEX idx_transactions_card_reference ON transactions(user_id, credit_card_id, statement_reference_month);
 CREATE INDEX idx_investments_user_id ON investments(user_id);
 CREATE INDEX idx_goals_user_id ON goals(user_id);
 CREATE INDEX idx_credit_cards_user_id ON credit_cards(user_id);
